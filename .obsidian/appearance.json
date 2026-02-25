@@ -1,1 +1,6 @@
-{}
+{
+  "cssTheme": "Border",
+  "baseFontSize": 18,
+  "accentColor": "#70a9db",
+  "theme": "obsidian"
+}
