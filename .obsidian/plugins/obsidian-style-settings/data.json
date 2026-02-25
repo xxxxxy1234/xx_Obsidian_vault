@@ -7,5 +7,9 @@
   "Editor@@inline-title-divider-remove": false,
   "Editor@@inline-title-color-select": "inline-title-color-customized",
   "Editor@@inline-title-color@@dark": "#B9E9D4",
-  "Editor@@inline-title-weight": 900
+  "Editor@@inline-title-weight": 900,
+  "Editor@@h1-divider-on": false,
+  "Editor@@border-focus-mode": false,
+  "Editor@@editor-grid-background-pattren": false,
+  "Editor@@line-hover-indicator": false
 }
