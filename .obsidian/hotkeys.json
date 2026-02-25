@@ -24,5 +24,13 @@
       ],
       "key": "U"
     }
+  ],
+  "workspaces:load": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "M"
+    }
   ]
 }
