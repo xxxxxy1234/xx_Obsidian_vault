@@ -23,5 +23,8 @@
   "Editor@@h5-size": "1.15em",
   "Editor@@h6-size": "1.1em",
   "Editor@@h6-weight": 200,
-  "Editor@@h1-size": "1.8em"
+  "Editor@@h1-size": "1.8em",
+  "Mobile@@card-layout-pad-open": true,
+  "Components@@outline-enhanced": false,
+  "Editor@@blockquote-background-dark": "rgba(255,255,255,0.1)"
 }
