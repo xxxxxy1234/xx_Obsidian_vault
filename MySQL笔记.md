@@ -191,6 +191,11 @@ mysql -u root -p123456
 - **DROP**：删除整个表或数据库（**危险操作！**）。
     
 - **TRUNCATE**：清空表里的所有内容，但保留表结构。
+>查询
+	查询所有数据库：show databases
+	查询当前数据库：show database()
+  创建
+	 
     
 
 ---
