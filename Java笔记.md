@@ -19,6 +19,7 @@ Home光标快速移动到行首
 End光标快速移动到行尾
 ctrl+Home移动到文件开头
 ctrl+End移动到文件末尾
+ctrl+ait+L格式化代码
 
 ---
 
