@@ -359,12 +359,28 @@ my-project/
 
 ```java
 题目：实现一个5位验证码的输出，要求前四位是大写或小写字母，最后一位是数字
-public class  Main{
-	public static void main(String[] args){
-		
-	
-	}
-
-
-}
-```
+public class Main {  
+    public static void main(String[] args) {  
+       //1、将52个字母存放在数组中  
+        char chs[]=new char[52];  
+        for (int i = 0; i < chs.length; i++) {  
+            if(i<26) chs[i]=(char)(97+i);   //利用ASCII码存储大小写字母  
+            else chs[i]=(char)(65+i-26);  
+  
+        }  
+  
+        //2、利用循环获取数组的4个随机索引  
+        String result="";      //定义字符串记录最终结果  
+        int randomIndex;  
+        Random r=new Random();  
+        for (int i = 0; i < 4; i++) {  
+            randomIndex=r.nextInt(chs.length);  
+            result=result+chs[randomIndex];  
+        }  
+  
+        //3、最后加上数字  
+        result=result+r.nextInt(10);  
+        System.out.println(result);  
+  
+    }  
+}```
