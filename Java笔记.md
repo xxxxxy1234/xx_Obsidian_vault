@@ -245,7 +245,45 @@ int[] arr2=arr1;
 ```
 
 ---
+## 数据的默认值
 
+
+
+
+### 数组元素
+
+不管在哪，只要 `new` 出来，元素就有默认值：
+
+
+```java
+int[] arr = new int[5]; // 全部 0
+boolean[] b = new boolean[3]; // 全部 false
+String[] str = new String[2]; // 全部 null
+```
+
+
+
+### 类的成员变量（字段
+
+直接写在类里、不在方法里的变量：
+
+
+
+
+```java
+public class Test {
+    int a;         // 默认 0
+    double d;      // 默认 0.0
+    boolean flag;  // 默认 false
+    String s;      // 默认 null
+}
+```
+
+*与C语言不同，这些不用赋值就能直接用、直接比较。*
+
+
+
+---
 
 
 ## IDEA项目结构
