@@ -191,10 +191,20 @@ mysql -u root -p123456
 - **DROP**：删除整个表或数据库（**危险操作！**）。
     
 - **TRUNCATE**：清空表里的所有内容，但保留表结构。
->查询
+
+ 查询
 	查询所有数据库：show databases
 	查询当前数据库：show database()
-  创建
+ 创建
+	 create database [if not exists] 数据库名 [default charset 字符集]  [collate 排序规则]
+	 *字符集不推荐使用utf8，mysql的utf8是阉割版：utfbmb3，最多只支持三个字节，不支持标准utf8的四字节（即utf8mb4），无法存emoji 和生僻字。所以字符集要指定为utf8mb4*
+ 删除
+	 drop database [if exists] 数据库名
+ 使用
+	 use 数据库名
+  
+
+
 	 
     
 
