@@ -20,6 +20,7 @@ End光标快速移动到行尾
 ctrl+Home移动到文件开头
 ctrl+End移动到文件末尾
 ctrl+ait+L格式化代码
+ctrl+ait+V光标放在这一行，快速给方法返回值赋值（自动命名）
 
 ---
 
