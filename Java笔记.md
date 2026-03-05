@@ -1,5 +1,29 @@
 
 
+## 命名
+
+① 变量 / 方法：**小驼峰 camelCase**
+	String userName;
+	 int userAge; 
+	 void getUserInfo() {}
+
+② 类 / 接口：**大驼峰 PascalCase**
+	class UserInfo {} 
+	interface UserService {}
+
+③ 常量：**小写或大写蛇形**
+	user_name;
+	db_connection;
+	MAX_COUNT;
+	
+
+④**串式 (kebab-case)**
+	单词全小写，用连字符连接。因连字符`-`会与减号冲突，不能用于大多数编程语言的变量名，但常用于URL或HTML属性
+	<div user-profile>
+
+
+---
+
 ## 快捷键
 
 按F2可以快速对文件重命名
@@ -257,7 +281,6 @@ IDEA 里最关键的三层关系：
 
 一个典型的 IDEA 项目目录如下：
 
-```
 your-project/                # 项目根目录（Project）
 ├── .idea/                   # IDEA 自动生成的配置目录（勿手动改）
 │   ├── modules.xml          # 模块列表与配置
@@ -265,26 +288,25 @@ your-project/                # 项目根目录（Project）
 │   ├── libraries/           # 项目级库配置
 │   └── misc.xml             # 杂项设置（编码、代码风格等）
 ├── module-name/             # 模块目录（多模块项目会有多个）
-│   ├── .iml                  # 模块专属配置文件
-│   ├── src/                  # 源代码根目录
-│   │   ├── main/             # 生产代码（业务逻辑）
-│   │   │   ├── java/         # Java/Kotlin 源码（按包结构存放）
-│   │   │   ├── resources/    # 配置文件、静态资源（properties、XML、图片 |   |   |   |                   等）{insert\_element\_1\_}
-│   │   │   └── webapp/       # Web 项目专用（WEB-INF、html、js 等）
-│   │   └── test/             # 测试代码（JUnit、单元测试）
-│   │       ├── java/         # 测试源码
-│   │       └── resources/    # 测试专用资源
-│   ├── lib/                  # 手动引入的第三方 Jar 包（非 Maven/Gradle |   |                             时）
-│   ├── out/                  # IDEA 默认编译输出目录（.class 文件）
-│   │   ├── production/       # 生产代码编译结果
-│   │   └── test/             # 测试代码编译结果
-│   └── target/               # Maven/Gradle 构建输出目录（替代 out）
+│   ├── .iml                 # 模块专属配置文件
+│   ├── src/                 # 源代码根目录
+│   │   ├── main/            # 生产代码（业务逻辑）
+│   │   │   ├── java/        # Java/Kotlin 源码（按包结构存放）
+│   │   │   ├── resources/   # 配置文件、静态资源（properties、XML、图片等）
+│   │   │   └── webapp/      # Web 项目专用（WEB-INF、html、js 等）
+│   │   └── test/            # 测试代码（JUnit、单元测试）
+│   │       ├── java/        # 测试源码
+│   │       └── resources/   # 测试专用资源
+│   ├── lib/                 # 手动引入的第三方 Jar 包（非 Maven/Gradle 时）
+│   ├── out/                 # IDEA 默认编译输出目录（.class 文件）
+│   │   ├── production/      # 生产代码编译结果
+│   │   └── test/            # 测试代码编译结果
+│   └── target/              # Maven/Gradle 构建输出目录（替代 out）
 ├── pom.xml                   # Maven 项目配置文件（依赖、构建脚本）
 ├── build.gradle              # Gradle 项目配置文件
 ├── settings.gradle           # Gradle 多模块配置
-├── .gitignore                # Git 忽略文件（通常忽略 .idea、out、      |                                target）
+├── .gitignore                # Git 忽略文件（通常忽略 .idea、out、target）
 └── README.md                 # 项目说明文档
-```
 
 ---
 
