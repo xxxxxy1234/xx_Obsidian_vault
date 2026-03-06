@@ -239,10 +239,6 @@ mysql -u root -p123456
 
 
 
-好的，这部分内容非常适合作为 Obsidian 的知识库储备。MySQL 的字段类型主要分为 **数值、字符串、日期时间** 三大类。
-
-你可以直接复制以下 Markdown 内容到你的 Obsidian 中：
-
 ---
 
 ### 🗄️ MySQL 字段类型全解 (Cheat Sheet)
