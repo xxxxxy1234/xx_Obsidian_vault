@@ -592,6 +592,100 @@ public class Student {
 - 一旦定义有参构造器。无参构造器便消失，此时需要手动写无参构造器
 - 建议在任何时候都写上空参和带上全部参数的构造方法
 
+## 五、标准Javabean类
+
+在 Java 开发中，**JavaBean** 是一种特殊的类，它遵循特定的编写规范。你可以把它想象成一个“标准的数据集装箱”，专门用来封装数据并在层与层之间传递。
+
+一个标准的 JavaBean（也常被称为 POJO - Plain Old Java Object）必须满足以下 **4 个核心条件**：
+
+### 1. 编写规范
+
+- **类修饰符：** 必须是 `public`。
+    
+- **成员变量：** 必须使用 `private` 私有化（体现封装思想）。
+    
+- **构造器：** 必须提供一个 **无参构造器**（很多框架如 Spring, MyBatis 反射时需要它）。
+    
+- **Getter/Setter：** 为每个私有属性提供公共的 `get` 和 `set` 方法。
+    
+
+---
+
+### 2. 标准代码模板
+
+这是一个符合标准的 `User` 类 JavaBean：
+
+```java
+public class User {
+    // 1. 私有化成员变量
+    private String username;
+    private int age;
+
+    // 2. 无参数构造器 (必须有)
+    public User() {
+    }
+
+    // 3. 全参数构造器 (可选，但通常建议加上)
+    public User(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
+
+    // 4. 公共的 Getter 和 Setter
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public void setAge(int age) {
+        this.age = age;
+    }
+}
+```
+
+---
+
+### 3. 为什么要遵守这个标准？
+
+如果每个程序员都按自己的喜好写类，工具和框架就没法玩了。遵守标准的好处在于：
+
+1. **框架兼容性：** 像 Hibernate、MyBatis、Spring 这种主流框架，都是通过反射调用**无参构造**和 **Setter/Getter** 来填充数据的。
+    
+2. **代码可维护性：** 任何开发者看到这样的类，就知道它是用来存数据的，直接调用 `get/set` 即可，不需要猜测逻辑。
+    
+3. **内省机制：** Java 语言自带的 `Introspector` 可以自动发现这些属性，方便在 GUI 或 Web 插件中展示。
+    
+
+---
+
+### 4. 进阶技巧：效率神器
+
+在实际开发中，手动写几十个 `get/set` 非常痛苦。我们通常有三种处理方式：
+
+- **IDE 快捷键：** 在 IntelliJ IDEA 中，按 `Alt + Insert` 然后选择 `Getter and Setter` 即可一键生成。(*选择Constructor可以生成无参或有参构造函数*)
+    
+- **Lombok 插件：** 只需要在类名上加一个 `@Data` 注解，编译时会自动帮你写好所有构造器和方法。
+    
+- **Record (Java 14+)：** 如果你使用的是较新版本的 Java，可以用 `record` 关键字，它一行代码就能搞定类似 JavaBean 的功能（虽然它是不可变的）。
+    
+
+---
+
+### 5. 常见误区
+
+> **“JavaBean 必须实现 Serializable 接口吗？”**
+> 
+> 严格的 Sun 公司规范中建议实现 `Serializable`（序列化接口），以便对象能在网络上传输或保存到硬盘。但在现代开发中，如果你的对象只是在内存里跑，不涉及网络传输，不写也没问题。不过，为了保险起见，**建议养成实现该接口的习惯。**
+
+---
+---
 
 ## 题目练习
 
