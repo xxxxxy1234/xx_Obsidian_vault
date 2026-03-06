@@ -222,22 +222,26 @@ mysql -u root -p123456
 - **DELETE**：删除指定的行。
 
 >*查询操作*
-查询当前数据库所有表
-	show tables;
-查询表结构
-     desc 表名;
-查询指定表的建表语句
-     show create table 表名;
+ 查询当前数据库所有表
+show tables;
+  查询表结构
+desc 表名;
+  查询指定表的建表语句
+show create table 表名;
+     
+
+
+
 
 
 >*创建操作(注意要先选定数据库再创建)*
-	create table 表名(
-		 字段1 字段1类型[comment 字段1注释],
-		 字段2 字段2类型[comment 字段2注释],
-		 字段3 字段3类型[comment 字段3注释],
-		 .....
-		 字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
-   )[comment 表注释];
+	> create table 表名(
+		 > 字段1 字段1类型[comment 字段1注释],
+		 > 字段2 字段2类型[comment 字段2注释],
+		 > 字段3 字段3类型[comment 字段3注释],
+		 > .....
+		 > 字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
+  > )[comment 表注释];
 
 
 
