@@ -184,7 +184,7 @@ public class LoginRequest { public string Username { get; set; } public string P
 - **.NET Runtime:** 支撑程序运行的底层环境。
     
 
-### 2. 开发语言： C
+### 2. 开发语言
 
 ASP.NET 的灵魂是 **C#**。你需要掌握：
 
@@ -196,10 +196,6 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
     
 
 ### 3. Web 开发模式
-
-[![，AI 生成](https://encrypted-tbn3.gstatic.com/licensed-image?q=tbn:ANd9GcSwKQnZn7GzYNSUdaFqqyknypLtEUmg53CN6j33oZAzNaHleCusDn1ZtgJMeD5ebpvdfRgTaHtemCjgPKP2GDjAc5oIbFxzOBQ7ww3SeW_y0O2-L2I)在新窗口中打开](https://encrypted-tbn3.gstatic.com/licensed-image?q=tbn:ANd9GcSwKQnZn7GzYNSUdaFqqyknypLtEUmg53CN6j33oZAzNaHleCusDn1ZtgJMeD5ebpvdfRgTaHtemCjgPKP2GDjAc5oIbFxzOBQ7ww3SeW_y0O2-L2I)
-
-Shutterstock
 
 - **MVC (Model-View-Controller):** 最经典的模式。将数据（模型）、界面（视图）和业务逻辑（控制器）分开，便于维护。
     
@@ -246,6 +242,93 @@ Shutterstock
 3. **上手 ASP.NET Core Web API**（学会如何接收请求并返回数据）。
     
 4. **学习 EF Core**（连接 SQL Server 或 MySQL 数据库）。
+
+---
+---
+
+
+
+## 1. HTML / HTML5 / XHTML (前端结构的三剑客)
+
+它们本质上是“一家人”，代表了网页标准的进化史。
+
+### **HTML (HyperText Markup Language)**
+
+- **定义：** 超文本标记语言，是网页的骨架。
+    
+- **历史：** 早期的 HTML 语法比较松散（比如忘记写关闭标签 `</div>` 浏览器也能运行），导致不同浏览器兼容性差。
     
 
-**你想先深入了解其中的哪一部分？或者需要我帮你写一段简单的“Hello World”代码演示一下？**
+### **XHTML (Extensible HTML)**
+
+- **定义：** 严格版的 HTML。
+    
+- **特点：** 它要求代码必须符合 **XML** 的规范。
+    
+    - 标签必须小写。
+        
+    - 标签必须闭合（如 `<br />`）。
+        
+    - 属性必须加引号。
+        
+- **现状：** 因为太死板、开发效率低，现在基本被 HTML5 取代了。
+    
+
+### **HTML5 (当代标准)**
+
+- **定义：** 目前最主流的版本。它不仅仅是标记语言，更是一个**技术集合**。
+    
+- **核心升级：**
+    
+    - **语义化标签：** 引入了 `<header>`, `<footer>`, `<article>`，让搜索引擎更容易读懂网页。
+        
+    - **多媒体：** 原生支持 `<video>` 和 `<audio>`，不再需要 Flash 插件。
+        
+    - **强大功能：** 引入了本地存储 (LocalStorage)、画布 (Canvas) 绘图、地理位置 API 等。
+        
+
+---
+
+## 2. SSH (后端核心：安全外壳协议)
+
+作为 Java 后端开发者，这是你**每天**都要打交道的工具。
+
+- **定义：** **Secure Shell**，一种加密的网络传输协议。
+    
+- **用途：** 1. **远程管理服务器：** 你在 Windows 上用终端连接 Linux 服务器（如阿里云、腾讯云）时，走的就是 SSH 协议（默认端口 **22**）。
+    
+    2. **安全传输：** 比如通过 SCP 或 SFTP 在服务器间传文件。
+    
+    3. **Git 操作：** 你在推送代码到 GitHub 或 GitLab 时，通常会配置 **SSH Key** 免密登录。
+    
+
+> **⚠️ 注意：不要搞混两个“SSH”**
+> 
+> 在 Java 圈子里，老一辈程序员常说的 **"SSH 框架"** 指的是 **Struts2 + Spring + Hibernate**。但在现代开发中，这个组合已经**过时**了，被 **SSM (Spring + SpringMVC + MyBatis)** 取代。现在的面试中，SSH 更多指的就是安全协议。
+
+---
+
+## 3. 知识点串联：Java 后端视角
+
+作为一名 Java 后端学习者，这些知识点如何落到你的实战中？
+
+1. **HTML5:** 你编写的 Java Web 程序（使用 Thymeleaf 或 JSP）最终在浏览器端呈现的就是 HTML5。
+    
+2. **XHTML:** 如果你的公司有非常老旧的项目，或者在处理一些特殊的 XML 配置文件，你可能会看到它的影子。
+    
+3. **SSH:** * 你需要学习如何生成 **SSH 公钥/私钥**。
+    
+    - 你需要学习如何在 Linux 终端输入 `ssh root@ip_address` 来登录服务器部署你的 Java 程序。
+        
+
+---
+
+### **对比总结表**
+
+|**术语**|**类型**|**主要职责**|**学习优先级**|
+|---|---|---|---|
+|**HTML5**|标记语言|定义网页内容和结构|⭐⭐⭐⭐⭐ (必修)|
+|**XHTML**|标记语言|严格规范的网页结构|⭐ (了解即可)|
+|**SSH (协议)**|网络协议|远程加密登录 Linux 服务器|⭐⭐⭐⭐ (实战必备)|
+
+**既然你在准备 Java 后端，你是否已经尝试过在 Linux 服务器上通过 SSH 部署过一个简单的 HTML 网页了？如果没有，我可以教你最简单的命令流程。**
