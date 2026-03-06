@@ -448,6 +448,11 @@ public class 类名{
 >- **字段 private，提供 public 的 getXxx () /setXxx ()**
 
 
+## 2、封装
+
+定义：对象daibia
+
+
 
 ## 题目练习
 
