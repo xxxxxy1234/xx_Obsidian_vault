@@ -233,7 +233,7 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
 ---
 ---
 
-
+# HTML协议
 
 ## 1. HTML / HTML5 / XHTML (前端结构的三剑客)
 
@@ -294,3 +294,53 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
 > 在 Java 圈子里，老一辈程序员常说的 **"SSH 框架"** 指的是 **Struts2 + Spring + Hibernate**。但在现代开发中，这个组合已经**过时**了，被 **SSM (Spring + SpringMVC + MyBatis)** 取代。现在的面试中，SSH 更多指的就是安全协议。
 
 ---
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的成绩页面</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 20px auto;
+            text-align: center;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+        }
+        caption {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <table>
+        <caption>001 张华</caption>
+        
+        <thead>
+            <tr>
+                <th>大学英语</th>
+                <th>高等数学</th>
+                <th>数据结构</th>
+                <th>ASP.NET网络编程</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>85</td>
+                <td>89</td>
+                <td style="color: red; font-weight: bold;">55</td>
+                <td>90</td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
