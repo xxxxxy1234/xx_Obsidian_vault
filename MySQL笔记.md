@@ -158,7 +158,79 @@ mysql -u root -p123456
     
 - **性能稳**：不管是你的个人博客，还是像腾讯、阿里这样的大厂，都在大规模使用。
 
+---
+---
 
+
+# MySQL 字段类型全解 (Cheat Sheet)
+
+### 数值类型
+
+|**类型**|**大小**|**有符号范围 (Signed)**|**无符号范围 (Unsigned)**|**用途建议**|
+|---|---|---|---|---|
+|**TINYINT**|1 字节|-128 ~ 127|0 ~ 255|小状态值、布尔模拟|
+|**INT**|4 字节|-21亿 ~ 21亿|0 ~ 42.9亿|**最常用**，主键 ID|
+|**BIGINT**|8 字节|极大范围|0 ~ 极大范围|雪花算法 ID、大数统计|
+|**DECIMAL**|依赖定义|极其精确|极其精确|**金钱、财务数据**|
+|**FLOAT/DOUBLE**|4/8 字节|很大|很大|科学计算、非精确小数|
+
+
+
+### 字符串类型 (String Types)
+
+用于存储文本、段落或二进制数据。
+
+|**类型**|**特点**|**最大长度**|**用途建议**|
+|---|---|---|---|
+|**CHAR(n)**|定长字符串|255 字符|长度固定的数据（如：邮编、手机号、MD5）|
+|**VARCHAR(n)**|**变长字符串**|65535 字节|**最常用**，姓名、地址、标题|
+|**TEXT**|长文本数据|64 KB|文章内容、备注、长描述|
+|**LONGTEXT**|极大文本|4 GB|超长文章、日志|
+|**BLOB**|二进制数据|64 KB|图片、文件（通常建议存路径，不存文件本身）|
+
+
+### 日期和时间类型 (Date and Time Types)
+
+|**类型**|**格式**|**大小**|**特点**|
+|---|---|---|---|
+|**DATE**|`YYYY-MM-DD`|3 字节|仅日期（如：生日）|
+|**TIME**|`HH:MM:SS`|3 字节|仅时间（如：持续时长）|
+|**DATETIME**|`YYYY-MM-DD HH:MM:SS`|8 字节|**最常用**，绝对时间范围广|
+|**TIMESTAMP**|`YYYY-MM-DD HH:MM:SS`|4 字节|带时区转换，适合记录修改时间|
+|**YEAR**|`YYYY`|1 字节|仅年份|
+
+
+
+### 选型 3 大原则 (Tips)
+
+1. **够用就好**：如果年龄不会超过 200 岁，用 `TINYINT UNSIGNED` 就比 `INT` 省空间。
+    
+2. **尽量避免 NULL**：尽可能给字段设置 `NOT NULL`，并给定默认值。因为 `NULL` 会增加索引开销。
+    
+3. **金钱用 DECIMAL**：永远不要用 `FLOAT` 或 `DOUBLE` 存钱，因为它们存在舍入误差，`DECIMAL(10, 2)`（总长10位，2位小数）才是专业的。
+    
+
+
+
+### 🛠️ 实战代码示例 (DDL)
+
+
+```sql
+-- 创建一个学生表，涵盖常用类型
+CREATE TABLE students (
+    id INT PRIMARY KEY AUTO_INCREMENT,    -- 整数主键，自动增长
+    name VARCHAR(50) NOT NULL,            -- 变长字符串，必填
+    age TINYINT UNSIGNED,                 -- 无符号小整数
+    balance DECIMAL(10, 2) DEFAULT 0.00,  -- 精确小数（存款）
+    bio TEXT,                             -- 长文本（简介）
+    birthday DATE,                        -- 日期
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 自动生成记录时间
+);
+```
+
+
+---
+---
 
 
 # SQL
@@ -206,6 +278,49 @@ mysql -u root -p123456
 	 drop database [if exists] 数据库名;
  使用
 	 use 数据库名
+
+
+*(注意要先选定数据库再操作)*
+
+>*查询操作*
+ 查询当前数据库所有表
+	show tables;
+  查询表结构
+	desc 表名;
+  查询指定表的建表语句
+	show create table 表名;
+     
+
+
+>*创建操作*
+	> create table 表名(
+		 > 字段1 字段1类型[comment 字段1注释],
+		 > 字段2 字段2类型[comment 字段2注释],
+		 > 字段3 字段3类型[comment 字段3注释],
+		 > .....
+		 > 字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
+  > )[comment 表注释];
+
+
+
+>*修改操作*
+添加字段
+	ALTER TABLE 表名 字段名 类型（长度）ADD  [COMMENT 注释]  [约束];
+修改数据类型
+	ALTER TABLE 表名 MODIFY 字段名 新数据类型（长度）;
+修改字段名和字段类型
+	ALTER TABLE 表名 CHANGE 旧字段名 新字段名 类型（长度）[COMMENT 注释]  [约束];
+删除字段
+	 ALTER TABLE 表名 DROP 字段名;
+修改表名
+	 ALTER TABLE 表名 RENAME TO 新表名;
+
+
+  删除操作
+删除表
+	DROP TABLE [IF EXISTS] 表名;
+删除指定表，并重新创建该表 **表的数据清空**
+	 TRUNCATE TABLE 表名;
   
 ---
 
@@ -221,100 +336,8 @@ mysql -u root -p123456
     
 - **DELETE**：删除指定的行。
 
->*查询操作*
- 查询当前数据库所有表
-show tables;
-  查询表结构
-desc 表名;
-  查询指定表的建表语句
-show create table 表名;
-     
-
-
-
-
-
->*创建操作(注意要先选定数据库再创建)*
-	> create table 表名(
-		 > 字段1 字段1类型[comment 字段1注释],
-		 > 字段2 字段2类型[comment 字段2注释],
-		 > 字段3 字段3类型[comment 字段3注释],
-		 > .....
-		 > 字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
-  > )[comment 表注释];
-
-
 
 ---
-
-## 3、MySQL 字段类型全解 (Cheat Sheet)
-
-### 数值类型
-
-|**类型**|**大小**|**有符号范围 (Signed)**|**无符号范围 (Unsigned)**|**用途建议**|
-|---|---|---|---|---|
-|**TINYINT**|1 字节|-128 ~ 127|0 ~ 255|小状态值、布尔模拟|
-|**INT**|4 字节|-21亿 ~ 21亿|0 ~ 42.9亿|**最常用**，主键 ID|
-|**BIGINT**|8 字节|极大范围|0 ~ 极大范围|雪花算法 ID、大数统计|
-|**DECIMAL**|依赖定义|极其精确|极其精确|**金钱、财务数据**|
-|**FLOAT/DOUBLE**|4/8 字节|很大|很大|科学计算、非精确小数|
-
-
-
-
-### 字符串类型 (String Types)
-
-用于存储文本、段落或二进制数据。
-
-|**类型**|**特点**|**最大长度**|**用途建议**|
-|---|---|---|---|
-|**CHAR(n)**|定长字符串|255 字符|长度固定的数据（如：邮编、手机号、MD5）|
-|**VARCHAR(n)**|**变长字符串**|65535 字节|**最常用**，姓名、地址、标题|
-|**TEXT**|长文本数据|64 KB|文章内容、备注、长描述|
-|**LONGTEXT**|极大文本|4 GB|超长文章、日志|
-|**BLOB**|二进制数据|64 KB|图片、文件（通常建议存路径，不存文件本身）|
-
-
-
-### 日期和时间类型 (Date and Time Types)
-
-|**类型**|**格式**|**大小**|**特点**|
-|---|---|---|---|
-|**DATE**|`YYYY-MM-DD`|3 字节|仅日期（如：生日）|
-|**TIME**|`HH:MM:SS`|3 字节|仅时间（如：持续时长）|
-|**DATETIME**|`YYYY-MM-DD HH:MM:SS`|8 字节|**最常用**，绝对时间范围广|
-|**TIMESTAMP**|`YYYY-MM-DD HH:MM:SS`|4 字节|带时区转换，适合记录修改时间|
-|**YEAR**|`YYYY`|1 字节|仅年份|
-
-
-
-### 选型 3 大原则 (Tips)
-
-1. **够用就好**：如果年龄不会超过 200 岁，用 `TINYINT UNSIGNED` 就比 `INT` 省空间。
-    
-2. **尽量避免 NULL**：尽可能给字段设置 `NOT NULL`，并给定默认值。因为 `NULL` 会增加索引开销。
-    
-3. **金钱用 DECIMAL**：永远不要用 `FLOAT` 或 `DOUBLE` 存钱，因为它们存在舍入误差，`DECIMAL(10, 2)`（总长10位，2位小数）才是专业的。
-    
-
-
-
-### 🛠️ 实战代码示例 (DDL)
-
-
-```sql
--- 创建一个学生表，涵盖常用类型
-CREATE TABLE students (
-    id INT PRIMARY KEY AUTO_INCREMENT,    -- 整数主键，自动增长
-    name VARCHAR(50) NOT NULL,            -- 变长字符串，必填
-    age TINYINT UNSIGNED,                 -- 无符号小整数
-    balance DECIMAL(10, 2) DEFAULT 0.00,  -- 精确小数（存款）
-    bio TEXT,                             -- 长文本（简介）
-    birthday DATE,                        -- 日期
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- 自动生成记录时间
-);
-```
-
 
 
 ---
