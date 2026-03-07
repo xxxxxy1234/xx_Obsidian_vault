@@ -267,6 +267,9 @@ CREATE TABLE students (
     
 - **TRUNCATE**：清空表里的所有内容，但保留表结构。
 
+
+#### DDL--数据库操作
+
  查询
 	查询所有数据库：show databases;
 	查询当前数据库：select database();
@@ -280,10 +283,12 @@ CREATE TABLE students (
 	 use 数据库名
 
 
+#### DDL--表操作
+
 *(注意要先选定数据库再操作)*
 
 >*查询操作*
- 查询当前数据库所有表
+  查询当前数据库所有表
 	show tables;
   查询表结构
 	desc 表名;
@@ -304,22 +309,22 @@ CREATE TABLE students (
 
 
 >*修改操作*
-添加字段
+  添加字段
 	ALTER TABLE 表名 字段名 类型（长度）ADD  [COMMENT 注释]  [约束];
-修改数据类型
+  修改数据类型
 	ALTER TABLE 表名 MODIFY 字段名 新数据类型（长度）;
-修改字段名和字段类型
+  修改字段名和字段类型
 	ALTER TABLE 表名 CHANGE 旧字段名 新字段名 类型（长度）[COMMENT 注释]  [约束];
-删除字段
+  删除字段
 	 ALTER TABLE 表名 DROP 字段名;
-修改表名
+  修改表名
 	 ALTER TABLE 表名 RENAME TO 新表名;
 
 
-  删除操作
-删除表
+  >*删除操作*
+  删除表
 	DROP TABLE [IF EXISTS] 表名;
-删除指定表，并重新创建该表 **表的数据清空**
+  删除指定表，并重新创建该表 **表的数据清空**
 	 TRUNCATE TABLE 表名;
   
 ---
