@@ -301,9 +301,8 @@ show create table 表名;
 
 ### 🛠️ 实战代码示例 (DDL)
 
-SQL
 
-```
+```sql
 -- 创建一个学生表，涵盖常用类型
 CREATE TABLE students (
     id INT PRIMARY KEY AUTO_INCREMENT,    -- 整数主键，自动增长
