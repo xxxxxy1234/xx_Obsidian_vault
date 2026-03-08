@@ -1,5 +1,5 @@
 
-
+[阿里巴巴Java开发手册](https://developer.aliyun.com/ebook/386/read?spm=a2c6h.26392459.ebook-detail.2.63392867CQCErU)
 # 命名
 
 ① 变量 / 方法：**小驼峰 camelCase**
@@ -20,8 +20,8 @@
 ④**串式 (kebab-case)**
 	单词全小写，用连字符连接。因连字符`-`会与减号冲突，不能用于大多数编程语言的变量名，但常用于URL或HTML属性
 	<div user-profile>
-	 ....
-	 </div>
+	    ....
+	   </div>
 
 
 
@@ -861,7 +861,7 @@ System.out.println(s1.name); // 输出：李四
 
 # 字符串
 
-# 一、API
+## 一、API
 
 在 Java 的世界里，**API（Application Programming Interface，应用程序编程接口）** 简单来说就是一套“规则说明书”或“功能字典”。
 
