@@ -859,6 +859,104 @@ System.out.println(s1.name); // 输出：李四
 ---
 ---
 
+# 字符串
+
+# 一、API
+
+在 Java 的世界里，**API（Application Programming Interface，应用程序编程接口）** 简单来说就是一套“规则说明书”或“功能字典”。
+
+作为开发者，你不需要知道某个功能底层是怎么用 0 和 1 堆出来的，你只需要知道**调用哪个类、哪个方法、传什么参数**就能实现功能。
+
+---
+
+### 1. 广义与狭义的 API
+
+- **广义的 API**：指的是软件系统之间的桥梁。比如你调用微信支付的接口、调用高德地图的定位，这些都是 API。
+    
+- **狭义的 Java API**：指的是 JDK 中内置的**类库**（Scanner, String, Math, ArrayList 等）。它们是 Oracle 已经写好的代码，你直接拿来用即可。
+    
+
+---
+
+### 2. 如何使用 Java API？
+
+使用 API 的核心逻辑就像查字典：
+
+1. **确定需求**：比如我想生成一个随机数。
+    
+2. **查找类名**：搜索得知 `Random` 类可以实现。
+    
+3. **看包名**：在 `java.util` 包下，需要 `import`。
+    
+4. **看构造器**：怎么创建这个对象？`new Random()`。
+    
+5. **看方法名**：调用哪个方法？`nextInt(int bound)`。
+    
+
+---
+
+### 3. Java 常用核心 API 概览
+
+Java 拥有极其庞大的标准库，初学者最先接触的通常是以下几个包：
+
+|**包名**|**功能描述**|**核心类举例**|
+|---|---|---|
+|**`java.lang`**|核心基础类（**自动导入**）|`String`, `Object`, `Math`, `System`|
+|**`java.util`**|工具类、集合框架|`Scanner`, `ArrayList`, `Random`, `Arrays`|
+|**`java.io`**|输入输出流，操作文件|`File`, `InputStream`, `OutputStream`|
+|**`java.net`**|网络编程|`Socket`, `URL`|
+|**`java.time`**|日期和时间（Java 8+）|`LocalDate`, `LocalDateTime`|
+
+---
+
+### 4. 学会看 API 文档（核心技能）
+
+[Java API文档链接](https://docs.oracle.com/javase/8/docs/api/)
+
+API 文档是每个 Java 程序员的“保命手册”。当你打开一个类的文档时，重点看这三块：
+
+1. **类描述**：这个类是干嘛的？（比如 `String` 是不可变的字符序列）。
+    
+2. **构造方法摘要**：怎么把这个对象 `new` 出来？
+    
+3. **方法摘要**：
+    
+    - **方法名**：叫什么？
+        
+    - **参数列表**：要传什么？
+        
+    - **返回值类型**：执行完给我什么？
+        
+
+---
+
+### 5. 举个例子：`Math` 类
+
+`Math` 类的 API 设计非常特殊，它的方法全是 `static`（静态）的。
+
+
+
+```java
+// 不需要 new，直接类名点方法名调用
+double result = Math.pow(2, 3); // 2的3次方
+int randomNum = (int)(Math.random() * 100); // 0-100随机数
+```
+
+---
+
+### 6. 给初学者的建议
+
+不要试图**背诵** API。Java 的类多达几千个，没人能全部记住。
+
+- **常用的**（如 String, ArrayList）写多了自然就熟了。
+    
+- **不常用的**（如正则表达式、复杂的文件操作）现用现查。
+    
+
+
+
+
+
 # 易错点
 ```java
 Car[] arr = new Car[3]; 
