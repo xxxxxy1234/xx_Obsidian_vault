@@ -1249,6 +1249,82 @@ if ("admin".equals(input)) { ... }
 
 
 
+## 三、StringBuilder
+
+
+`String` 对象具有**不可变性**，每次拼接（如 `s += "a"`）本质上都会在堆内存中创建新的对象并抛弃旧对象，这在循环中会导致极其严重的性能开销。
+
+**`StringBuilder` 的优势：**
+
+- **可变性**：它像一个可以自动扩容的容器，在原有内存空间上进行操作。
+    
+- **性能极高**：增删改操作不会产生多余的垃圾对象。
+    
+- **链式编程**：支持连续调用方法（如 `sb.append("A").append("B")`）。
+    
+
+---
+
+### 1.构造方法
+
+根据开发场景选择合适的初始化方式：
+
+|**构造方法**|**说明**|
+|---|---|
+|`public StringBuilder()`|创建一个空白的可变字符串对象，默认初始容量为 16 个字符。|
+|`public StringBuilder(String str)`|根据传入的字符串内容，创建一个可变字符串对象。|
+
+---
+
+### 2.常用核心方法
+
+`StringBuilder` 的方法设计目标是高效地“增、删、改、查”。
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`append(anyType val)`|**添加**任意类型数据到末尾，并返回自身|`sb.append("java").append(17)`|
+|`reverse()`|**反转**容器内的内容|`sb.append("abc").reverse()` → `"cba"`|
+|`length()`|返回字符序列的**长度**|`sb.length()`|
+|`toString()`|将 `StringBuilder` **转换回 `String`**|`String s = sb.toString()`|
+
+---
+
+### 3.常见应用场景
+
+#### 循环拼接字符串
+
+这是 `StringBuilder` 最经典的使用场景。
+
+
+```java
+StringBuilder sb = new StringBuilder();
+for (int i = 0; i < 1000; i++) {
+    sb.append(i); // 始终在同一个对象上操作，速度极快
+}
+String result = sb.toString();
+```
+
+#### 字符串反转判断（如回文检查）
+
+
+```java
+String str = "上海自来水来自海上";
+String result = new StringBuilder(str).reverse().toString();
+System.out.println(str.equals(result)); // true
+```
+
+
+
+|**特性**|**String**|**StringBuilder**|
+|---|---|---|
+|**可变性**|**不可变**|**可变**|
+|**性能**|频繁拼接时极低|频繁拼接时极高|
+|**存储位置**|涉及字符串常量池|堆内存|
+|**建议使用**|定义少量常量、作为参数传递|需要频繁增删改字符串内容时|
+
+---
+---
+
 # 易错点
 ```java
 Car[] arr = new Car[3]; 
