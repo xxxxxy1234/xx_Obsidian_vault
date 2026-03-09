@@ -1171,6 +1171,77 @@ if ("admin".equals(input)) { ... }
 ```
 
 
+### String类的常用方法
+
+
+# ☕ Java String 常用方法全索引
+
+> **📌 核心提醒**：`String` 对象内容不可变。所有修改方法（如 `replace`, `toUpperCase`）都会返回一个**全新的字符串对象**，而不会改变原字符串。
+
+## 一、 获取信息类
+
+用于提取字符串的状态或特定字符。
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`int length()`|获取字符串长度（字符数）|`"abc".length()` → `3`|
+|`char charAt(int i)`|获取指定索引处的字符|`"abc".charAt(1)` → `'b'`|
+|`int indexOf(String s)`|返回子串第一次出现的索引，找不到返回 `-1`|`"abcabc".indexOf("bc")` → `1`|
+|`int lastIndexOf(String s)`|返回子串最后一次出现的索引|`"abcabc".lastIndexOf("bc")` → `4`|
+|`boolean isEmpty()`|判断是否为空串 `""`|`"".isEmpty()` → `true`|
+
+---
+
+## 二、 判断与比较类
+
+**注意**：内容比较务必使用 `equals` 系列方法，严禁使用 `==`（那是比地址）。
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`boolean equals(Object o)`|比较内容是否完全相同（**区分大小写**）|`"abc".equals("Abc")` → `false`|
+|`boolean equalsIgnoreCase(String s)`|比较内容（**忽略大小写**）|`"abc".equalsIgnoreCase("Abc")` → `true`|
+|`boolean contains(CharSequence s)`|判断是否包含子串|`"abc".contains("bc")` → `true`|
+|`boolean startsWith(String p)`|判断是否以指定前缀开头|`"abc".startsWith("ab")` → `true`|
+|`boolean endsWith(String s)`|判断是否以指定后缀结尾|`"abc".endsWith("bc")` → `true`|
+
+---
+
+## 三、 截取与拼接类
+
+由于 `String` 的不可变性，这些方法本质上是在堆内存中创建新对象。
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`String substring(int begin)`|从 `beginIndex` 截取到末尾|`"abcde".substring(2)` → `"cde"`|
+|`String substring(int b, int e)`|截取 `[begin, end)` 区间（**左闭右开**）|`"abcde".substring(1, 3)` → `"bc"`|
+|`String concat(String s)`|拼接字符串（等价于 `+`）|`"a".concat("b")` → `"ab"`|
+|`String replace(old, new)`|替换所有匹配的子串|`"abc".replace("b", "x")` → `"axc"`|
+
+---
+
+## 四、 转换与处理类
+
+常用于数据清洗和格式转换。
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`char[] toCharArray()`|转换为字符数组|`"abc".toCharArray()` → `{'a','b','c'}`|
+|`byte[] getBytes()`|转换为字节数组（常用于网络传输）|`"abc".getBytes()` → `{97, 98, 99}`|
+|`String toLowerCase()`|全转小写|`"AbC".toLowerCase()` → `"abc"`|
+|`String toUpperCase()`|全转大写|`"AbC".toUpperCase()` → `"ABC"`|
+|`String trim()`|去除首尾空白字符（空格、制表符等）|`" abc ".trim()` → `"abc"`|
+|`String[] split(String reg)`|按正则表达式分割成数组|`"a,b,c".split(",")` → `{"a","b","c"}`|
+
+---
+
+## 五、 静态工具与正则
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|`static String valueOf(...)`|将基本类型或对象转为字符串|`String.valueOf(123)` → `"123"`|
+|`boolean matches(String reg)`|用正则匹配整个字符串|`"123".matches("\\d+")` → `true`|
+
+
 
 
 ## 5.String 常用方法全索引
