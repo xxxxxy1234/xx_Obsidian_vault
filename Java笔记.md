@@ -1252,6 +1252,8 @@ if ("admin".equals(input)) { ... }
 ## 三、StringBuilder
 
 
+### 1.为什么要用StringBuilder
+
 `String` 对象具有**不可变性**，每次拼接（如 `s += "a"`）本质上都会在堆内存中创建新的对象并抛弃旧对象，这在循环中会导致极其严重的性能开销。
 
 **`StringBuilder` 的优势：**
@@ -1265,7 +1267,7 @@ if ("admin".equals(input)) { ... }
 
 ---
 
-### 1.构造方法
+### 2.构造方法
 
 根据开发场景选择合适的初始化方式：
 
@@ -1276,7 +1278,7 @@ if ("admin".equals(input)) { ... }
 
 ---
 
-### 2.常用核心方法
+### 3.常用核心方法
 
 `StringBuilder` 的方法设计目标是高效地“增、删、改、查”。
 
@@ -1289,7 +1291,7 @@ if ("admin".equals(input)) { ... }
 
 ---
 
-### 3.常见应用场景
+### 4.常见应用场景
 
 #### 循环拼接字符串
 
@@ -1336,6 +1338,127 @@ System.out.println(str.equals(result)); // true
 
 ---
 ---
+
+
+
+
+## 四、StringJoiner
+
+
+
+在 Java 中，**`StringJoiner`** 是 Java 8 引入的一个非常实用的类，专门用于处理那种“需要带分隔符、前缀和后缀”的字符串拼接场景。
+
+
+### 1.为什么要用 StringJoiner？
+
+在处理诸如 `[1, 2, 3]` 或 `a,b,c` 这种格式时，如果用 `StringBuilder` 拼接，你必须手动判断是否是最后一个元素，以避免多出一个分隔符。`StringJoiner` 自动解决了这个问题。
+
+**优势：**
+
+- **代码简洁**：自动处理第一个/最后一个元素的分隔符。
+    
+- **语义清晰**：一眼就能看出拼接的规则（分隔符、开头、结尾）。
+    
+
+---
+
+### 2.构造方法
+
+`StringJoiner` 提供了两个常用的构造器：
+
+1. **`public StringJoiner(CharSequence delimiter)`**
+    
+    - 仅指定**分隔符**。
+        
+    - 示例：`new StringJoiner(",")` $\rightarrow$ 结果如 `a,b,c`。
+        
+2. **`public StringJoiner(CharSequence delimiter, CharSequence prefix, CharSequence suffix)`**
+    
+    - 指定**分隔符、前缀和后缀**。
+        
+    - 示例：`new StringJoiner(",", "[", "]")` $\rightarrow$ 结果如 `[a,b,c]`。
+        
+
+---
+
+### 3.常用核心方法
+
+|**方法签名**|**作用**|**示例**|
+|---|---|---|
+|**`add(CharSequence newElement)`**|**添加**元素并自动补充分隔符|`sj.add("aaa").add("bbb")`|
+|**`length()`**|返回当前结果的**长度**|`sj.length()`|
+|**`toString()`**|转换为最终的 **String**|`sj.toString()`|
+
+---
+
+### 4. 代码实战对比
+
+
+❌ 传统 StringBuilder 方式（较繁琐）
+
+```java
+StringBuilder sb = new StringBuilder();
+int[] arr = {1, 2, 3};
+sb.append("[");
+for (int i = 0; i < arr.length; i++) {
+    sb.append(arr[i]);
+    if (i != arr.length - 1) { // 必须手动判断
+        sb.append(", ");
+    }
+}
+sb.append("]");
+```
+
+
+ ✅ 使用 StringJoiner 方式（极简）
+
+
+```java
+StringJoiner sj = new StringJoiner(", ", "[", "]");
+sj.add("1").add("2").add("3"); 
+System.out.println(sj.toString()); // 直接输出 [1, 2, 3]
+```
+
+---
+---
+
+
+
+
+## 五、三者比对
+
+
+|**维度**|**String**|**StringBuilder**|**StringJoiner**|
+|---|---|---|---|
+|**可变性**|**不可变**|**可变**|**可变**（基于 StringBuilder 封装）|
+|**内存表现**|频繁操作产生大量垃圾对象|在原有空间操作，效率极高|针对分隔符场景优化，效率极高|
+|**主要功能**|基础存储、比较、查找|灵活拼接、反转、原地修改|带分隔符/前缀/后缀的格式化拼接|
+|**Java 版本**|JDK 1.0 (最古老)|JDK 1.5|JDK 1.8 (最现代)|
+
+
+
+#### 🤝 `String` 与 `StringBuilder` 的互补关系
+
+- **`String` 负责“稳”**：由于不可变，它在多线程安全、常量池复用和作为参数传递时表现极其稳定。
+    
+- **`StringBuilder` 负责“快”**：它像是一个字符串的“加工厂”。当你需要在一个循环里拼上千次字符串时，必须先通过 `new StringBuilder()` 开启加工厂，加工完毕后再调用 `toString()` 产出最终的 `String`。
+    
+
+#### ⛓️ `StringJoiner` 对 `StringBuilder` 的功能增强
+
+- **`StringJoiner`** 本质上是专门针对“列表格式化”设计的高级工具。
+    
+- 如果你想拼成 `a,b,c` 这种格式，用 `StringBuilder` 你得手动写 `if` 逻辑去判断哪里不该加逗号；而 `StringJoiner` 内部自动帮你处理了这些繁琐的边界逻辑。
+
+
+
+---
+---
+
+
+
+
+
 
 # 易错点
 ```java
