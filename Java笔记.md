@@ -1170,6 +1170,8 @@ if (input.equals("admin")) { ... }
 if ("admin".equals(input)) { ... }
 ```
 
+---
+
 
 ### 5.String类的常用方法
 
