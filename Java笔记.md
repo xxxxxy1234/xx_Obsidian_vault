@@ -322,6 +322,7 @@ System.out.println(b);//10
 
 “数组名.fori ” 可以快速打出for循环遍历数组元素
 “数字.fori ”可以快速打出for循环遍历从0到这个数
+字符串要用“名字.length().fori”，“名字.charAT(i)”*i表示索引*可获取字符串的内容
 
 ---
 ---
