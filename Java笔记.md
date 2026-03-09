@@ -1171,6 +1171,11 @@ if (input.equals("admin")) { ... }
 if ("admin".equals(input)) { ... }
 ```
 
+> [!tip]
+> String str="";  //空字符串。长度为0
+> String str=" ";  //中间有空格，非空字符串，长度为1
+
+
 ---
 
 
