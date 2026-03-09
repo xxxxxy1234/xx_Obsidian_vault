@@ -1437,14 +1437,14 @@ System.out.println(sj.toString()); // 直接输出 [1, 2, 3]
 
 
 
-#### 🤝 `String` 与 `StringBuilder` 的互补关系
+#### `String` 与 `StringBuilder` 的互补关系
 
 - **`String` 负责“稳”**：由于不可变，它在多线程安全、常量池复用和作为参数传递时表现极其稳定。
     
 - **`StringBuilder` 负责“快”**：它像是一个字符串的“加工厂”。当你需要在一个循环里拼上千次字符串时，必须先通过 `new StringBuilder()` 开启加工厂，加工完毕后再调用 `toString()` 产出最终的 `String`。
     
 
-#### ⛓️ `StringJoiner` 对 `StringBuilder` 的功能增强
+####  `StringJoiner` 对 `StringBuilder` 的功能增强
 
 - **`StringJoiner`** 本质上是专门针对“列表格式化”设计的高级工具。
     
@@ -1456,6 +1456,151 @@ System.out.println(sj.toString()); // 直接输出 [1, 2, 3]
 ---
 
 
+
+## 六、字符串的一些底层原理
+
+
+### 1. 字符串存储的内存原理（串池机制）
+
+Java 为了节省内存并提高性能，在堆内存中专门开辟了一块**串池（String Table）区域。
+
+- **直接赋值（字面量）**：当你写 `String s = "abc";` 时，系统会先检查串池。
+    
+    - **不存在**：在串池中创建一个新的字符串对象。
+        
+    - **存在**：直接**复用**该地址。
+        
+- **使用 `new` 关键字**：每调用一次 `new String()`，都会在堆内存（非串池区域）开辟一块**全新的独立空间**。即便内容完全相同，它们的地址值（如 `0x0022` 与 `0x0033`）也是不同的。
+    
+
+---
+
+### 2. `==` 号比较的到底是什么？
+
+在字符串底层逻辑中，`==` 号的含义取决于数据类型：
+
+- **基本数据类型**：比较的是具体的**数值**。
+    
+- **引用数据类型（如 String）**：比较的是**内存地址值**。
+		因为 `new` 出来的对象地址各不相同，所以即使内容一样，用 `==` 比较的结果通常也是 `false`。
+
+
+---
+
+### 3. 字符串拼接的底层原理
+
+
+- 如果没有变量参与，都是字符串直接相加，**编译**之后就是拼接之后的结果
+- 如果有变量参与，会创建新的字符串，浪费内存
+
+
+
+
+```java
+public class Test3 { 
+	public static void main(String[] args) { 
+	  String s1 = "abc"; 
+	  String s2 = "ab";
+	  String s3 = s2 + "c"; 
+	  System.out.println(s1 == s3); 
+	} 
+}
+```
+
+这段代码的运行结果是 **false**，因为：
+
+- `s1` 是字符串常量，存储在字符串常量池中。
+- `s3` 是通过变量 `s2` 与字符串 `"c"` 拼接生成的，运行时在堆上创建新对象。
+- `==` 比较的是对象的引用地址，因此结果为 `false`。
+
+
+
+
+```java
+public class Test3 { 
+	public static void main(String[] args) { 
+	  String s1 = "abc"; 
+	  String s2 = "a"+"b"+"c";
+	  System.out.println(s1 == s2); 
+	} 
+}
+```
+
+这段代码的运行结果是 **true**，因为：
+
+- **编译期常量折叠**
+    `"a" + "b" + "c"` 中的操作数均为**字符串字面量**，属于编译期常量。Java 编译器会在编译阶段直接将其拼接为 `"abc"`，而非在运行时执行拼接操作。
+- **常量池复用**
+    `s1 = "abc"` 会在字符串常量池中创建 `"abc"` 对象；`s2` 对应的编译结果也是 `"abc"`，会直接复用常量池中已有的对象地址。
+- **引用比较结果**
+    `==` 比较的是对象的内存地址，由于 `s1` 和 `s2` 指向常量池中同一个 `"abc"` 对象，因此结果为 `true`。
+
+
+---
+
+### 4. StringBuilder 提高效率的原理
+
+为了解决拼接低效的问题，`StringBuilder` 采用了“**原地修改**”的策略：
+*(所有要拼接的内容都会往StringBuilder中放，不会创建很多无用空间，节约内存)*
+- **原理图逻辑**：它内部维护了一个可以自动扩容的字符数组（通常是 `char[]`）。
+    
+- **操作过程**：所有的 `append` 操作都在**同一个数组对象**上进行，不需要像 `String` 那样每次都创建新对象。只有当你最终需要一个不可变的字符串时，才调用 `toString()` 封装一次。
+
+
+---
+
+### 5. StringBuilder的源码分析
+
+- 默认创建一个长度为16的字节数组
+- 添加的内容长度小于16，直接存
+- 添加的内容大于16会扩容（原来的容量 * 2 + 2）
+- 如果扩容之后还不够，以实际长度为准
+
+
+```java
+public class Test4 { 
+	public static void main(String[] args) { 
+	  StringBuilder sb = new StringBuilder(); 
+	  System.out.println(sb.capacity());   //容量：最多装多少
+	  System.out.println(sb.length());     //长度：已经装了多少   
+	  sb.append("abc");  
+	  System.out.println(sb.capacity());//16 
+	  System.out.println(sb.length());//3
+	} 
+}
+```
+
+
+```java
+public class Test4 { 
+	public static void main(String[] args) { 
+	  StringBuilder sb = new StringBuilder(); 
+	  System.out.println(sb.capacity());   //容量：最多装多少
+	  System.out.println(sb.length());     //长度：已经装了多少   
+	  sb.append("abcdefghijklmnopqrstuvwxyz");  
+	  System.out.println(sb.capacity());//34  (16*2+2) 
+	  System.out.println(sb.length());//26
+	} 
+}
+```
+
+
+```java
+public class Test4 { 
+	public static void main(String[] args) { 
+	  StringBuilder sb = new StringBuilder(); 
+	  System.out.println(sb.capacity());   //容量：最多装多少
+	  System.out.println(sb.length());     //长度：已经装了多少   
+	  sb.append("abcdefghijklmnopqrstuvwxyz0123456789");  
+	  System.out.println(sb.capacity());//36
+	  System.out.println(sb.length());//36
+	} 
+}
+```
+
+
+---
+---
 
 
 
