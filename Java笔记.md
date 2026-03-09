@@ -1207,6 +1207,8 @@ arr[i]=c;
 
 ```java
 题目：实现一个5位验证码的输出，要求前四位是大写或小写字母，最后一位是数字
+
+
 public class Main {  
     public static void main(String[] args) {  
        //1、将52个字母存放在数组中  
@@ -1232,3 +1234,62 @@ public class Main {
   
     }  
 }```
+
+```
+
+```java
+题目：输入整型金额（如4321），最多七位数，转换成大写汉字金额，并补全高位（零佰零拾零万肆仟叁佰贰拾壹元）
+
+
+import java.util.Scanner;
+
+public class StringDemo9 {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int money;
+        while (true) {
+            System.out.println("请录入一个金额");
+            money = sc.nextInt();
+            if (money >= 0 && money <= 9999999) {
+                break;
+            } else {
+                System.out.println("金额无效");
+            }
+        }
+
+        String moneyStr = "";
+		//逐个获取整形金额个位数字
+        while (true) {
+            int ge = money % 10;
+            String capitalNumber = getCapitalNumber(ge);
+            moneyStr = capitalNumber + moneyStr; //capitalNumber要放在前面进行拼接
+            money = money / 10;
+            if (money == 0) {
+                break;
+            }
+        }
+		//高位补零
+        int count = 7 - moneyStr.length();
+        for (int i = 0; i < count; i++) {
+            moneyStr = "零" + moneyStr;  //"零"要放在前面进行拼接
+        }
+
+        String[] arr = {"佰", "拾", "万", "仟", "佰", "拾", "元"};
+        String result = "";
+        for (int i = 0; i < moneyStr.length(); i++) {
+            char c = moneyStr.charAt(i);
+            result = result + c + arr[i]; //两个数组相互拼接
+        }
+
+        System.out.println(result);
+    }
+	
+	//将大写金额放在数组中，通过索引获取
+    public static String getCapitalNumber(int number) {
+        String[] arr = {"零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖"};
+        return arr[number];
+    }
+}
+
+
+```
