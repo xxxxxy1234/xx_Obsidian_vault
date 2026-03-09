@@ -40,6 +40,13 @@ psvm或main快速输出public static void main
 
 sout快速输出System.out.println
 
+
+“数组名.fori ” 可以快速打出for循环遍历数组元素
+“数组名.forr ” 可以快速打出for循环反向遍历数组元素
+“数字.fori ”可以快速打出for循环遍历从0到这个数
+字符串要用“名字.length().fori”，“名字.charAT(i)”*i表示索引*可获取字符串的内容
+
+shift+F6统一修改变量名
 ctrl+/行注释
 ctrl+shift+/块注释
 ctrl+d快速复制一行
@@ -320,9 +327,6 @@ System.out.println(b);//10
 > 以后如果我们要在一堆没有什么规律的数据中随机抽取，可以先把这些数据放在数组当中，在随机抽取一个索引
 
 
-“数组名.fori ” 可以快速打出for循环遍历数组元素
-“数字.fori ”可以快速打出for循环遍历从0到这个数
-字符串要用“名字.length().fori”，“名字.charAT(i)”*i表示索引*可获取字符串的内容
 
 ---
 ---
