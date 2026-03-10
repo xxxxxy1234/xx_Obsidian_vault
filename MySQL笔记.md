@@ -341,8 +341,15 @@ CREATE TABLE students (
     
 - **DELETE**：删除指定的行。
 
+>*插入操作（必须按表结构顺序写全所有值)*
+ 指定列插入
+	INSERT INTO 表名 (字段1, 字段2, ...) VALUES (值1, 值2, ...);
+ 全量插入
+	INSERT INTO 表名 VALUES (值1, 值2, ...);
+ 批量插入
+	INSERT INTO 表名 (字段1, 字段2...) VALUES (值A, 值B...), (值A, 值B...);
+	INSERT INTO 表名  VALUES (值A, 值B...), (值A, 值B...);
 
----
 
 
 ---
