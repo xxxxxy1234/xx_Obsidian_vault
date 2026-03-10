@@ -350,7 +350,9 @@ CREATE TABLE students (
 	INSERT INTO 表名 (字段1, 字段2...) VALUES (值A, 值B...), (值A, 值B...);
 	INSERT INTO 表名  VALUES (值A, 值B...), (值A, 值B...);
 
-
+>*修改操作*
+	UPDATE 表名 SET 字段名1=值1, 字段名2=值2, ....[WHERE 条件];
+	 **（若WHERE不存在，表示修改整张表的所有数据）**
 
 ---
 
