@@ -369,10 +369,24 @@ CREATE TABLE students (
 
 虽然它常被归在 DML 里，但因为它太重要了，通常单独拎出来。它是你从数据库里**提取信息**的唯一手段。
 
-- **SELECT**：这是 SQL 的核心，绝大多数时间你都在写这个词。
-    
-    - 配合 `WHERE`（条件）、`ORDER BY`（排序）、`GROUP BY`（分组）使用。
-        
+- **SELECT**：字段列表
+- **FROM**：表名列表
+- **WHERE**：条件列表
+- **GROUP BY**：分段字段列表
+- **HAVING**：分组后条件列表
+- **ORDER BY**：排序字段列表
+- **LIMIT**：分页参数
+
+
+*基本查询*
+查询多个字段
+	SELECT 字段1，字段2，字段3...FROM 表名;
+	SELECT * FROM 表名;
+设置别名
+	SELECT 字段1[AS 别名1]，字段2[AS 别名2]...FROM 表名;
+去除重复记录
+	SELECT DISTINCT 字段列表 FROM 表名;
+
 
 ---
 
