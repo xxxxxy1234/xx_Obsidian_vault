@@ -354,6 +354,13 @@ CREATE TABLE students (
 	UPDATE 表名 SET 字段名1=值1, 字段名2=值2, ....[WHERE 条件];
 	 **（若WHERE不存在，表示修改整张表的所有数据）**
 
+>*删除操作*、
+	DELETE FROM 表名 [WHERE 条件];
+	**（若WHERE不存在，表示删除整张表的所有数据）**
+	**（DELETE语句不能删除某一个字段的值，可以使用UPDATE加上NULL）**
+
+
+
 ---
 
 ### 3. DQL（Data Query Language 数据查询语言）
