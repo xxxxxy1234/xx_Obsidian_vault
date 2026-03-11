@@ -605,7 +605,7 @@ String task = switch (day) {
     }
     case 3, 4, 5 -> "周中：平稳运行"; // 多个值用逗号隔开，超爽
     default -> "未知日期";
-};//这里要有分号
+};//这里在需要switch返回值的时候要有分号，没有返回值可以不写分号
 
 System.out.println(task);
 ```
