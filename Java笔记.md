@@ -47,6 +47,8 @@ sout快速输出System.out.println
 字符串要用“名字.length().fori”，“名字.charAT(i)”*i表示索引*可获取字符串的内容
 
 shift+F6统一修改变量名
+shift+HOME选到行首
+shift+END选到行尾
 ctrl+/行注释
 ctrl+shift+/块注释
 ctrl+d快速复制一行
