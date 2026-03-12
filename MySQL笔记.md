@@ -545,6 +545,36 @@ CREATE TABLE students (
 - **REVOKE**：撤销用户的权限。
     
 
+
+
+>*管理用户*
+   查询用户
+	USE mysql;
+	SELECT * FROM user;
+	**(或者直接找到mysql数据库下的user表查看也可以)**
+   创建用户
+	CREATE USER '用户名' @ '主机名' IDENTIFIED BY '密码';
+   修改用户密码
+	ALTER USER '用户名' @ '主机名' IDENTIFIED WITH mysql_native_password BY '新密码'
+   删除用户
+	DROP USER '用户名' @ '主机名'
+
+> [!tip] 
+> - 主机名可以使用%通配，表示在任意主机都允许操作
+>   （如创建用户时使用%表示该用户可以在任意一台电脑上访问数据库）
+> - 这类sql开发人员操作的比较少，主要是DBA（Database Administrator 数据库管理员使用）
+
+
+
+
+
+
+*权限控制*
+查询权限
+
+
+
+
 ---
 
 ### 5. TCL（事务控制语言）
