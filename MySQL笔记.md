@@ -612,7 +612,15 @@ CREATE TABLE students (
 
 ## 字符串函数
 
-
+| **函数**                 | **功能** | **示例**                                     |
+| ---------------------- | ------ | ------------------------------------------ |
+| **CONCAT(s1, s2...n)** | 字符串拼接  | `CONCAT('Hello', 'MySQL')` -> `HelloMySQL` |
+| **LOWER(str)**         | 全部转小写  | `LOWER('Hello')` -> `hello`                |
+| **UPPER(str)**         | 全部转大写  | `UPPER('Hello')` -> `HELLO`                |
+| **LPAD(str，n，pad) **   | 左填充    | `LPAD('01', 5, '-')` -> `---01`            |
+| **RPAD(str，n，pad)**    | 右填充    | `RPAD('01', 5, '-')` -> `01---`            |
+| **TRIM(str)**          | 去除左右空格 | `TRIM(' Hello ')` -> `Hello`               |
+| **SUBSTRING**          | 截取字符串  | `SUBSTRING('Hello', 1, 3)` -> `Hel`        |
 
 ## 数值函数
 
