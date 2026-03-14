@@ -11,15 +11,14 @@
 	class UserInfo {} 
 	interface UserService {}
 
-③ 常量：**小写或大写蛇形**
-	user_name;
-	db_connection;
+③ 常量：**大写蛇形**
+	MAX;
 	MAX_COUNT;
 	
 
 ④**串式 (kebab-case)**
 	单词全小写，用连字符连接。因连字符`-`会与减号冲突，不能用于大多数编程语言的变量名，但常用于URL或HTML属性
-	<div user-profile>
+	 <div user-profile>
 	 ....
 	 </div>
 
