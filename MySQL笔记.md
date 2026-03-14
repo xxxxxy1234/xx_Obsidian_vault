@@ -691,5 +691,15 @@ CREATE TABLE students (
 
 
 ## 约束演示
+```mysql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,   -- 主键，且自动增长
+    name VARCHAR(10) NOT NULL UNIQUE,    -- 不准为空，且名字不能重复
+    age INT CHECK (age > 0 AND age < 120), -- 检查约束，年龄必须在合理范围内
+    status CHAR(1) DEFAULT '1',          -- 默认约束，不传值时默认为 '1'
+    gender CHAR(1)                       -- 无约束
+);
+
+```
 
 ## 外键约束
