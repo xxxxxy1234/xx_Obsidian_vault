@@ -365,7 +365,7 @@ Java **不能**：
 
 比如：
 
-```
+```java
 int[] arr = new int[5];
 ```
 
@@ -374,7 +374,7 @@ int[] arr = new int[5];
 
 再比如对象：
 
-```
+```java
 Student stu = new Student();
 ```
 
