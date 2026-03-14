@@ -298,12 +298,12 @@ CREATE TABLE students (
 
 
 >*创建操作*
-	> create table 表名(
-		 > 字段1 字段1类型[comment 字段1注释],
-		 > 字段2 字段2类型[comment 字段2注释],
-		 > 字段3 字段3类型[comment 字段3注释],
-		 > .....
-		 > 字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
+	create table 表名(
+		  字段1 字段1类型[comment 字段1注释],
+		  字段2 字段2类型[comment 字段2注释],
+		  字段3 字段3类型[comment 字段3注释],
+		  .....
+		  字段n 字段n类型[comment 字段n注释]**这里不要加逗号**
   > )[comment 表注释];
 
 
