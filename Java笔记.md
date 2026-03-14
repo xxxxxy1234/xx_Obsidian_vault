@@ -61,6 +61,7 @@ ctrl+/行注释
 ctrl+shift+/块注释
 ctrl+d快速复制一行
 ctrl+p光标置于方法参数括号中，可浏览到需要哪些参数
+ctrl+shift+U小写变大写
 Home光标快速移动到行首
 End光标快速移动到行尾
 ctrl+Home移动到文件开头
