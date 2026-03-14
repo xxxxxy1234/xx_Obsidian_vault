@@ -2478,7 +2478,7 @@ public class Cat extends Animal {
 
 
 ```java
-Animal a = new Dog();
+Animal a = new Dog();  //就是自动类型转换
 System.out.println(a.name); // 假设父子都有 name，这里打印的是父类的 name
 a.eat();                    // 假设子类重写了 eat，这里运行的是子类的 eat
 ```
@@ -2515,6 +2515,10 @@ a.eat();                    // 假设子类重写了 eat，这里运行的是子
     ```java
     if (a instanceof Dog) {
         Dog d = (Dog) a;
+        d.bark(); // 现在可以叫了
+    }
+    
+     if (a instanceof Dog d) { //新特性：如果是Dog类型，直接强转
         d.bark(); // 现在可以叫了
     }
     ```
