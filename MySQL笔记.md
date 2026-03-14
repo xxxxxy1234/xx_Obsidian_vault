@@ -665,7 +665,7 @@ CREATE TABLE students (
 
 
 
-# 约束
+# 约束(Constraints)
 
 
 ## 概述
@@ -689,6 +689,9 @@ CREATE TABLE students (
 |**检查约束**|保证字段值满足某一个条件（适用于 MySQL 8.0.16 版本之后）|`CHECK`|
 |**外键约束**|让两张表的数据之间建立连接，保证数据的一致性和完整性|`FOREIGN KEY`|
 
+---
+
+
 
 ## 约束演示
 ```mysql
@@ -702,4 +705,34 @@ CREATE TABLE users (
 
 ```
 
-## 外键约束
+
+---
+
+
+
+## 外键约束(Foreign Key)
+
+### 概念
+
+外键用来让两张表的数据建立连接。
+
+- **父表（主表）**：被引用的表（如：部门表）。
+    
+- **子表（从表）**：引入外键的表（如：员工表）。
+
+### 语法
+
+*A. 建表时添加*
+CREATE TABLE 表名 (
+	字段名 数据类型;
+	 ...
+    CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表（主表列名）
+);
+
+
+*B. 后期添加外键：*
+ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表 (主表列名);
+
+
+*B. 删除外键：*
+ALTER TABLE 表名 DROP FOREIGN KEY 外键名称;
