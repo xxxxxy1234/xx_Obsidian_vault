@@ -3050,6 +3050,10 @@ public abstract class SettleDrink {
     
 - **抽象方法**：就像是手机的**充电接口标准**。不管你是华为还是苹果，必须长这样，只有这样，充电头（外部系统）才能通用。
 
+---
+---
+
+
 
 
 ## 接口
@@ -3057,7 +3061,10 @@ public abstract class SettleDrink {
 
 
 
-## 多态
+
+
+---
+---
 
 
 
