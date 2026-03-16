@@ -1470,10 +1470,9 @@ System.out.println(str.equals(result)); // true
 
 
 >在以下场景中，toString()转换是必须的或更方便的：
->
-	**使用 String 的特有 API**：`StringBuilder` 专注于增删改，它没有 `startsWith()`、`matches()`（正则匹配）或 `split()` 等复杂的检索和转换方法。
-	**作为参数传递**：大多数 Java 方法（如 `System.out.println` 除外，它能自动处理对象）或你自定义的方法，通常接收的是 `String` 类型而不是 `StringBuilder`。
-	**打印结果**：如果你想一次性看清容器里的内容，调用 `toString()` 把它变成一个整体的字符串是最直观的。
+>**使用 String 的特有 API**：`StringBuilder` 专注于增删改，它没有 `startsWith()`、`matches()`（正则匹配）或 `split()` 等复杂的检索和转换方法。
+  **作为参数传递**：大多数 Java 方法（如 `System.out.println` 除外，它能自动处理对象）或你自定义的方法，通常接收的是 `String` 类型而不是 `StringBuilder`。
+  **打印结果**：如果你想一次性看清容器里的内容，调用 `toString()` 把它变成一个整体的字符串是最直观的。
 
 
 
@@ -1604,7 +1603,7 @@ System.out.println(sj.toString()); // 直接输出 [1, 2, 3]
 
 ### 1. 字符串存储的内存原理（串池机制）
 
-Java 为了节省内存并提高性能，在堆内存中专门开辟了一块**串池（String Table）区域。
+Java 为了节省内存并提高性能，在堆内存中专门开辟了一块**串池（String Table）区域。**
 
 - **直接赋值（字面量）**：当你写 `String s = "abc";` 时，系统会先检查串池。
     
