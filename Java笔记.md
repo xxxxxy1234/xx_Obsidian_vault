@@ -3422,11 +3422,20 @@ public class Outer {
 - **本质**：是一个继承了父类或实现了接口的、隐藏名字的**子类对象**。
     
 - **语法格式**：
+
+    ```java
     
-    Java
+    public class Inner implements 接口/类名{
+	    @Override
+        public void method() {
+            // 实现逻辑
+        }
+
+    }
     
-    ```
-    new 接口/抽象类() {
+    
+    
+    new 接口/类名() {
         @Override
         public void method() {
             // 实现逻辑
