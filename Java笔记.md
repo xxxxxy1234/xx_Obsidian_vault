@@ -171,7 +171,6 @@ your-project/                # 项目根目录（Project）
 
 大型项目通常拆分为多个 Module，结构示例：
 
-plaintext
 
 ```
 my-project/
