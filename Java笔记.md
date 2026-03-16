@@ -3341,14 +3341,41 @@ class MySwimmer extends SportsAdapter {
 
 - **特点**：
     1. 写在成员位置的，属于外部类的成员，可以直接访问外部类的所有成员（包括 `private`）。
-    2. 成员内部类可以被一些修饰符所修饰，比如：private，默认，protected，public，static等
+    2. 成员内部类可以被一些修饰符所修饰，比如：private，默认，protected，public，static *（特别地看作静态内部类）* 等
     3. 在成员内部类里面，JDK16开始才可以定义静态变量
     4. 必须先创建外部类对象，才能创建内部类对象。
+    5. ==成员内部类对象里藏了一个外部类对象的引用==
       
 - **创建格式**：
     `方式一：外部类.内部类 对象名 = new 外部类().new 内部类();`
 	`方式二：在外部类中编写方法，对外提供内部类的对象（多用于内部类被private修饰）`
-    
+
+
+```java
+public class Outer {
+    private int a = 10; // 外部类的成员变量
+
+    class Inner {
+        private int a = 20; // 内部类的成员变量
+
+        public void show() {
+            int a = 30; // show 方法的局部变量
+
+            // 1. 访问外部类的成员变量 (10)
+            // 格式：外部类名.this.变量名
+            System.out.println(Outer.this.a); 
+
+            // 2. 访问内部类的成员变量 (20)
+            // 格式：this.变量名
+            System.out.println(this.a); 
+
+            // 3. 访问方法内的局部变量 (30)
+            // 遵循“就近原则”，直接写变量名
+            System.out.println(a); 
+        }
+    }
+}
+```
 
 ---
 
@@ -3358,10 +3385,11 @@ class MySwimmer extends SportsAdapter {
 
 - **特点**：
     
-    1. **只能**直接访问外部类的静态成员。
-        
+    1. 只能直接访问外部类的静态成员和静态方法。
     2. 不需要外部类对象，直接通过外部类名即可创建。
-        
+    3. 调用非静态方法的格式：先创建对象，用对象调用
+    4. 调用静态方法的格式：外部类.内部类.方法名（）
+    
 - **创建格式**：
     
     `外部类.内部类 对象名 = new 外部类.内部类();`
