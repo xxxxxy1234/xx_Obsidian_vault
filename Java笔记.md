@@ -3086,6 +3086,9 @@ public abstract class SettleDrink {
     }
     ```
 
+> [!attention]
+> 当一个方法的参数是接口时，可以传递接口所有实现类的对象，这种方式称为==接口多态==
+
 ---
 
 ### 2. 接口成员的特点
