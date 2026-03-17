@@ -794,6 +794,12 @@ ALTER TABLE 表名 DROP FOREIGN KEY 外键名称;
 
 ## 内链接
 
+*查询语法*
+- 隐式内链接
+	  SELECT 字段列表 FROM 表1，表2 WHERE 条件...;
+- 显式内链接
+     SELECT 字段列表 FROM 表1 [INNER] JOIN 表2 ON 连接条件...;
+
 ## 外链接
 
 ## 自连接
