@@ -3621,3 +3621,52 @@ public class StringDemo9 {
 
 
 ```
+
+```java 
+题目：计算矩阵相乘，第一个矩阵的列要等于第二个矩阵的行
+
+
+
+import java.util.Scanner;  
+import java.util.Random;  
+  
+public class Main {  
+    public static void main(String args[]) {  
+  
+        int[][] matrix1={{1,2,3},{4,5,6}};  
+        int[][] matrix2={{1,2},{3,4},{5,6}};  
+        matrixMul(matrix1,matrix2);  
+  
+  
+  
+  
+    }  
+  
+    public static void matrixMul(int arr1[][],int arr2[][]){  
+  
+        int[][] result=new int[arr1.length][arr2[0].length];  
+        for (int i = 0; i < arr1.length; i++) {//2  
+  
+            for (int m = 0; m < arr2[0].length; m++) {//2  
+                int temp = 0;  
+                for (int q = 0; q < arr1[0].length; q++) {//3  
+                    temp += arr1[i][q] * arr2[q][m];  
+                }  
+                result[i][m] = temp;  
+            }  
+  
+        }  
+        System.out.println("矩阵相乘结果是：");  
+        for (int i = 0; i < result.length; i++) {  
+            for (int m = 0; m < result.length; m++) {  
+                System.out.print(result[i][m]+"\t");  
+            }  
+            System.out.println();  
+        }  
+  
+  
+  
+  
+    }  
+}
+```
