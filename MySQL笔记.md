@@ -726,12 +726,12 @@ CREATE TABLE users (
 CREATE TABLE 表名 (
 	字段名 数据类型;
 	 ...
-    CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表（主表字段名）
+    CONSTRAINT 外键约束名称 FOREIGN KEY (外键字段名 **要用上面定义好的字段名** ) REFERENCES 主表（主表字段名）
 );
 
 
 *B. 后期添加外键：*
-ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表 (主表字段名) [ON UPDATE 行为 ON DELETE 行为];
+ALTER TABLE 表名 ADD CONSTRAINT 外键约束名称 FOREIGN KEY (外键字段名) REFERENCES 主表 (主表字段名) [ON UPDATE 行为 ON DELETE 行为];
 
 
 | **行为**          | **说明**                                                                |
@@ -746,7 +746,7 @@ ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REF
 
 
 *B. 删除外键：*
-ALTER TABLE 表名 DROP FOREIGN KEY 外键名称;
+ALTER TABLE 表名 DROP FOREIGN KEY 外键约束名称;  **(必须用约束名不是字段名，因为一个字段可以有多个约束)**
 
 
 # 多表查询
