@@ -726,7 +726,7 @@ CREATE TABLE users (
 CREATE TABLE 表名 (
 	字段名 数据类型;
 	 ...
-    CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表（主表列名）
+    CONSTRAINT 外键名称 FOREIGN KEY (外键字段名) REFERENCES 主表（主表字段名）
 );
 
 
