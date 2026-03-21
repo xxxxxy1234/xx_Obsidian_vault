@@ -66,7 +66,7 @@ Home光标快速移动到行首
 End光标快速移动到行尾
 ctrl+Home移动到文件开头
 ctrl+End移动到文件末尾
-ctrl+alt+M自动抽取方法（将一段代码总结成方法）
+ctrl+alt+win+M自动抽取方法（将一段代码总结成方法）
 ctrl+alt+L格式化代码
 ctrl+alt+V光标放在这一行，快速给方法返回值赋值（自动命名）
 ctrl+alt+T选中代码块后，可进行"代码包围"，快速用if/else，try/catch，while，for等
