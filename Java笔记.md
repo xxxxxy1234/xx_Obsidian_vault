@@ -3502,91 +3502,15 @@ new Swim() {
 
 # GUI
 
+## 介绍
+
 **GUI** 是 **Graphical User Interface**（图形用户界面）的缩写。简单来说，它就是我们平时用的“窗口化”软件——有按钮、输入框、菜单和图标，可以通过鼠标点击或触摸来操作，而不是像黑乎乎的命令行（CLI）那样全靠敲代码。
 
 在 Java 的发展史上，GUI 经历了三次重大的演进，每一代都有其独特的地位。
 
 ---
 
-## Java GUI 的三大门派
-
-#### ① AWT (Abstract Window Toolkit) - 第一代
-
-- **地位**：Java 最早的 GUI 库（JDK 1.0）。
-    
-- **特点**：它是“重量级”组件。它直接调用操作系统（Windows/Mac/Linux）本地的绘图函数。
-    
-- **缺点**：外观受操作系统限制，在不同系统上长得不一样（不跨平台一致）；组件种类少，功能简陋。
-    
-
-#### ② Swing - 第二代（主流经典）
-
-- **地位**：基于 AWT 开发的增强版（JDK 1.2 引入）。
-    
-- **特点**：它是**“轻量级”**组件。它不是调用系统组件，而是由 Java 自己在画布上一笔一笔画出来的。
-    
-- **优点**：
-    
-    - **跨平台一致性**：在任何系统上看起来都一样。
-        
-    - **插拔外观（Pluggable Look and Feel）**：一行代码就能让界面变成 Windows 风格或 Mac 风格。
-        
-    - **组件丰富**：提供了表格（JTable）、树形结构（JTree）等高级组件。
-        
-
-#### ③ JavaFX - 第三代（现代版）
-
-- **地位**：Java 官方用来取代 Swing 的现代化工具。
-    
-- **特点**：支持 **CSS 样式表**美化界面，支持 **FXML**（类似 HTML）解耦界面和逻辑，支持动画和 3D。
-    
-- **现状**：虽然功能最强，但因为目前桌面开发（尤其是 Java 桌面开发）需求减少，且它不再内置在 JDK 中（需额外下载），学习成本略高。
-    
-
----
-
-## Java GUI 的核心三大件
-
-无论你用哪一代，写 GUI 代码都离不开这三个概念：
-
-1. **容器（Container）**：用来装东西的盒子。
-    
-    - 底层容器：`JFrame`（窗口）、`JDialog`（弹窗）。
-        
-    - 中间容器：`JPanel`（面板，用来给组件分组）。
-        
-2. **组件（Component）**：界面上的零件。
-    
-    - 如：`JButton`（按钮）、`JTextField`（文本框）、`JLabel`（标签）。
-        
-3. **布局管理器（Layout Manager）**：决定零件怎么摆。
-    
-    - `FlowLayout`：像流沙一样从左往右排。
-        
-    - `BorderLayout`：分东南西北中五个区域。
-        
-    - `GridLayout`：像 Excel 里的格子一样排。
-        
-
----
-
-## 为什么学习 Java GUI？
-
-虽然现在大家更倾向于用 Web（浏览器）或手机 App，但学习 Java GUI（尤其是 Swing）对初学者有极大好处：
-
-- **直观理解“事件驱动”模型**：比如点击按钮触发操作，这能让你深刻理解**匿名内部类**和 **Lambda 表达式**。
-    
-- **多线程练习**：界面渲染和后台计算必须分块，是练习线程安全（如 `SwingUtilities.invokeLater`）的最佳场景。
-    
-- **独立小工具**：快速写个解密工具、文件重命名工具，Java GUI 非常方便。
-    
-
----
----
-
-
-
-# Swing
+## Swing
 
 **Swing** 是 Java 历史上最经典的 GUI（图形用户界面）工具包。它是 AWT 的升级版，也是 Java 程序员进入可视化编程世界的必经之路。
 
@@ -3594,7 +3518,7 @@ new Swim() {
 
 ---
 
-## 1. Swing 的核心特性：为什么它比 AWT 强？
+### 1. Swing 的核心特性：为什么它比 AWT 强？
 
 - **轻量级组件（Lightweight）**：
     
@@ -3617,7 +3541,7 @@ new Swim() {
 
 ---
 
-## 2. Swing 的五层“套娃”结构
+### 2. Swing 的五层“套娃”结构
 
 写 Swing 程序就像在搭积木，层层嵌套：
 
@@ -3644,7 +3568,7 @@ new Swim() {
 
 ---
 
-## 3. 常用组件大合集
+### 3. 常用组件大合集
 
 |**组件分类**|**组件名**|**作用**|
 |---|---|---|
@@ -3657,7 +3581,7 @@ new Swim() {
 
 ---
 
-## 4. Swing 程序的标准开发流程
+### 4. Swing 程序的标准开发流程
 
 一个标准的 Swing 程序通常遵循以下“四步走”：
 
@@ -3696,7 +3620,7 @@ public class SwingDemo {
 
 ---
 
-## 5. Swing 开发的“潜规则”：线程安全
+### 5. Swing 开发的“潜规则”：线程安全
 
 这是很多新手会忽略的**重要细节**。
 
@@ -3712,7 +3636,7 @@ SwingUtilities.invokeLater(() -> {
 
 ---
 
-## 6. 现状分析：现在还要学 Swing 吗？
+### 6. 现状分析：现在还要学 Swing 吗？
 
 - **如果你想做企业级大型桌面软件**：现在的首选可能是 Electron (JavaScript) 或 C# (.NET)。
     
@@ -3720,24 +3644,18 @@ SwingUtilities.invokeLater(() -> {
     
 - **但是**：Swing 是理解 **GUI 原理、事件监听、多态应用、内部类** 极其优秀的教科书。很多公司内部使用的报表工具、自动化测试工具依然在使用 Swing，因为它简单、稳定。
 
-
-
-
-
-
-
 ---
 ---
 
 
-# 布局管理器
+## 布局管理器
 
 
 在 Java GUI（尤其是 Swing）中，**布局管理器（Layout Manager）** 是一个非常重要的概念。
 
 ---
 
-## 为什么需要布局管理器？
+### 为什么需要布局管理器？
 
 在普通的绘图软件里，我们习惯用“坐标”来定位。但在开发软件时，如果用固定坐标（绝对布局），会遇到两个大问题：
 
@@ -3750,9 +3668,9 @@ SwingUtilities.invokeLater(() -> {
 
 ---
 
-## 常见的五种布局管理器
+### 常见的五种布局管理器
 
-### 1. 流式布局 (FlowLayout) —— 最简单
+#### 1. 流式布局 (FlowLayout) —— 最简单
 
 像流沙一样，组件从左往右排列，一行排不下了就自动换到下一行。
 
@@ -3763,7 +3681,7 @@ SwingUtilities.invokeLater(() -> {
 - **默认值**：`JPanel` 的默认布局。
     
 
-### 2. 边界布局 (BorderLayout) —— 最常用 *默认布局*
+#### 2. 边界布局 (BorderLayout) —— 最常用 *默认布局*
 
 把容器分为五个区域：东 (East)、南 (South)、西 (West)、北 (North)、中 (Center)。
 
@@ -3776,7 +3694,7 @@ SwingUtilities.invokeLater(() -> {
 - **默认值**：`JFrame` 的内容面板默认布局。
     
 
-### 3. 网格布局 (GridLayout) —— 最整齐
+#### 3. 网格布局 (GridLayout) —— 最整齐
 
 把容器分成均匀的“矩形网格”，所有的格子大小完全一样。
 
@@ -3785,7 +3703,7 @@ SwingUtilities.invokeLater(() -> {
 - **适用场景**：计算器的数字按钮、棋盘。
     
 
-### 4. 卡片布局 (CardLayout) —— 切换专用
+#### 4. 卡片布局 (CardLayout) —— 切换专用
 
 像一叠扑克牌，每次只能看到最上面的一张。
 
@@ -3794,14 +3712,14 @@ SwingUtilities.invokeLater(() -> {
 - **适用场景**：软件的“下一步、下一步”安装界面，或者侧边栏点击切换页面。
     
 
-### 5. 网格袋布局 (GridBagLayout) —— 最强大但也最复杂
+#### 5. 网格袋布局 (GridBagLayout) —— 最强大但也最复杂
 
 它是 GridLayout 的加强版。可以让某个组件跨越多个行或列，也可以设置不同的拉伸权重。
 
 - **现状**：代码写起来非常痛苦，现在大多配合 IDE 的可视化设计器使用。
 
 
-### 6.绝对布局（null）
+#### 6.绝对布局（null）
 
 - **特点**：完全手动设坐标，想放哪就放哪
 
@@ -3840,6 +3758,312 @@ frame.add(panel, BorderLayout.CENTER); // 把面板塞进中间
 
 ---
 ---
+
+### Java GUI 的三大门派
+
+#### ① AWT (Abstract Window Toolkit) - 第一代
+
+- **地位**：Java 最早的 GUI 库（JDK 1.0）。
+    
+- **特点**：它是“重量级”组件。它直接调用操作系统（Windows/Mac/Linux）本地的绘图函数。
+    
+- **缺点**：外观受操作系统限制，在不同系统上长得不一样（不跨平台一致）；组件种类少，功能简陋。
+    
+
+#### ② Swing - 第二代（主流经典）
+
+- **地位**：基于 AWT 开发的增强版（JDK 1.2 引入）。
+    
+- **特点**：它是**“轻量级”**组件。它不是调用系统组件，而是由 Java 自己在画布上一笔一笔画出来的。
+    
+- **优点**：
+    
+    - **跨平台一致性**：在任何系统上看起来都一样。
+        
+    - **插拔外观（Pluggable Look and Feel）**：一行代码就能让界面变成 Windows 风格或 Mac 风格。
+        
+    - **组件丰富**：提供了表格（JTable）、树形结构（JTree）等高级组件。
+        
+
+#### ③ JavaFX - 第三代（现代版）
+
+- **地位**：Java 官方用来取代 Swing 的现代化工具。
+    
+- **特点**：支持 **CSS 样式表**美化界面，支持 **FXML**（类似 HTML）解耦界面和逻辑，支持动画和 3D。
+    
+- **现状**：虽然功能最强，但因为目前桌面开发（尤其是 Java 桌面开发）需求减少，且它不再内置在 JDK 中（需额外下载），学习成本略高。
+    
+
+---
+
+### Java GUI 的核心三大件
+
+无论你用哪一代，写 GUI 代码都离不开这三个概念：
+
+1. **容器（Container）**：用来装东西的盒子。
+    
+    - 底层容器：`JFrame`（窗口）、`JDialog`（弹窗）。
+        
+    - 中间容器：`JPanel`（面板，用来给组件分组）。
+        
+2. **组件（Component）**：界面上的零件。
+    
+    - 如：`JButton`（按钮）、`JTextField`（文本框）、`JLabel`（标签）。
+        
+3. **布局管理器（Layout Manager）**：决定零件怎么摆。
+    
+    - `FlowLayout`：像流沙一样从左往右排。
+        
+    - `BorderLayout`：分东南西北中五个区域。
+        
+    - `GridLayout`：像 Excel 里的格子一样排。
+        
+
+---
+
+### 为什么学习 Java GUI？
+
+虽然现在大家更倾向于用 Web（浏览器）或手机 App，但学习 Java GUI（尤其是 Swing）对初学者有极大好处：
+
+- **直观理解“事件驱动”模型**：比如点击按钮触发操作，这能让你深刻理解**匿名内部类**和 **Lambda 表达式**。
+    
+- **多线程练习**：界面渲染和后台计算必须分块，是练习线程安全（如 `SwingUtilities.invokeLater`）的最佳场景。
+    
+- **独立小工具**：快速写个解密工具、文件重命名工具，Java GUI 非常方便。
+    
+
+---
+---
+
+
+
+## 事件
+
+在 Java GUI 中，**“事件（Event）”** 是程序与用户交互的灵魂。如果没有事件，你的界面只是一张死气沉沉的图片；有了事件，当你点击按钮、移动鼠标或按下键盘时，程序才会给出反馈。
+
+Java 采用的是 **“委派事件模型” (Delegation Event Model)**，理解这个模型只需要搞清楚三个核心角色：
+
+---
+
+### 1. 事件机制的三大要素
+
+你可以把这套机制想象成一个“报警系统”：
+
+- **事件源 (Event Source)**：**“谁触发了？”**
+    
+    即发生事件的 GUI 组件。比如：按钮 (`JButton`)、文本框 (`JTextField`)、窗口 (`JFrame`)。
+    
+- **事件对象 (Event Object)**：**“发生了什么？”**
+    
+    当动作发生时，系统会自动创建一个封装了事件信息的对象。比如：`ActionEvent`（点击）、`KeyEvent`（按键）、`MouseEvent`（鼠标滑动）。它包含了点击的位置、时间、哪个按键被按下等。
+    
+- **事件监听器 (Event Listener)**：**“怎么处理？”**
+    
+    这是一个接口。你需要在里面写好逻辑，一旦事件发生，系统就会自动调用这个接口里的方法。
+    
+
+---
+
+### 2. 常见的事件类型与监听器
+
+|**动作**|**事件类**|**对应的监听器接口**|**常用方法**|
+|---|---|---|---|
+|**点击按钮/回车**|`ActionEvent`|`ActionListener`|`actionPerformed()`|
+|**鼠标点击/进入/离开**|`MouseEvent`|`MouseListener`|`mouseClicked()`, `mouseEntered()`|
+|**键盘按键按下/释放**|`KeyEvent`|`KeyListener`|`keyPressed()`, `keyReleased()`|
+|**窗口打开/关闭/激活**|`WindowEvent`|`WindowListener`|`windowClosing()`, `windowOpened()`|
+
+---
+
+### 3. 事件绑定的三种“姿势”
+
+要把监听器装到按钮上，开发者通常有三种进化路线：
+
+#### 方案一：实现类（最笨，不推荐）
+
+写一个专门的类来实现接口。代码太散，没人用。
+
+#### 方案二：匿名内部类（最经典）
+
+
+```java
+JButton btn = new JButton("点我");
+btn.addActionListener(new ActionListener() {
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println("按钮被点击了！");
+    }
+});
+```
+
+#### 方案三：Lambda 表达式（最现代/简洁）
+
+既然 `ActionListener` 只有一个方法，我们可以写得极其优雅：
+
+```java
+btn.addActionListener(e -> System.out.println("Lambda 收到点击！"));
+```
+
+---
+
+### 4. 适配器类 (Event Adapter) —— 解决接口臃肿
+
+
+像 `WindowListener` 有 7 个方法，但你可能只想监听“窗口关闭”。如果直接实现接口，你得写 6 个空方法。
+
+Java 提供了 **`WindowAdapter`**：
+
+```java
+frame.addWindowListener(new WindowAdapter() {
+    @Override
+    public void windowClosing(WindowEvent e) {
+        System.out.println("正在保存数据并退出...");
+        System.exit(0);
+    }
+});
+```
+
+> **逻辑**：`WindowAdapter` 已经帮你把 7 个方法都空实现了，你只需要重写你要的那一个。
+
+---
+
+### 5. 运行原理：它是怎么“动”起来的？
+
+1. 你运行程序，**事件调度线程 (Event Dispatch Thread, EDT)** 启动。
+    
+2. 当你点击按钮时，操作系统捕捉到硬件信号，丢给 JVM。
+    
+3. JVM 创建一个 `ActionEvent` 对象，并找到这个按钮绑定的所有 `ActionListener`。
+    
+4. EDT 依次执行监听器里的 `actionPerformed` 代码。
+    
+
+**⚠️ 避坑指南**：不要在事件处理的方法里写耗时很长的逻辑（比如下载大文件），这会卡死 EDT 线程，导致你的整个界面“失去响应”变成白板。
+
+
+
+
+
+---
+---
+
+
+
+## 监听器
+
+在 Swing 中，监听器本质上是“回调机制”：你预先写好一段代码，告诉按钮或窗口：“当某件事发生时，请执行这段代码。”
+
+这三种监听器覆盖了用户最常用的交互方式：
+
+---
+
+### 1. 行为监听 (ActionListener) —— 最常用
+
+这是最基础、最通用的监听器。它不关心你是用鼠标点的按钮，还是在按钮获得焦点时按了空格键，它只关心“动作是否发生了”
+
+- **监听对象**：通常是 `JButton`（按钮）、`JTextField`（回车键）、`JMenuItem`（菜单项）。
+    
+- **核心方法**：只有一个 `actionPerformed(ActionEvent e)`。
+    
+- **特点**：简单、直接。如果你只需要知道按钮被按下了，用它就够了。
+
+```java
+JButton btn = new JButton("提交");
+// 使用 Lambda 简化
+btn.addActionListener(e -> {
+    System.out.println("触发了动作事件！");
+});
+```
+
+---
+
+### 2. 鼠标监听 (MouseListener) —— 最详细
+
+当你需要更精细的操作（比如悬停变色、右键菜单、双击）时，就需要鼠标监听。
+
+- **核心方法**：它有 5 个方法，记录了鼠标生命的各个瞬间：
+    
+    1. `mouseClicked`：鼠标**点击**（按下并抬起）。
+        
+    2. `mousePressed`：鼠标**按下**。
+        
+    3. `mouseReleased`：鼠标**抬起**。
+        
+    4. `mouseEntered`：鼠标**进入**组件范围（可做悬停特效）。
+        
+    5. `mouseExited`：鼠标**离开**组件范围。
+        
+- **适配器提示**：因为有 5 个方法，直接实现接口很累，通常使用 **`MouseAdapter`**，只重写你关心的那个。
+ 
+    ```java
+    btn.addMouseListener(new MouseAdapter() {
+        @Override
+        public void mouseEntered(MouseEvent e) {
+            btn.setBackground(Color.YELLOW); // 鼠标移入变黄
+        }
+    });
+    ```
+
+
+---
+
+### 3. 键盘监听 (KeyListener) —— 快捷键必备
+
+用于捕获键盘的每一个动作。常用于游戏控制、搜索框联想或快捷键绑定。
+
+- **核心方法**：
+    
+    1. `keyTyped（不常用）`：键入某个字符（通常用于输入文本，不响应 Ctrl/Shift 等功能键）
+        
+    2. `keyPressed`：**按下**某个键（响应所有键，包括方向键、F1-F12）
+        
+    3. `keyReleased`：**抬起**某个键
+        
+- **关键技巧**：通过 `KeyEvent` 对象可以判断具体是哪个键。
+
+    ```java
+    inputField.addKeyListener(new KeyAdapter() {
+        @Override
+        public void keyPressed(KeyEvent e) {
+            int code = e.getKeyCode(); // 获取键码
+            if (code == KeyEvent.VK_ENTER) {
+                System.out.println("用户按下了回车键！");
+            } else if (code == KeyEvent.VK_UP) {
+                System.out.println("向上移动");
+            }
+        }
+    });
+    ```
+
+---
+
+### 4.  三者对比总结
+
+|**监听器**|**关注点**|**优势**|**劣势**|
+|---|---|---|---|
+|**ActionListener**|结果（动作发生了）|极简，一个方法搞定|无法区分操作细节|
+|**MouseListener**|物理动作（轨迹/状态）|能实现复杂的 UI 特效|方法多，需要适配器|
+|**KeyListener**|物理按键（编码/状态）|实现快捷键、游戏逻辑|需处理焦点问题（组件必须获得焦点才能监听到）|
+
+---
+
+> [!tip]
+**键盘监听**有一个陷阱：如果你的窗口里有很多按钮，键盘监听器通常需要绑定在**当前获得焦点**的组件上，或者直接绑定在窗口 `JFrame` 上。如果按钮没被选中，你狂敲键盘也是没反应的。
+
+
+---
+---
+
+
+
+
+
+
+
+
+---
+---
+
 # 易错点
 ```java
 Car[] arr = new Car[3]; 
