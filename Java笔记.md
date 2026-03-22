@@ -61,6 +61,7 @@ ctrl+/行注释
 ctrl+shift+/块注释
 ctrl+d快速复制一行
 ctrl+p光标置于方法参数括号中，可浏览到需要哪些参数
+ctrl+B选中方法名，快速切换到定义此方法处
 ctrl+shift+U小写变大写
 Home光标快速移动到行首
 End光标快速移动到行尾
@@ -70,6 +71,7 @@ ctrl+alt+win+M自动抽取方法（将一段代码总结成方法）
 ctrl+alt+L格式化代码
 ctrl+alt+V光标放在这一行，快速给方法返回值赋值（自动命名）
 ctrl+alt+T选中代码块后，可进行"代码包围"，快速用if/else，try/catch，while，for等
+ctrl+alt+左方向键，光标回到上一个地方
 按住alt加上鼠标左键向下拖动可批量修改（比如统一修改变量名）
 
 ---
