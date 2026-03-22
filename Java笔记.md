@@ -3582,6 +3582,153 @@ new Swim() {
     
 
 ---
+---
+
+
+
+# Swing
+
+**Swing** 是 Java 历史上最经典的 GUI（图形用户界面）工具包。它是 AWT 的升级版，也是 Java 程序员进入可视化编程世界的必经之路。
+
+如果把 AWT 比作“毛坯房”，那么 Swing 就是自带精装修、甚至可以随心所欲更换墙纸的“现代公寓”。
+
+---
+
+## 1. Swing 的核心特性：为什么它比 AWT 强？
+
+- **轻量级组件（Lightweight）**：
+    
+    AWT 组件是直接向操作系统“借”的（比如 Windows 的按钮）。而 Swing 组件是用 Java 自己在画布上“画”出来的。
+    
+    - 好处：不依赖系统平台，在任何电脑上长得都一样。
+        
+- **J 开头的命名规则**：
+    
+    为了区分，Swing 所有的组件都在 AWT 名字前加了一个 **`J`**。比如 `Button` 变成了 `JButton`，`Frame` 变成了 `JFrame`。
+    
+- **可插拔的外观（L&F, Look and Feel）**：
+    
+    这是 Swing 的杀手锏。你可以在 Windows 系统上运行出 Mac 风格的界面，或者 Linux 风格，甚至是你自定义的酷炫皮肤。
+    
+- **MVC 设计模式**：
+    
+    Swing 的高级组件（如表格 `JTable`）采用了数据与界面分离的设计。你只需要修改数据模型（Model），界面（View）就会自动更新。
+    
+
+---
+
+## 2. Swing 的五层“套娃”结构
+
+写 Swing 程序就像在搭积木，层层嵌套：
+
+1. **顶层容器 (Top-Level Container)**：
+    
+    一切的起点。通常是 `JFrame`（大窗口）或 `JDialog`（对话框）。
+    
+2. **内容面板 (Content Pane)**：
+    
+    窗口自带的一个隐形大盒子。我们添加的所有按钮、文字，其实是放在这个面板上的。
+    
+3. **布局管理器 (Layout Manager)**：
+    
+    决定盒子里的积木怎么摆（之前我们聊过的 BorderLayout、GridLayout 等）。
+    
+4. **中间容器 (Intermediate Container)**：
+    
+    比如 `JPanel`、`JScrollPane`（带滚动条的面板）。用来把零件分组。
+    
+5. **原子组件 (Atomic Components)**：
+    
+    最基本的零件。如 `JButton`、`JLabel`、`JTextField`。
+    
+
+---
+
+## 3. 常用组件大合集
+
+|**组件分类**|**组件名**|**作用**|
+|---|---|---|
+|**基础按钮**|`JButton`|普通按钮|
+|**文本输入**|`JTextField` / `JPasswordField`|单行文本框 / 密码框（遮掩显示）|
+|**选择器**|`JCheckBox` / `JRadioButton`|多选框 / 单选框|
+|**展示类**|`JLabel`|显示文字或图标|
+|**高级列表**|`JComboBox` / `JList`|下拉列表 / 列表项|
+|**容器类**|`JPanel`|最常用的盒子，用于辅助布局|
+
+---
+
+## 4. Swing 程序的标准开发流程
+
+一个标准的 Swing 程序通常遵循以下“四步走”：
+
+```java
+import javax.swing.*;
+import java.awt.*;
+
+public class SwingDemo {
+    public static void main(String[] args) {
+        // 1. 初始化窗口
+        JFrame frame = new JFrame("Swing 演示器");
+        frame.setSize(400, 300);
+        frame.setLocationRelativeTo(null); // 居中显示
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // 点叉就退出程序
+
+        // 2. 设置布局
+        frame.setLayout(new FlowLayout());
+
+        // 3. 添加组件并绑定事件
+        JButton btn = new JButton("发送消息");
+        JTextField input = new JTextField(15);
+        
+        btn.addActionListener(e -> {
+            String text = input.getText();
+            JOptionPane.showMessageDialog(frame, "你输入了：" + text); // 弹窗工具
+        });
+
+        frame.add(input);
+        frame.add(btn);
+
+        // 4. 最后一步：一定要设置可见，否则窗口在后台运行你看不到
+        frame.setVisible(true);
+    }
+}
+```
+
+---
+
+## 5. Swing 开发的“潜规则”：线程安全
+
+这是很多新手会忽略的**重要细节**。
+
+Swing 不是线程安全的。Java 官方建议：所有对界面的修改操作，都应该放在 **事件调度线程 (EDT)** 中执行，防止界面假死或渲染冲突。
+
+**推荐写法：**
+
+```java
+SwingUtilities.invokeLater(() -> {
+    // 在这里创建和显示你的 GUI
+});
+```
+
+---
+
+## 6. 现状分析：现在还要学 Swing 吗？
+
+- **如果你想做企业级大型桌面软件**：现在的首选可能是 Electron (JavaScript) 或 C# (.NET)。
+    
+- **如果你想深耕 Java 桌面端**：JavaFX 是更好的选择。
+    
+- **但是**：Swing 是理解 **GUI 原理、事件监听、多态应用、内部类** 极其优秀的教科书。很多公司内部使用的报表工具、自动化测试工具依然在使用 Swing，因为它简单、稳定。
+
+
+
+
+
+
+
+---
+---
+
 
 # 布局管理器
 
