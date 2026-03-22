@@ -3446,7 +3446,7 @@ Swim s = new Swim() {
     public void swimming() {
         System.out.println("我在水里划呀划...");
     }
-}; // 这里的分号不能丢！
+}; // 这里的分号不能丢
 ```
 
 **【关键点拨】：**
@@ -3477,7 +3477,7 @@ new Thread(new Runnable() {
     public void run() {
         System.out.println("新线程在跑...");
     }
-}).start();
+}).start();  //分号不要忘了
 ```
 
 ##### ③ 作为返回值
@@ -3514,7 +3514,7 @@ new Swim() {
 
 - **地位**：Java 最早的 GUI 库（JDK 1.0）。
     
-- **特点**：它是**“重量级”**组件。它直接调用操作系统（Windows/Mac/Linux）本地的绘图函数。
+- **特点**：它是“重量级”组件。它直接调用操作系统（Windows/Mac/Linux）本地的绘图函数。
     
 - **缺点**：外观受操作系统限制，在不同系统上长得不一样（不跨平台一致）；组件种类少，功能简陋。
     
