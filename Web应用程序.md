@@ -80,9 +80,8 @@ Web 应用的核心是**解决业务问题**，且具备“无需安装、跨平
 
 ### 1. 前端实现 (HTML + JS)
 
-HTML
 
-```
+```html
 <div id="login-box">
     <input type="text" id="username" placeholder="用户名" />
     <input type="password" id="password" placeholder="密码" />
@@ -111,9 +110,8 @@ HTML
 
 ### 2. 后端实现 (ASP.NET Core)
 
-C#
 
-```
+```c#
 [ApiController]
 [Route("api/[controller]")]
 public class LoginController : ControllerBase
