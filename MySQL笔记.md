@@ -389,7 +389,7 @@ CREATE TABLE students (
 	SELECT DISTINCT 字段列表 FROM 表名;
 
 
-
+==若定义了别名，就不能再使用原名进行操作==
 
 
 
