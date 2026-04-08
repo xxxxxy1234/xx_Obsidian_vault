@@ -3857,12 +3857,12 @@ Java 采用的是 **“委派事件模型” (Delegation Event Model)**，理解
 
 ### 2. 常见的事件类型与监听器
 
-|**动作**|**事件类**|**对应的监听器接口**|**常用方法**|
-|---|---|---|---|
-|**点击按钮/回车**|`ActionEvent`|`ActionListener`|`actionPerformed()`|
-|**鼠标点击/进入/离开**|`MouseEvent`|`MouseListener`|`mouseClicked()`, `mouseEntered()`|
-|**键盘按键按下/释放**|`KeyEvent`|`KeyListener`|`keyPressed()`, `keyReleased()`|
-|**窗口打开/关闭/激活**|`WindowEvent`|`WindowListener`|`windowClosing()`, `windowOpened()`|
+| **动作**         | **事件类**       | **对应的监听器接口**     | **常用方法**                            |
+| -------------- | ------------- | ---------------- | ----------------------------------- |
+| **点击按钮/回车**    | `ActionEvent` | `ActionListener` | `actionPerformed()`                 |
+| **鼠标点击/进入/离开** | `MouseEvent`  | `MouseListener`  | `mouseClicked()`, `mouseEntered()`  |
+| **键盘按键按下/释放**  | `KeyEvent`    | `KeyListener`    | `keyPressed()`, `keyReleased()`     |
+| **窗口打开/关闭/激活** | `WindowEvent` | `WindowListener` | `windowClosing()`, `windowOpened()` |
 
 ---
 
