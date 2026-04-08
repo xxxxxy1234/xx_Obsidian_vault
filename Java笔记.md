@@ -3946,6 +3946,9 @@ frame.addWindowListener(new WindowAdapter() {
 
 这三种监听器覆盖了用户最常用的交互方式：
 
+>[!attention]
+>==这里的addActionListener、addMouseListener、addKeyListener方法参数都是接口（或者说实现类对象），他们的方法体都会各自去调用实现类对象重写ActionListener、MouseListener、KeyListener接口的方法==
+
 ---
 
 ### 1. 行为监听 (ActionListener) —— 最常用
