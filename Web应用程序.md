@@ -660,12 +660,14 @@ protected void Page_Load(object sender, EventArgs e)
  * **核心属性**：
    * TextMode: 支持 SingleLine、Password、MultiLine 以及 HTML5 类型（Email/Date等）。
    * AutoPostBack: 设置为 true 时，内容改变并失去焦点会立即触发服务器端事件。
+   * 
 ### 4. 关键区别对比
-| 特性 | Label | Literal | TextBox ||---|---|---|---|
-| **HTML 渲染** | \<span> | 无外层标签 | \<input> / \<textarea> |
-| **支持样式** | 是 | 否 | 是 |
-| **用户输入** | 否 | 否 | 是 |
 
+|**特性**|**Label**|**Literal**|**TextBox**|
+|---|---|---|---|
+|**HTML 渲染**|`<span>`|无外层标签|`input` 或 `textarea`|
+|**支持样式**|是|否|是|
+|**用户输入**|否|否|是|
 
 ### 5. 常用后端逻辑示例
 ```csharp
