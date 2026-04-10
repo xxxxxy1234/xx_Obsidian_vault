@@ -586,8 +586,8 @@ graph TD
 > [!warning] 性能注意
 > 如果页面上有大型数据控件（如 GridView 绑定了万条数据），ViewState 会变得非常庞大，导致页面加载变慢。可以通过 EnableViewState="false" 手动关闭不必要的控件状态保持。
 > 
-### 4. 常用代码示例 (Obsidian 语法)
-### 数据绑定示例
+### 4. 常用代码示例 
+#### 数据绑定示例
 在后置代码（.aspx.cs）中，你可以像操作对象一样操作这些控件：
 ```csharp
 // 前端声明：<asp:Label ID="lblMsg" runat="server" />
@@ -609,7 +609,7 @@ protected void Page_Load(object sender, EventArgs e)
 }
 
 ```
-### 验证控件用法
+#### 验证控件用法
 ```html
 <asp:TextBox ID="txtAge" runat="server" />
 <asp:RangeValidator 
@@ -626,3 +626,61 @@ protected void Page_Load(object sender, EventArgs e)
  1. **ID 命名规范**：建议使用前缀区分控件类型，如 btnSubmit (Button), txtUserName (TextBox), gvOrders (GridView)。
  2. **AutoPostBack 属性**：有些控件（如 DropDownList）默认改变选项不会刷新页面。如果需要改变后立即执行服务器逻辑，需设置 AutoPostBack="true"。
  3. **不要滥用**：简单的静态展示使用普通 HTML 标签即可，过度使用服务器控件会增加服务器负担。
+
+
+
+
+
+
+
+明白，我会严格去除所有用于装饰的冗余符号（如标题前的 # 占位符、多余的星号等），确保文本结构纯净且符合 Obsidian 的 Markdown 标准。以下是缩小一级标题后的**文本类型控件**笔记：
+## ASP.NET 文本类型控件详解
+> [!abstract] 概要
+> 文本类型控件是 Web Forms 中最基础的交互组件，主要用于展示静态文本或接收用户输入。它们在服务器端都有对应的类模型，支持丰富的属性配置。
+> 
+### 1. Label 控件 (标签)
+用于在页面上显示不希望被用户直接修改的文本。
+ * **渲染结果**：通常渲染为 HTML 的 \<span> 标签。
+ * **核心属性**：
+   * Text: 获取或设置显示的文本内容。
+   * AssociatedControlID: 关联其他输入控件，渲染时会变成 \<label for="...">。
+```html
+<asp:Label ID="lblStatus" runat="server" Text="当前状态：正常" />
+
+```
+### 2. Literal 控件 (静态文本)
+与 Label 类似，但它更“纯粹”。
+ * **渲染结果**：直接输出内容，不产生任何额外的 HTML 标签。
+ * **适用场景**：动态向页面注入代码片段、脚本或纯文字，不破坏 CSS 布局。
+ * **核心属性**：
+   * Mode: 支持 Transform、PassThrough 或 Encode（自动进行 HTML 编码防止 XSS）。
+### 3. TextBox 控件 (文本框)
+最核心的输入控件。
+ * **渲染结果**：根据 TextMode 不同，渲染为 input 或 textarea。
+ * **核心属性**：
+   * TextMode: 支持 SingleLine、Password、MultiLine 以及 HTML5 类型（Email/Date等）。
+   * AutoPostBack: 设置为 true 时，内容改变并失去焦点会立即触发服务器端事件。
+### 4. 关键区别对比
+| 特性 | Label | Literal | TextBox ||---|---|---|---|
+| **HTML 渲染** | \<span> | 无外层标签 | \<input> / \<textarea> |
+| **支持样式** | 是 | 否 | 是 |
+| **用户输入** | 否 | 否 | 是 |
+
+
+### 5. 常用后端逻辑示例
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    // 获取用户输入
+    string userName = txtUserName.Text.Trim();
+    
+    // Label 修改显示
+    lblMessage.Text = "信息已接收";
+    
+    // Literal 注入 HTML
+    litOutput.Text = "<b>处理完成</b>";
+}
+```
+
+### 6. 开发避坑：只读属性
+若在前端通过 JavaScript 修改了 ReadOnly="true" 的 TextBox 的值，回发后 C# 可能读取不到新值。建议使用 HiddenField 配合或通过 Request.Form 集合手动获取。
