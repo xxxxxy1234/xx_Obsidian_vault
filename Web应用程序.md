@@ -473,3 +473,156 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
 2. **注释：** 代码里写给自己看的笔记用 ``。
     
 3. **属性：** 属性名和属性值之间用 `=`，值必须加双引号 `""`。
+
+
+# ASP.NET页面事件
+## ASP.NET 页面生命周期事件
+
+> [!abstract] 简介
+> ASP.NET 页面在服务器上运行并呈现为 HTML 的过程中，会经历一系列有序的事件。理解这些事件对于处理控件初始化、状态维护（ViewState）和业务逻辑触发至关重要。
+> 
+### 1. 核心事件流程图
+在 Obsidian 中建议使用 Mermaid 插件查看（默认支持）：
+```mermaid
+graph TD
+    A[PreInit] --> B[Init]
+    B --> C[InitComplete]
+    C --> D[PreLoad]
+    D --> E[Load]
+    E --> F[控件事件/Click/Changed]
+    F --> G[LoadComplete]
+    G --> H[PreRender]
+    H --> I[SaveStateComplete]
+    I --> J[Render]
+    J --> K[Unload]
+
+```
+### 2. 关键生命周期阶段详解
+#### 🟢 初始化阶段 (Initialization)
+ * **PreInit**:
+   * 设置页面主题（Theme）。
+   * 动态创建或替换主页（Master Page）。
+ * **Init**:
+   * 递归初始化所有子控件。
+   * **注意**：此时 ViewState 尚未还原。
+ * **InitComplete**:
+   * 所有控件初始化完成，开始开启视图状态（ViewState）追踪。
+#### 🔵 加载阶段 (Loading)
+ * **PreLoad**: 处理回发（Postback）数据之前的最后一步。
+ * **Load (最常用)**:
+   * 此时页面已恢复 ViewState。
+   * 使用 IsPostBack 区分首次加载与后续刷新。
+> [!example] 典型用法
+> ```csharp
+> protected void Page_Load(object sender, EventArgs e)
+> {
+>     if (!IsPostBack)
+>     {
+>         // 首次进入页面执行：如绑定数据库数据
+>     }
+> }
+> 
+> ```
+> 
+#### 🟠 控件事件处理 (Postback Events)
+ * **具体事件触发**: 如按钮点击 Button_Click 或下拉列表改变 SelectedIndexChanged。
+ * 这些事件仅在 **回发（Postback）** 时发生，且在 Page_Load 之后执行。
+#### 🟡 呈现前处理 (Pre-rendering)
+ * **PreRender**:
+   * 输出 HTML 前的最后修改机会。
+   * 常用于最后调整控件的 Visible 或 Style 属性。
+ * **SaveStateComplete**: ViewState 已完全序列化并保存到页面中。
+#### 🔴 卸载阶段 (Unloading)
+ * **Unload**:
+   * 页面处理完毕，资源回收。
+   * **禁忌**：不可在此阶段修改控件属性（会引发异常），仅用于关闭数据库连接或文件流。
+### 3. 常见开发避坑指南
+| 比较项 | Init 事件 | Load 事件 |
+|---|---|---|
+| **ViewState** | 不可用 | **可用** |
+| **控件值** | 初始值 | 用户输入的值 |
+| **动态控件** | 建议在此处创建（保证 ID 一致） | 一般用于处理逻辑 |
+> [!warning] 重要提示
+> 所有的页面事件逻辑在完成后，服务器都会将页面对象**销毁**。这意味着类级别的成员变量无法跨页面刷新保留，除非使用 Session、Cookie 或 ViewState。
+> 
+### 4. 快速查询：完整触发顺序表
+ 1. OnPreInit
+ 2. OnInit
+ 3. OnInitComplete
+ 4. OnPreLoad
+ 5. **OnLoad**
+ 6. **控件事件** (如 Click)
+ 7. OnLoadComplete
+ 8. **OnPreRender**
+ 9. OnPreRenderComplete
+ 10. OnSaveStateComplete
+ 11. Unload
+
+
+
+
+在 ASP.NET Web Forms 开发中，**服务器控件（Server Controls）** 是构建交互式网页的核心组件。它们在服务器端运行，并由 ASP.NET 引擎自动渲染为 HTML 代码。
+## ASP.NET 服务器控件详解
+> [!tip] 核心特征
+> 服务器控件必须包含 runat="server" 属性。它们的对象模型在服务器端运行，能够保留状态（ViewState），并触发服务器端事件。
+> 
+### 1. 控件分类
+| 类别 | 代表控件 | 说明 |
+|---|---|---|
+| **标准控件** | asp:Button, asp:TextBox, asp:Label | 对应 HTML 基本元素，但具有完整的服务器端事件支持。 |
+| **容器控件** | asp:Panel, asp:PlaceHolder | 用于组织页面布局，或在运行时动态添加子控件。 |
+| **数据控件** | asp:GridView, asp:Repeater, asp:DataList | 强大的数据绑定组件，用于显示数据库内容（支持分页、排序）。 |
+| **验证控件** | asp:RequiredFieldValidator, asp:CompareValidator | 在前端和后端双重验证用户输入，确保数据安全。 |
+| **导航控件** | asp:Menu, asp:TreeView, asp:SiteMapPath | 自动生成菜单、面包屑导航。 |
+### 2. HTML 控件 vs 服务器控件
+| 特性       | HTML 控件 (客户端)          | 服务器控件 (Server Controls)                  |
+| -------- | ---------------------- | ---------------------------------------- |
+| **声明方式** | <input type="text">    | <asp:TextBox ID="txt1" runat="server" /> |
+| **生命周期** | 仅在浏览器运行，无服务器交互         | 参与页面生命周期（Init, Load, Unload 等）           |
+| **状态保持** | 页面刷新后数据丢失（除非手动处理）      | 自动通过 **ViewState** 保持输入内容                |
+| **编程模型** | 通常通过 JavaScript/DOM 操作 | 在 C# 后置代码中直接通过 ID 访问                     |
+### 3. 核心机制：ViewState (视图状态)
+这是服务器控件最独特的机制。为了解决 HTTP 协议无状态的问题，ASP.NET 将控件的状态（如文本框里的文字、选中的复选框）加密后存在一个名为 VIEWSTATE 的隐藏域中。
+> [!warning] 性能注意
+> 如果页面上有大型数据控件（如 GridView 绑定了万条数据），ViewState 会变得非常庞大，导致页面加载变慢。可以通过 EnableViewState="false" 手动关闭不必要的控件状态保持。
+> 
+### 4. 常用代码示例 (Obsidian 语法)
+### 数据绑定示例
+在后置代码（.aspx.cs）中，你可以像操作对象一样操作这些控件：
+```csharp
+// 前端声明：<asp:Label ID="lblMsg" runat="server" />
+// 前端声明：<asp:DropDownList ID="ddlCategories" runat="server" />
+
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack)
+    {
+        // 模拟数据源
+        List<string> categories = new List<string> { "后端", "前端", "AI" };
+        
+        // 绑定数据到服务器控件
+        ddlCategories.DataSource = categories;
+        ddlCategories.DataBind();
+        
+        lblMsg.Text = "数据绑定成功！";
+    }
+}
+
+```
+### 验证控件用法
+```html
+<asp:TextBox ID="txtAge" runat="server" />
+<asp:RangeValidator 
+    ID="rvAge" 
+    runat="server" 
+    ControlToValidate="txtAge" 
+    MinimumValue="1" 
+    MaximumValue="120" 
+    Type="Integer" 
+    ErrorMessage="请输入有效的年龄 (1-120)" />
+
+```
+### 5. 开发建议
+ 1. **ID 命名规范**：建议使用前缀区分控件类型，如 btnSubmit (Button), txtUserName (TextBox), gvOrders (GridView)。
+ 2. **AutoPostBack 属性**：有些控件（如 DropDownList）默认改变选项不会刷新页面。如果需要改变后立即执行服务器逻辑，需设置 AutoPostBack="true"。
+ 3. **不要滥用**：简单的静态展示使用普通 HTML 标签即可，过度使用服务器控件会增加服务器负担。
