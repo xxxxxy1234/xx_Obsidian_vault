@@ -615,7 +615,7 @@ System.out.println(task);
 
 ---
 
-## 💡 核心总结
+## 核心总结
 
 1. **关于大括号 `{}`**：
     
@@ -1327,13 +1327,13 @@ if ("admin".equals(input)) { ... }
 
 用于提取字符串的状态或特定字符。
 
-|**方法签名**|**作用**|**示例**|
-|---|---|---|
-|`int length()`|获取字符串长度（字符数）|`"abc".length()` → `3`|
-|`char charAt(int i)`|获取指定索引处的字符|`"abc".charAt(1)` → `'b'`|
-|`int indexOf(String s)`|返回子串第一次出现的索引，找不到返回 `-1`|`"abcabc".indexOf("bc")` → `1`|
-|`int lastIndexOf(String s)`|返回子串最后一次出现的索引|`"abcabc".lastIndexOf("bc")` → `4`|
-|`boolean isEmpty()`|判断是否为空串 `""`|`"".isEmpty()` → `true`|
+| **方法签名**                    | **作用**                  | **示例**                             |
+| --------------------------- | ----------------------- | ---------------------------------- |
+| `int length()`              | 获取字符串长度（字符数）            | `"abc".length()` → `3`             |
+| `char charAt(int i)`        | 获取指定索引处的字符              | `"abc".charAt(1)` → `'b'`          |
+| `int indexOf(String s)`     | 返回子串第一次出现的索引，找不到返回 `-1` | `"abcabc".indexOf("bc")` → `1`     |
+| `int lastIndexOf(String s)` | 返回子串最后一次出现的索引           | `"abcabc".lastIndexOf("bc")` → `4` |
+| `boolean isEmpty()`         | 判断是否为空串 `""`            | `"".isEmpty()` → `true`            |
 
 ---
 
@@ -1346,13 +1346,13 @@ if ("admin".equals(input)) { ... }
 >==一维数组比较用：Arrays.equals(数组1，数组2)==
 >==多维数组比较用：Arrays.deepEquals(数组1，数组2)==
 
-|**方法签名**|**作用**|**示例**|
-|---|---|---|
-|`boolean equals(Object o)`|比较内容是否完全相同（**区分大小写**）|`"abc".equals("Abc")` → `false`|
-|`boolean equalsIgnoreCase(String s)`|比较内容（**忽略大小写**）|`"abc".equalsIgnoreCase("Abc")` → `true`|
-|`boolean contains(CharSequence s)`|判断是否包含子串|`"abc".contains("bc")` → `true`|
-|`boolean startsWith(String p)`|判断是否以指定前缀开头|`"abc".startsWith("ab")` → `true`|
-|`boolean endsWith(String s)`|判断是否以指定后缀结尾|`"abc".endsWith("bc")` → `true`|
+| **方法签名**                             | **作用**                | **示例**                                   |
+| ------------------------------------ | --------------------- | ---------------------------------------- |
+| `boolean equals(Object o)`           | 比较内容是否完全相同（**区分大小写**） | `"abc".equals("Abc")` → `false`          |
+| `boolean equalsIgnoreCase(String s)` | 比较内容（**忽略大小写**）       | `"abc".equalsIgnoreCase("Abc")` → `true` |
+| `boolean contains(CharSequence s)`   | 判断是否包含子串              | `"abc".contains("bc")` → `true`          |
+| `boolean startsWith(String p)`       | 判断是否以指定前缀开头           | `"abc".startsWith("ab")` → `true`        |
+| `boolean endsWith(String s)`         | 判断是否以指定后缀结尾           | `"abc".endsWith("bc")` → `true`          |
 
 ---
 
