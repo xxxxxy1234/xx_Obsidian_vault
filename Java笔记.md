@@ -4464,8 +4464,10 @@ class Person implements Cloneable {
 ```
 
 >[!attention]
->- 1、Person newPerson = (Person) super.clone();，设被克隆体为P1，克隆体为P2，此时他们各自有独立的地址，name属性也是独立的地址，即name1和name2是不同地址，但address是共享的，即都用的是address1的地址
->- 2、newPerson.address = (Address) this.address.clone()，address1被克隆，设克隆体为address3，此时他们各自有独立的地址，city属性也是独立的地址，即city1和city3是不同地址，
+>- 1、(Person) super.clone()，设被克隆体为P1，克隆体为P2，此时他们各自有独立的地址，name属性为String类型，即也是独立的地址，即name1和name2是不同地址，但address属性是类的对象，是共享的，即都用的是address1的地址
+>- 2、Person newPerson = (Person) super.clone()，即newPerson就是克隆体P2的引用，**P1和P2的city还是共享同一个地址**
+>- 3、 (Address) this.address.clone()，address1被克隆，设克隆体为address3，此时他们各自有独立的地址，city属性为String类型，即也是独立的地址，即city1和city3是不同地址
+>- 4、newPerson.address =(Address) this.address.clone()，即address就是克隆体address3的引用，而P1用的是address1的地址，P2用的是address3的地址，而city1和city3是不同地址，**P1和P2的city此时不继续共享同一个地址**
 
 
 **测试效果：**
