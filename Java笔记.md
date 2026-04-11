@@ -4364,7 +4364,7 @@ r.exec("calc");
 
 ##### ② 浅克隆 (Shallow Clone)
 
-- **Object 默认实现**：只拷贝对象本身和其中的基本数据类型值。
+- **Object 默认实现**：只拷贝对象本身和其中的基本数据类型值，不同地址。
     
 - **局限性**：如果对象中包含其他引用类型（如数组、另一个类），克隆后的新旧对象将**共享**这些引用类型的地址。修改其中一个，另一个也会跟着变。
     
@@ -4374,28 +4374,116 @@ r.exec("calc");
 - **实现方式**：在 `clone()` 方法内部，手动对引用类型的属性再次调用其 `clone()` 方法，或者利用序列化技术。
     
 - **效果**：对象内部的所有层次都会被重新创建，实现完全的物理隔离。
-    
+---
 
-### 3. 线程相关方法（配合多线程使用）
 
-以下方法用于控制线程的等待与唤醒，必须在**同步锁**块中调用：
+#### 4. 细谈浅克隆和深克隆
 
-- **`wait()`**：使当前线程进入等待状态，并释放锁。
-    
-- **`notify()`**：随机唤醒一个在此对象监视器上等待的线程。
-    
-- **`notifyAll()`**：唤醒所有在此对象监视器上等待的线程。
-    
+为了看清**浅克隆**和**深克隆**在内存中的本质区别，我们以一个具体的“人（Person）持有地址（Address）”为例。
+
+##### 1. 准备工作：公共的 Address 类
+
+假设这是我们要克隆的对象内部持有的引用类型。
+
+
+```java
+class Address implements Cloneable {
+    String city;
+
+    public Address(String city) { this.city = city; }
+
+    @Override
+    protected Object clone() throws CloneNotSupportedException {
+        return super.clone();
+    }
+}
+```
 
 ---
 
-### 4. 总结与规范
+##### 2. 浅克隆 (Shallow Clone) 示例
 
-1. **自动继承**：即使不写 `extends Object`，任何 Java 类都会默认继承它。
-    
-2. **方法覆盖**：在实际开发中，`toString()`、`equals()` 和 `hashCode()` 几乎是所有实体类（JavaBean）必须手动重写的“老三样”。
-    
-3. **多态性**：由于它是顶级父类，`Object` 类型的变量可以接收任何对象，常用于实现通用性极强的参数传递。
+在浅克隆中，我们只调用 `super.clone()`。
+
+```java
+class Person implements Cloneable {
+    String name;
+    Address address; // 引用类型
+
+    public Person(String name, Address address) {
+        this.name = name;
+        this.address = address;
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        // 核心：直接返回父类的克隆结果，不处理内部引用
+        return super.clone();
+    }
+}
+```
+
+**测试效果：**
+
+```java
+Address addr = new Address("北京");
+Person p1 = new Person("张三", addr);
+Person p2 = (Person) p1.clone(); // 浅克隆
+
+// 修改 p2 的地址
+p2.address.city = "上海";
+
+System.out.println(p1.address.city); // 输出：上海（p1被连累修改了！）
+```
+
+---
+
+##### 3. 深克隆 (Deep Clone) 示例
+
+在深克隆中，我们需要手动克隆内部的每一个引用对象。
+
+```java
+class Person implements Cloneable {
+    String name;
+    Address address;
+
+    public Person(String name, Address address) {
+        this.name = name;
+        this.address = address;
+    }
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        // 1. 先克隆出 Person 对象主体
+        Person newPerson = (Person) super.clone();
+        // 2. 核心：手动克隆内部的引用对象，并重新赋值
+        newPerson.address = (Address) this.address.clone();
+        return newPerson;
+    }
+}
+```
+
+>[!attention]
+>- 1、Person newPerson = (Person) super.clone();，设被克隆体为P1，克隆体为P2，此时他们各自有独立的地址，name属性也是独立的地址，即name1和name2是不同地址，但address是共享的，即都用的是address1的地址
+>- 2、newPerson.address = (Address) this.address.clone()，address1被克隆，设克隆体为address3，此时他们各自有独立的地址，city属性也是独立的地址，即city1和city3是不同地址，
+
+
+**测试效果：**
+
+```java
+Address addr = new Address("北京");
+Person p1 = new Person("张三", addr);
+Person p2 = (Person) p1.clone(); // 深克隆
+
+// 修改 p2 的地址
+p2.address.city = "上海";
+
+System.out.println(p1.address.city); // 输出：北京（p1不受影响，它是独立的！）
+```
+
+---
+
+
 
 ---
 ---
