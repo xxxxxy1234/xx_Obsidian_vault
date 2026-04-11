@@ -4156,7 +4156,9 @@ this.getContentPane().repaint();
 
 ## System
 
-`System` 类是 Java 中一个非常特殊的“工具人”。它位于 `java.lang` 包下，代表了当前运行 Java 程序的系统环境。它的所有成员都是静态的（`static`），所以你不能（也无法）`new System()`
+`System` 类是 Java 中一个非常特殊的“工具人”。它位于 `java.lang` 包下，代表了当前运行 Java 程序的系统环境。它的所有成员都是静态的（`static`），所以不能（也无法）`new System()`
+
+### 1. 核心方法速查表
 
 | **方法名**                   | **返回值** | **功能描述**        | **拼图游戏/开发场景**     |
 | ------------------------- | ------- | --------------- | ----------------- |
@@ -4164,6 +4166,141 @@ this.getContentPane().repaint();
 | **`arraycopy(...)`**      | `void`  | **数组拷贝**（效率极高）  | 打乱数组、数组扩容         |
 | **`exit(int status)`**    | `void`  | **终止虚拟机**（关闭程序） | 菜单里的“退出游戏”功能      |
 | **`gc()`**                | `void`  | 建议 JVM 进行垃圾回收   | 内存清理（一般不手动调用）     |
+
+### 2. 重点方法深度解析
+
+#### 2.1 currentTimeMillis()：时间戳
+
+它返回的是从 1970 年 1 月 1 日 00:00:00 到现在的总毫秒数。
+
+- **实战：计算程序运行时间**
+
+
+```java
+long start = System.currentTimeMillis();
+// 执行一段逻辑（如打乱 10000 次拼图）
+long end = System.currentTimeMillis();
+System.out.println("耗时：" + (end - start) + "ms");
+```
+
+#### 2.2 arraycopy()：高效复制
+
+虽然 `for` 循环也能复制数组，但 `System.arraycopy` 是底层由 C++ 实现的，速度最快。
+
+- **参数格式**： `System.arraycopy(源数组, 源起始位, 目标数组, 目标起始位, 长度);`
+
+
+```java
+int[] src = {1, 2, 3, 4, 5};
+int[] dest = new int[5];
+System.arraycopy(src, 0, dest, 0, 5);
+```
+
+>[!tip]
+>- 如果两个数组都是基本数据类型，那么类型必须保持一致
+>- 如果都是引用数据类型，子类型可以赋值给父类类型
+
+#### 2.3 exit()：安全退出
+
+- `System.exit(0)`：正常退出。
+    
+- `System.exit(非0)`：异常退出（通常用于报错时关闭）。
+    
+
+> **注意**：在 Swing 游戏开发中，点击窗口右上角的叉号退出，底层其实就是通过事件监听调用了类似的功能。
+
+---
+
+### 3. 三大标准流
+
+`System` 类还持有了三个重要的静态成员变量，你其实天天都在用：
+
+1. **`System.out`**：标准输出流（控制台打印）。
+    
+2. **`System.in`**：标准输入流（配合 `Scanner` 获取键盘输入）。
+    
+3. **`System.err`**：标准错误输出流（打印出来的文字通常是红色的）。
+
+---
+---
+
+
+## Runtime
+
+
+`Runtime` 类在 Java 中代表了 **Java 虚拟机的运行环境**。每个 Java 应用程序都有一个 `Runtime` 类实例，允许应用程序与其运行的环境进行交互。
+
+与 `System` 不同，`Runtime` 使用了**单例设计模式**，你不能直接 `new`，必须通过 `Runtime.getRuntime()` 获取实例。
+
+---
+
+
+### 1. 核心方法速查表
+
+|**方法名**|**返回值**|**功能描述**|
+|---|---|---|
+|**`getRuntime()`**|`Runtime`|静态方法，获取当前虚拟机的 Runtime 实例。|
+|**`exit(int status)`**|`void`|终止当前运行的虚拟机（底层被 `System.exit` 调用）。|
+|**`exec(String command)`**|`Process`|**执行操作系统命令**（如打开记事本、计算器）。|
+|**`availableProcessors()`**|`int`|返回 JVM 可以使用的**处理器核心数**。|
+|**`totalMemory()`**|`long`|返回 JVM 中的**内存总量**（以字节为单位）。|
+|**`freeMemory()`**|`long`|返回 JVM 中的**空闲内存量**。|
+|**`maxMemory()`**|`long`|返回 JVM 试图使用的**最大内存量**。|
+
+---
+
+### 2. 重点功能深度解析
+
+#### 2.1 获取内存信息（单位换算）
+
+由于返回的是字节（Byte），通常需要除以 `1024` 两次来换算成 **MB**。
+
+```java
+Runtime r = Runtime.getRuntime();
+
+System.out.println("核心数：" + r.availableProcessors());
+System.out.println("最大内存：" + r.maxMemory() / 1024 / 1024 + "MB");
+System.out.println("已获取总内存：" + r.totalMemory() / 1024 / 1024 + "MB");
+System.out.println("剩余空闲内存：" + r.freeMemory() / 1024 / 1024 + "MB");
+```
+
+#### 2.2 exec()：调用外部程序
+
+可以用来启动电脑上的其他软件。
+
+```java
+Runtime r = Runtime.getRuntime();
+// 打开计算器 (Windows 环境)
+r.exec("calc");
+// 打开特定路径的文件/程序
+// r.exec("D:\\xxx\\qq.exe"); 
+```
+
+---
+
+### 3. Runtime 与 System 的关系
+
+- **联系**：`System.exit()` 内部其实就是调用的 `Runtime.getRuntime().exit()`。
+    
+- **区别**：
+    
+    - `System` 主要是提供了一些**静态便利方法**。
+        
+    - `Runtime` 侧重于 **JVM 本身的运行状态**（内存、处理器核心、外部进程管理）。
+        
+
+---
+
+### 4. 总结对比
+
+|**特性**|**Runtime**|**System**|
+|---|---|---|
+|**设计模式**|单例模式 (Singleton)|工具类（全静态）|
+|**获取方式**|`Runtime.getRuntime()`|直接类名调用|
+|**主要职责**|JVM 内存管理、执行系统命令|系统属性、标准输入输出、数组拷贝|
+
+---
+---
 
 
 
