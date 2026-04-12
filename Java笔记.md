@@ -4588,7 +4588,7 @@ public void setAddress(Address addr) {
 | `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合  |                                 |
 | `public static BigInteger valueof(long val)` | 静态方法，获取指定进制的大整数，但取值只能在long范围内 |                                 |
 | **常量引用**                                     | 快速获取常用数字。                     | `BigInteger.ZERO`, `ONE`, `TEN` |
-|                                              |                               |                                 |
+
 
 ---
 
@@ -4596,15 +4596,16 @@ public void setAddress(Address addr) {
 
 由于 `BigInteger` 是对象而非基本类型，你**不能使用 `+ - * /` 运算符**，必须调用其方法。
 
-|**运算类型**|**方法名**|**等价数学表达式**|
-|---|---|---|
-|**加法**|`add(BigInteger val)`|$a + b$|
-|**减法**|`subtract(BigInteger val)`|$a - b$|
-|**乘法**|`multiply(BigInteger val)`|$a \times b$|
-|**除法**|`divide(BigInteger val)`|$a \div b$ (取整)|
-|**取模/取余**|`remainder(BigInteger val)`|$a \pmod b$|
-|**次方**|`pow(int exponent)`|$a^{exponent}$|
-|**绝对值**|`abs()`|$|
+| **运算类型**  | **方法名**                     | **等价数学表达式**     |
+| --------- | --------------------------- | --------------- |
+| **加法**    | `add(BigInteger val)`       | $a + b$         |
+| **减法**    | `subtract(BigInteger val)`  | $a - b$         |
+| **乘法**    | `multiply(BigInteger val)`  | $a \times b$    |
+| **除法**    | `divide(BigInteger val)`    | $a \div b$ (取整) |
+| **取模/取余** | `remainder(BigInteger val)` | $a \pmod b$     |
+| **次方**    | `pow(int exponent)`         | $a^{exponent}$  |
+| **绝对值**   | `abs()`                     | $               |
+
 
 ---
 
@@ -4620,7 +4621,7 @@ public void setAddress(Address addr) {
         
     - 返回 `-1`：当前对象小于参数。
         
-- **`max()` / `min()`**：返回两个数中的最大/最小值。
+- `max()` / `min()`：返回两个数中的最大/最小值。
     
 
 #### 4.2 类型转换
@@ -4640,9 +4641,8 @@ public void setAddress(Address addr) {
 
 > **注意**：当你执行 `a.add(b)` 时，并没有修改 `a` 本身的值，而是产生并返回了一个**全新的 BigInteger 对象**。
 
-Java
 
-```
+```java
 BigInteger a = new BigInteger("10");
 a.add(new BigInteger("5")); 
 System.out.println(a); // 输出还是 10！必须接收返回值：a = a.add(...)
