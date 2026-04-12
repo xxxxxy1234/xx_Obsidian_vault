@@ -4581,14 +4581,14 @@ public void setAddress(Address addr) {
 
 ### 2. 常用构造方法
 
-| **构造方式**                                     | **说明**                          | **示例**                          |
-| -------------------------------------------- | ------------------------------- | ------------------------------- |
-| `public BigInteger(int num,Random rnd)`      | 获取随机大整数，范围：[0~2的num次方-1]        |                                 |
-| `public BigInteger(String val)`              | 获取指定的大整数，字符串中必须是整数              |                                 |
-| `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合    |                                 |
-| `public static BigInteger valueof(long val)` | 静态方法获取BigInteger对象，取值只能在long范围内 |                                 |
-| **常量引用**                                     | 快速获取常用数字。                       | `BigInteger.ZERO`, `ONE`, `TEN` |
-|                                              |                                 |                                 |
+| **构造方式**                                     | **说明**                        | **示例**                          |
+| -------------------------------------------- | ----------------------------- | ------------------------------- |
+| `public BigInteger(int num,Random rnd)`      | 获取随机大整数，范围：[0~2的num次方-1]      |                                 |
+| `public BigInteger(String val)`              | 获取指定的大整数，字符串中必须是整数            |                                 |
+| `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合  |                                 |
+| `public static BigInteger valueof(long val)` | 静态方法，获取指定进制的大整数，但取值只能在long范围内 |                                 |
+| **常量引用**                                     | 快速获取常用数字。                     | `BigInteger.ZERO`, `ONE`, `TEN` |
+|                                              |                               |                                 |
 
 ---
 
