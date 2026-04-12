@@ -1085,7 +1085,7 @@ Java 拥有极其庞大的标准库，初学者最先接触的通常是以下几
 
 ### 4. 学会看 API 文档（核心技能）
 
-[Java API文档链接](https://docs.oracle.com/javase/8/docs/api/)
+[Java API文档链接](https://www.matools.com/api/java8)
 
 API 文档是每个 Java 程序员的“保命手册”。当你打开一个类的文档时，重点看这三块：
 
