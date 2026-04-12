@@ -4483,13 +4483,84 @@ p2.address.city = "上海";
 System.out.println(p1.address.city); // 输出：北京（p1不受影响，它是独立的！）
 ```
 
----
-
-
 
 ---
 ---
 
+## Objects
+
+
+`Objects` 类（注意带 **s**）是在 Java 7 引入的一个**工具类**。它位于 `java.util` 包下，由全静态方法组成。
+
+它的核心存在意义是：**为了更安全地处理 `null` 情况**。它对 `Object` 类的一些原始方法（如 `equals`, `toString`）进行了包装，防止程序在运行时因为对象为 `null` 而抛出 `NullPointerException` (NPE)。
+
+---
+
+#### 1. 核心方法速查表
+
+|**方法名**|**返回值**|**功能描述**|
+|---|---|---|
+|**`equals(a, b)`**|`boolean`|比较两个对象是否相等（包含空指针判断）。|
+|**`isNull(obj)`**|`boolean`|判断对象是否为 `null`。|
+|**`nonNull(obj)`**|`boolean`|判断对象是否不为 `null`。|
+|**`requireNonNull(obj)`**|`T`|检查对象是否为空，为空则抛出异常（用于参数校验）。|
+|**`toString(obj, nullDefault)`**|`String`|将对象转为字符串，若对象为空则返回默认值。|
+
+---
+
+#### 2. 重点方法深度解析
+
+##### 2.1 equals(Object a, Object b) —— 告别空指针
+
+这是 `Objects` 中最常用的方法。
+
+- **普通对比**：`a.equals(b)`，如果 `a` 为 `null`，直接报 `NullPointerException`。
+    
+- **使用 Objects**：`Objects.equals(a, b)`。
+    
+    - 内部逻辑：先判断 `a == b`（包含同为 null 的情况），再判断 `a != null` 后再调用 `a.equals(b)`。
+        
+    - **优点**：即便 `a` 是 `null`，代码也不会崩溃。
+        
+
+##### 2.2 isNull(obj) 与 nonNull(obj)
+
+这两个方法本质上就是 `obj == null` 和 `obj != null` 的封装。
+
+- **意义**：在 Lambda 表达式和 Stream 流中通过方法引用使代码更具可读性。
+    
+- **示例**：`list.stream().filter(Objects::nonNull)...`
+    
+
+##### 2.3 requireNonNull(T obj)
+
+用于在方法开头校验参数。
+
+Java
+
+```
+public void setAddress(Address addr) {
+    // 如果 addr 是空，立刻抛出异常并提示原因，而不是等到后面报错
+    this.address = Objects.requireNonNull(addr, "地址不能为空！");
+}
+```
+
+---
+
+#### 3. Object 与 Objects 的区别
+
+|**特性**|**Object (基类)**|**Objects (工具类)**|
+|---|---|---|
+|**位置**|`java.lang`|`java.util`|
+|**性质**|对象的顶级父类，非静态方法多。|专门操作对象的工具类，全静态方法。|
+|**安全性**|调用方法（如 `equals`）前需手动判空。|**自带防空逻辑**，更健壮。|
+|**使用建议**|供子类继承和重写。|供开发者直接调用处理业务逻辑。|
+
+---
+
+#### 4. 总结
+
+`Objects` 就像是给 `Object` 的常用方法套上了一层**防弹衣**。在现代 Java 开发中，凡是涉及两个对象比较或者属性判空，**首选 `Objects` 类的方法**。
 
 
 ---
