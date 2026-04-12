@@ -4581,13 +4581,13 @@ public void setAddress(Address addr) {
 
 ### 2. 常用构造方法
 
-| **构造方式**                                     | **说明**                        | **示例**                          |
-| -------------------------------------------- | ----------------------------- | ------------------------------- |
-| `public BigInteger(int num,Random rnd)`      | 获取随机大整数，范围：[0~2的num次方-1]      |                                 |
-| `public BigInteger(String val)`              | 获取指定的大整数，字符串中必须是整数            |                                 |
-| `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合  |                                 |
-| `public static BigInteger valueof(long val)` | 静态方法，获取指定进制的大整数，但取值只能在long范围内 |                                 |
-| 常量引用                                         | 快速获取常用数字                      | `BigInteger.ZERO`, `ONE`, `TEN` |
+| **构造方式**                                     | **说明**                       | **示例**                          |
+| -------------------------------------------- | ---------------------------- | ------------------------------- |
+| `public BigInteger(int num,Random rnd)`      | 获取随机大整数，范围：[0~2的num次方-1]     |                                 |
+| `public BigInteger(String val)`              | 获取指定的大整数，字符串中必须是整数           |                                 |
+| `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合 |                                 |
+| `public static BigInteger valueof(long val)` | 静态方法，获取指定的大整数，但取值只能在long范围内  |                                 |
+| 常量引用                                         | 快速获取常用数字                     | `BigInteger.ZERO`, `ONE`, `TEN` |
 
 
 ---
@@ -4596,6 +4596,11 @@ public void setAddress(Address addr) {
 
 由于 `BigInteger` 是对象而非基本类型，你不能使用 `+ - * /` 运算符，必须调用其方法。
 
+
+
+> [!tip] `BigInteger` 对象和 `String` 一样，是**不可变**的。比如当你执行 `a.add(b)` 时，并没有修改 `a` 本身的值，而是产生并返回了一个全新的 BigInteger 对象，但并不是所有方法都在返回时创建新对象
+
+
 | **方法名**                                                  | **说明**                        |
 | -------------------------------------------------------- | ----------------------------- |
 | `public BigInteger add(BigInteger val)`                  | 加法                            |
@@ -4603,65 +4608,15 @@ public void setAddress(Address addr) {
 | `public BigInteger multiply(BigInteger val)`             | 乘法                            |
 | `public BigInteger divide(BigInteger val)`               | 除法，获取商                        |
 | `public BigInteger[] divideAndRemainder(BigInteger val)` | 除法，获取商和余数，res[0] 是商，res[1]是余数 |
-| `public boolean equals(Object x)`                        | 比较是否相同                        |
 | `public BigInteger pow(int exponent)`                    | 次幂                            |
-| `public BigInteger max/min(BigInteger val)`              | 返回较大值/较小值                     |
-| `public int intValue(BigInteger val)`                    | 转为int类型整数，超出范围数据有误            |
+| `public boolean equals(Object x)`                        | 比较是否相同，**不创建新对象**             |
+| `public BigInteger max/min(BigInteger val)`              | 返回较大值/较小值，**不创建新对象**          |
+| `public int intValue(BigInteger val)`                    | 转为int类型整数，超出范围数据有误，**不创建新对象** |
 
 ---
-
-### 4. 常见转换与比较
-
-#### 4.1 比较大小
-
-- **`compareTo(BigInteger val)`**：
-    
-    - 返回 `1`：当前对象大于参数。
-        
-    - 返回 `0`：两者相等。
-        
-    - 返回 `-1`：当前对象小于参数。
-        
-- `max()` / `min()`：返回两个数中的最大/最小值。
-    
-
-#### 4.2 类型转换
-
-- **`intValue()` / `longValue()`**：转为基本类型（注意：若超出范围会丢失精度/截断）。
-    
-- **`doubleValue()`**：转为浮点数。
-    
-- **`toString()`**：转回字符串。
-    
-
 ---
 
-### 5. 重要特性：不可变性 (Immutable)
-
-`BigInteger` 对象和 `String` 一样，是**不可变**的。
-
-> **注意**：当你执行 `a.add(b)` 时，并没有修改 `a` 本身的值，而是产生并返回了一个**全新的 BigInteger 对象**。
-
-
-```java
-BigInteger a = new BigInteger("10");
-a.add(new BigInteger("5")); 
-System.out.println(a); // 输出还是 10！必须接收返回值：a = a.add(...)
-```
-
----
-
-### 6. 进阶功能（数论相关）
-
-`BigInteger` 还内置了一些高级数学方法，常用于密码学（如 RSA 算法）：
-
-- **`gcd(BigInteger val)`**：计算最大公约数。
-    
-- **`isProbablePrime(int certainty)`**：判断是否可能为素数。
-    
-- **`nextProbablePrime()`**：寻找下一个可能的素数。
-    
-- **`modInverse(BigInteger m)`**：计算模逆元。
+## BigDecimal
 
 
 
