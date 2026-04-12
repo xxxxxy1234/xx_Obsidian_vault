@@ -4587,7 +4587,7 @@ public void setAddress(Address addr) {
 | `public BigInteger(String val)`              | 获取指定的大整数，字符串中必须是整数            |                                 |
 | `public BigInteger(String val，int radix)`    | 获取指定进制的大整数，字符串中必须是整数，且要和进制吻合  |                                 |
 | `public static BigInteger valueof(long val)` | 静态方法，获取指定进制的大整数，但取值只能在long范围内 |                                 |
-| **常量引用**                                     | 快速获取常用数字。                     | `BigInteger.ZERO`, `ONE`, `TEN` |
+| 常量引用                                         | 快速获取常用数字                      | `BigInteger.ZERO`, `ONE`, `TEN` |
 
 
 ---
