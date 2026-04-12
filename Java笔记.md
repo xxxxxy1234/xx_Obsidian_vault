@@ -1213,9 +1213,7 @@ String name = "小明";
 
 - 即使内容相同，每一个通过 `new` 创建出来的对象都有自己独立的内存地址。
     
-- **结果**：`String s1 = new String(chs); String s2 = new String(chs);` 此时 `s1 == s2` 为 `false`，因为它们的地址值分别是 `0x0022` 和 `0x0033`。
-
-
+- **结果**：`String s1 = new String(chs); String s2 = new String(chs);` 此时 `s1 == s2` 为 `false`，因为它们的地址值分别是 `0x0022` 和 `0x0033`
 
 
 > [!tip] 这种设计的核心初衷是**性能优化**。
