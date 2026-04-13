@@ -4598,7 +4598,7 @@ public void setAddress(Address addr) {
 
 
 
-> [!tip] `BigInteger` 对象和 `String` 一样，是**不可变**的。比如当你执行 `a.add(b)` 时，并没有修改 `a` 本身的值，而是产生并返回了一个全新的 BigInteger 对象，但并不是所有方法都在返回时创建新对象
+> [!tip] `BigInteger` 对象和 `String` 一样，是**不可变**的。比如当你执行 `a.add(b)` 时，并没有修改 `a` 本身的值，而是产生并返回了一个全新的 BigInteger 对象，**但并不是所有方法都在返回时创建新对象**
 
 
 | **方法名**                                                  | **说明**                        |
@@ -4619,6 +4619,72 @@ public void setAddress(Address addr) {
 ## BigDecimal
 
 
+### 1. 为什么需要 BigInteger？
+
+`BigDecimal` 位于 `java.math` 包下，专门用于解决浮点数（`double` 或 `float`）在运算时出现的**精度丢失**问题。它在涉及金钱、科学计算等对精度要求极高的场景中是必不可少的。
+
+### 2. 常用构造方法
+
+| **构造方式**                                       | **说明**                             | **示例**                          |
+| ---------------------------------------------- | ---------------------------------- | ------------------------------- |
+| `public BigDecimal(double val)`                | **不建议使用**，由于 double 精度问题，结果具有不可预知性 | `new BigDecimal(0.1)`           |
+| `public BigDecimal(String val)`                | **最常用、最推荐**，能保证结果与字符串完全一致          | `new BigDecimal("0.1")`         |
+| `public static BigDecimal valueOf(double val)` | **静态方法**，内部会将 double 转为字符串再构造，结果可靠 | `BigDecimal.valueOf(0.1)`       |
+| **常量引用**                                       | **快速获取常用数字**，避免重复创建对象              | `BigDecimal.ZERO`, `ONE`, `TEN` |
+
+### 3. 核心算数运算
+
+| **方法名**                                      | **说明**                            |
+| -------------------------------------------- | --------------------------------- |
+| `public BigDecimal add(BigDecimal val)`      | 加法                                |
+| `public BigDecimal subtract(BigDecimal val)` | 减法                                |
+| `public BigDecimal multiply(BigDecimal val)` | 乘法                                |
+| `public BigDecimal divide(BigDecimal val)`   | 除法（若除不尽会报 ArithmeticException 异常） |
+| `public BigDecimal divide(val, 精度, 舍入模式)`    | 除法，指定保留小数位数和舍入规则                  |
+| `public BigDecimal setScale(精度, 舍入模式)`       | 格式化，设置保留几位小数                      |
+| `public int compareTo(BigDecimal val)`       | 比较大小，返回 1(大于)、0(等于)、-1(小于)        |
+| `public double doubleValue()`                | 转为double类型                        |
+
+---
+
+### ⚠️ 使用 `BigDecimal` 的三大金律
+
+#### 1. 禁止使用 `new BigDecimal(double)`
+
+- **错误写法**：`new BigDecimal(0.1)` 得到的是 `0.100000000000000005551...`。
+    
+- **正确写法**：`BigDecimal.valueOf(0.1)` 或者 `new BigDecimal("0.1")`（使用**字符串**构造）。
+    
+
+#### 2. 除法必须指定“舍入模式”
+
+如果执行 `10 / 3` 这种除不尽的操作，直接调用 `divide(val)` 会导致程序崩溃（抛出异常）。必须告诉它保留几位小数：
+
+Java
+
+```
+// 保留2位小数，四舍五入
+a.divide(b, 2, RoundingMode.HALF_UP);
+```
+
+#### 3. 比较大小不能用 `equals`
+
+- `equals` 会比较精度：`1.0` 和 `1.00` 使用 `equals` 比较返回 **false**。
+    
+- `compareTo` 只比较数值：`1.0` 和 `1.00` 使用 `compareTo` 返回 **0**。
+    
+
+---
+
+### 🔍 常见的舍入模式 (RoundingMode)
+
+|**模式**|**说明**|
+|---|---|
+|**`UP`**|远离零的方向舍入（进位）|
+|**`DOWN`**|靠近零的方向舍入（直接截断）|
+|**`CEILING`**|向正无穷大方向舍入|
+|**`FLOOR`**|向负无穷大方向舍入|
+|**`HALF_UP`**|**四舍五入**（最常用）|
 
 
 ---
