@@ -836,7 +836,7 @@ public class Student {
 - 有参构造方法：初始化对象时，同时可以为对象赋值
 ### 注意事项：
 - 任何类定义出来，默认自带无参构造器
-- 一旦定义有参构造器。无参构造器便消失，此时需要手动写无参构造器
+- **一旦定义有参构造器。无参构造器便消失**，此时需要手动写无参构造器
 - 建议在任何时候都写上空参和带上全部参数的构造方法
 
 
@@ -4625,6 +4625,11 @@ public void setAddress(Address addr) {
 ---
 
 # 易错点
+
+## 1
+
+ 为什么循环里重复写 `Car c = new Car();` 是合法的
+ 
 ```java
 Car[] arr = new Car[3]; 
 Scanner sc=new Scanner(System.in);
@@ -4636,12 +4641,19 @@ arr[i]=c;
 }
 ```
 
-### 为什么循环里重复写 `Car c = new Car();` 是合法的
+
 
 在 Java 中，变量 `c` 的作用域只在当前这一次循环的 `{}` 内部。
 
 - 每一次循环结束，`c` 这个变量就会被销毁。
 - 下一次循环开始时，又会重新声明一个**全新的变量 `c`**，并指向一个**全新的 `Car` 对象**。
+
+
+## 2
+
+假设有一个Student类，并定义了有参构造器，若执行Student s=new Student()；则会编译报错（因为没有无参构造器）
+若执行Student s[]=new student[10]；不会报错，因为这里**new的是数组不是对象**，s[0] = null ，s[1] = null ... s[9] = null，如果再执行s[0].study()这种会报错（空指针异常NullPointerException），要想new对象，后续要添加s[0] = new Student("张三"); s[1] = new Student("李四");才可以
+
 
 
 ---
