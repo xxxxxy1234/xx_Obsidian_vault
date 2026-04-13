@@ -4647,35 +4647,6 @@ public void setAddress(Address addr) {
 
 ---
 
-### ⚠️ 使用 `BigDecimal` 的三大金律
-
-#### 1. 禁止使用 `new BigDecimal(double)`
-
-- **错误写法**：`new BigDecimal(0.1)` 得到的是 `0.100000000000000005551...`。
-    
-- **正确写法**：`BigDecimal.valueOf(0.1)` 或者 `new BigDecimal("0.1")`（使用**字符串**构造）。
-    
-
-#### 2. 除法必须指定“舍入模式”
-
-如果执行 `10 / 3` 这种除不尽的操作，直接调用 `divide(val)` 会导致程序崩溃（抛出异常）。必须告诉它保留几位小数：
-
-Java
-
-```
-// 保留2位小数，四舍五入
-a.divide(b, 2, RoundingMode.HALF_UP);
-```
-
-#### 3. 比较大小不能用 `equals`
-
-- `equals` 会比较精度：`1.0` 和 `1.00` 使用 `equals` 比较返回 **false**。
-    
-- `compareTo` 只比较数值：`1.0` 和 `1.00` 使用 `compareTo` 返回 **0**。
-    
-
----
-
 ### 🔍 常见的舍入模式 (RoundingMode)
 
 |**模式**|**说明**|
@@ -4685,6 +4656,13 @@ a.divide(b, 2, RoundingMode.HALF_UP);
 |**`CEILING`**|向正无穷大方向舍入|
 |**`FLOOR`**|向负无穷大方向舍入|
 |**`HALF_UP`**|**四舍五入**（最常用）|
+
+---
+---
+
+
+
+
 
 
 ---
