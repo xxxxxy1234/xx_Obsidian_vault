@@ -799,72 +799,105 @@ protected void Page_Load(object sender, EventArgs e)
 ---
 ---
 
-在 ASP.NET Web Forms 中，选择按钮控件（Selection Controls）用于在预设的选项中进行单选或多选。它们通常用于配置、筛选或表单输入。
-## ASP.NET 选择按钮控件详解
-> [!abstract] 概要
-> 选择按钮分为单选和多选两类，既可以作为独立控件使用，也可以作为列表控件（List Control）批量生成。
+
+## ASP.NET 选择类控件全量指南
+> [!abstract] 核心逻辑
+> ASP.NET 中的选择控件分为**单体控件**（处理逻辑状态）和**列表控件**（处理数据集合）。它们都依赖于 ViewState 来维持跨页面刷新的状态。
 > 
-### 1. CheckBox 控件 (复选框)
-用于表示一个二选一的状态（开/关）或多项选择。
- * **核心属性**：
-   * Checked: 布尔值，获取或设置是否选中。
-   * Text: 控件旁显示的说明文字。
-   * AutoPostBack: 设置为 true 时，状态改变会立即触发服务器事件。
- * **主要事件**：CheckedChanged。
+### 1. CheckBox (独立复选框)
+**功能介绍**：
+用于表示一个布尔状态（开/关）。在 HTML 中渲染为 input type="checkbox"。
+**核心属性**：
+ * Checked: 获取或设置选中状态（True/False）。
+ * Text: 控件显示的描述文字。
+ * AutoPostBack: 为 true 时，点击后立即触发 CheckedChanged 事件。
+**代码示例**：
 ```html
-<asp:CheckBox ID="chkAgree" runat="server" Text="同意服务协议" />
+<asp:CheckBox ID="chkRememberMe" runat="server" Text="记住我" />
 
 ```
-### 2. RadioButton 控件 (单选按钮)
-用于在一组互斥的选项中选择一项。
- * **分组关键**：必须设置 GroupName 属性。具有相同 GroupName 的 RadioButton 只能有一个被选中。
- * **核心属性**：Checked、GroupName。
-```html
-<asp:RadioButton ID="rbMale" runat="server" GroupName="Gender" Text="男" />
-<asp:RadioButton ID="rbFemale" runat="server" GroupName="Gender" Text="女" />
-
-```
-### 3. CheckBoxList 与 RadioButtonList
-当你有一组动态数据需要生成选择按钮时，使用列表形式比手动放多个控件更高效。
- * **优势**：支持数据绑定（DataSource），可以控制排列方向（RepeatDirection）。
- * **排列控制**：
-   * RepeatDirection: Horizontal（水平）或 Vertical（垂直）。
-   * RepeatColumns: 设置显示的列数。
-```html
-<asp:RadioButtonList ID="rblScores" runat="server" RepeatDirection="Horizontal">
-    <asp:ListItem Value="1">及格</asp:ListItem>
-    <asp:ListItem Value="2">优秀</asp:ListItem>
-</asp:RadioButtonList>
-
-```
-### 4. 核心差异对比
-| 控件类型 | 逻辑关系 | 渲染结果 | 常用场景 |
-|---|---|---|---|
-| **CheckBox** | 独立逻辑 | input type="checkbox" | 勾选协议、开启提醒 |
-| **RadioButton** | 组内互斥 | input type="radio" | 性别选择、支付方式 |
-| **CheckBoxList** | 批量多选 | table 或 span 包裹的多个复选框 | 兴趣爱好标签、权限分配 |
-| **RadioButtonList** | 批量单选 | table 或 span 包裹的多个单选框 | 问卷单选题、状态切换 |
-### 5. 常用后端处理 (C#)
 ```csharp
-protected void btnSubmit_Click(object sender, EventArgs e)
+// 后端读取
+if (chkRememberMe.Checked) 
 {
-    // 判断单个复选框
-    if (chkAgree.Checked) { /* 处理逻辑 */ }
+    // 执行保存 Cookie 逻辑
+}
 
-    // 获取单选列表的值
-    string selectedValue = rblScores.SelectedValue;
+```
+### 2. CheckBoxList (复选框列表)
+**功能介绍**：
+用于管理一组可多选的项。它是 ListItem 的容器，渲染时通常嵌套在 table 或 span 中。
+**核心功能点**：
+ * **数据绑定**：通过 DataSource 批量生成选项。
+ * **布局控制**：使用 RepeatDirection（水平/垂直）和 RepeatColumns（列数）。
+ * **多选处理**：不支持 SelectedValue，必须遍历 Items 集合。
+**代码示例**：
+```html
+<asp:CheckBoxList ID="cblSkills" runat="server" RepeatColumns="2" RepeatLayout="Flow">
+    <asp:ListItem Value="C">C#</asp:ListItem>
+    <asp:ListItem Value="J">Java</asp:ListItem>
+    <asp:ListItem Value="P">Python</asp:ListItem>
+</asp:CheckBoxList>
 
-    // 遍历获取多选列表的值
-    foreach (ListItem item in cblHobbies.Items)
+```
+```csharp
+// 获取所有选中的值
+List<string> selectedList = new List<string>();
+foreach (ListItem item in cblSkills.Items)
+{
+    if (item.Selected)
     {
-        if (item.Selected)
-        {
-            string hobby = item.Value;
-        }
+        selectedList.Add(item.Value);
     }
 }
 
 ```
-### 6. 开发建议
- * **样式控制**：选择列表控件（List）默认会生成 table 标签来布局，这可能破坏 CSS 布局。建议设置 RepeatLayout="Flow"，这样会生成更简洁的 span 或 label 结构。
- * **ID 处理**：在 JavaScript 中获取选择按钮状态时，注意 ASP.NET 自动生成的 ClientID 可能会加上父容器前缀。
+### 3. RadioButton (独立单选按钮)
+**功能介绍**：
+用于在手动配置的一组选项中选其一。渲染为 input type="radio"。
+**核心功能点**：
+ * **分组逻辑**：必须设置相同的 GroupName 才能实现互斥（即点击 A 自动取消 B）。
+ * **局限性**：在列表容器（如 GridView）中，其 name 属性会被 ASP.NET 自动修改，导致原生分组失效。
+**代码示例**：
+```html
+<asp:RadioButton ID="rbMale" runat="server" GroupName="GenderGroup" Text="男" />
+<asp:RadioButton ID="rbFemale" runat="server" GroupName="GenderGroup" Text="女" />
+
+```
+### 4. RadioButtonList (单选按钮列表)
+**功能介绍**：
+最常用的单选方案。它是一个整体控件，内部项天然互斥，无需设置 GroupName。
+**核心功能点**：
+ * **单选读取**：直接使用 SelectedValue 获取唯一选中的项。
+ * **默认选中**：在绑定后或声明时，可设置某一项的 Selected="true"。
+**代码示例**：
+```html
+<asp:RadioButtonList ID="rblDifficulty" runat="server">
+    <asp:ListItem Value="1" Selected="True">简单</asp:ListItem>
+    <asp:ListItem Value="2">中等</asp:ListItem>
+    <asp:ListItem Value="3">困难</asp:ListItem>
+</asp:RadioButtonList>
+
+```
+```csharp
+// 直接获取结果
+string level = rblDifficulty.SelectedValue;
+
+```
+### 5. 进阶：统一对比与开发规范
+| 维度 | CheckBox | CheckBoxList | RadioButton | RadioButtonList |
+|---|---|---|---|---|
+| **互斥性** | 无 | 无 | 靠 GroupName 互斥 | 天然互斥 |
+| **获取值** | Checked | 遍历 Items | Checked | SelectedValue |
+| **HTML 结构** | 单个 input | table 或 span 集合 | 单个 input | table 或 span 集合 |
+| **推荐场景** | 记住密码、隐私协议 | 兴趣爱好、权限配置 | 简单的双选 | 问卷单选、状态切换 |
+### 6. 开发者避坑指南（必看）
+ * **!IsPostBack 陷阱**：
+   在 Page_Load 中绑定数据源时，务必包裹在 if (!IsPostBack) 中。否则回发时数据重绑，会导致用户之前的勾选状态被清空。
+ * **SelectedIndexChanged 事件**：
+   对于列表类控件，如果希望点击即触发后端逻辑，除了写事件方法外，必须设置 AutoPostBack="true"。
+ * **验证问题**：
+   RadioButtonList 可以被 RequiredFieldValidator 验证是否选择；但 CheckBoxList 必须使用 CustomValidator 编写 C# 逻辑手动检查 Any(li => li.Selected)。
+ * **样式控制**：
+   若想让列表控件生成的 HTML 更简洁，请设置 RepeatLayout="Flow"，这会去除默认生成的表格标签。
+
