@@ -4722,37 +4722,7 @@ public void setAddress(Address addr) {
 
 ---
 
-### 4. Java 中的正则表达式用法
-
-在 Java 中，主要通过 `String` 类的方法或 `Pattern`/`Matcher` 类来使用。
-（eg：public boolean matches(String regex)判断是否与正则表达式匹配）
-
-##### 4.1 字符串快速校验
-
-
-```java
-String regex = "1[3-9]\\d{9}"; // 简单的手机号验证规则
-String phone = "13812345678";
-boolean isMatch = phone.matches(regex); // 返回 true
-```
-
-##### 4.2 Pattern 和 Matcher（进阶用法）
-
-适用于需要反复匹配、提取信息的情况。
-
-
-```java
-Pattern p = Pattern.compile("\\d+"); // 编译规则：匹配数字
-Matcher m = p.matcher("Java123 Python456");
-
-while (m.find()) {
-    System.out.println(m.group()); // 依次提取出 123 和 456
-}
-```
-
----
-
-###  5. 常见正则示例
+###  4. 常见正则示例
 
 1. **验证用户名**（字母开头，数字字母下划线组成，6-18位）：
     
@@ -4791,6 +4761,111 @@ while (m.find()) {
 
 
 ---
+---
+
+### 5. Java 中的正则表达式用法
+
+
+##### 4.1 字符串快速校验
+
+（eg：public boolean matches(String regex)判断是否与正则表达式匹配）
+
+```java
+String regex = "1[3-9]\\d{9}"; // 简单的手机号验证规则
+String phone = "13812345678";
+boolean isMatch = phone.matches(regex); // 返回 true
+```
+
+##### 4.2 Pattern 和 Matcher（进阶用法）
+
+在一段文本中查找满足要求的内容（爬虫）
+
+
+在 Java 中，如果你想更高级地操作正则表达式（比如**多次匹配、提取特定内容、替换字符串**），仅仅用 `String.matches()` 是不够的。这时就需要 **`Pattern`** 和 **`Matcher`** 这对“黄金搭档”，它们都位于 `java.util.regex` 包下。
+
+---
+
+######  Pattern 与 Matcher 的角色分工
+
+我们可以把它们的关系比作“模具”与“工人”：
+
+- **`Pattern`（模具/规则，其对象可表示正则表达式）**：它是正则表达式的编译表示。你把正则字符串交给它，它会将其优化并保存在内存中。它没有状态，可以被多个线程安全使用。
+    
+- **`Matcher`（工人/匹配引擎，其对象可表示文本匹配器，查找满足满足规则的字符串）**：它是通过 `Pattern` 创建出来的。它负责拿着模具去对字符串进行实际的匹配、查找和提取。它是有状态的，记录着上一次查到了哪里。
+    
+
+###### Pattern 类（创建规则）
+
+| **方法名**                                               | **说明**                          |
+| ----------------------------------------------------- | ------------------------------- |
+| `public static Pattern compile(String regex)`**静态方法** | **编译规则（创建正则表达式）**，获取 Pattern 对象 |
+| `public Matcher matcher(CharSequence input)`          | **创建匹配器**，关联目标字符串               |
+| `public static boolean matches(regex, input)`         | **快速校验**（一次性使用，底层仍是调 Matcher）   |
+
+######  Matcher 类（执行任务）
+
+|**方法名**|**说明**|
+|---|---|
+|**`find()`**|**查找**，扫描输入序列以查找下一个子序列（最常用）|
+|**`matches()`**|**全路径匹配**，要求整个字符串都符合规则|
+|**`group()`**|**获取内容**，返回上一次匹配到的子字符串|
+|**`group(int i)`**|**获取分组内容**，提取括号内的特定部分|
+|**`start()` / `end()`**|返回匹配到的子串在原字符串中的**开始/结束索引**|
+|**`replaceAll(String replacement)`**|**全替换**，替换所有符合规则的内容|
+
+---
+
+###### 代码示例
+
+假设我们要从一堆乱七八糟的文本中提取出所有的电话号码：
+
+```java
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class RegexDemo {
+    public static void main(String[] args) {
+        String data = "我的联系方式是：13812345678，老王的电话是：15988889999";
+        
+        // 1. 获取正则表达式的编译对象（模具）
+        Pattern p = Pattern.compile("1[3-9]\\d{9}");
+        
+        // 2. 获取匹配器对象（工人），并关联文本
+        Matcher m = p.matcher(data);
+        
+        // 3. 循环查找并打印
+        // find() 就像在文档里点“查找下一个”按钮
+        while (m.find()) {
+            // group() 拿到当前按钮选中的那块内容
+            System.out.println("提取到号码: " + m.group());
+        }
+    }
+}
+```
+
+---
+
+######  核心细节注意点
+
+1. **`matches()` vs `find()`**：
+    
+    - `matches()` 是看**整张脸**长得像不像（全匹配）。
+        
+    - `find()` 是看**脸上**有没有个痦子（子串匹配）。
+        
+    - _避坑_：如果你先调了 `find()`，再调 `matches()`，可能会因为 Matcher 的指针移动导致结果不符合预期。
+        
+2. **`group(0)` 的含义**：
+    
+    - `group()` 默认等同于 `group(0)`，代表**整个匹配到的内容**。
+        
+    - `group(1)`、`group(2)` 代表提取正则中第 1、2 对小括号里的内容。
+        
+3. **性能优化**：
+    
+    - 如果你要在循环里用正则，请**务必**在循环外使用 `Pattern.compile()`因为编译正则是一个耗时操作，重复编译会浪费大量性能。
+
+
 ---
 
 # 易错点
