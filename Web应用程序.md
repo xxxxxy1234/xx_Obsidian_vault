@@ -686,3 +686,5 @@ protected void btnSubmit_Click(object sender, EventArgs e)
 
 ### 6. 开发避坑：只读属性
 若在前端通过 JavaScript 修改了 ReadOnly="true" 的 TextBox 的值，回发后 C# 可能读取不到新值。建议使用 HiddenField 配合或通过 Request.Form 集合手动获取。
+
+
