@@ -4814,9 +4814,8 @@ boolean isMatch = phone.matches(regex); // 返回 true
 |**`replaceAll(...)`**|**`String replacement`**：用于替换匹配项的**目标字符串**。|`String` (替换后的新串)|
 
 >[!tip]
->find（）方法底层会记录找到的满足规则的字串的**起始索引和结束索引+1**
->group（）方法底层会根据find（）方法记录的索引进行字符串的截取，即subString
-##### 代码示例
+>find（）方法底层会记录找到的满足规则的字串的**起始索引和结束索引+1**，而group（）方法底层会根据find（）方法记录的索引进行字符串的截取，即subString（起始索引，结束索引），**包头不包尾**。实际开发常用`while(m.find())` 来遍历所有结果。
+#### 代码示例
 
 假设我们要从一堆乱七八糟的文本中提取出所有的电话号码：
 
@@ -4846,7 +4845,7 @@ public class RegexDemo {
 
 ---
 
-######  核心细节注意点
+####  核心细节注意点
 
 1. **`matches()` vs `find()`**：
     
