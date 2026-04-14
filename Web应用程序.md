@@ -631,9 +631,6 @@ protected void Page_Load(object sender, EventArgs e)
 
 
 
-
-
-明白，我会严格去除所有用于装饰的冗余符号（如标题前的 # 占位符、多余的星号等），确保文本结构纯净且符合 Obsidian 的 Markdown 标准。以下是缩小一级标题后的**文本类型控件**笔记：
 ## ASP.NET 文本类型控件详解
 > [!abstract] 概要
 > 文本类型控件是 Web Forms 中最基础的交互组件，主要用于展示静态文本或接收用户输入。它们在服务器端都有对应的类模型，支持丰富的属性配置。
@@ -687,4 +684,113 @@ protected void btnSubmit_Click(object sender, EventArgs e)
 ### 6. 开发避坑：只读属性
 若在前端通过 JavaScript 修改了 ReadOnly="true" 的 TextBox 的值，回发后 C# 可能读取不到新值。建议使用 HiddenField 配合或通过 Request.Form 集合手动获取。
 
+
+---
+---
+
+
+## ASP.NET 按钮类型控件详解
+> [!abstract] 概要
+> 按钮控件主要用于向服务器提交表单数据或执行特定的后端方法。
+> 
+在 ASP.NET Web Forms 中，按钮类型控件是触发服务器端逻辑的核心。它们通过回发（Postback）机制将用户操作传回服务器。
+> 
+### 1. Button 控件 (标准按钮)
+最常用的按钮，渲染为标准的 HTML 提交按钮。
+ * **渲染结果**：input type="submit"。
+ * **主要事件**：Click（最常用）。
+ * **核心属性**：
+   * Text: 按钮上显示的文字。
+   * OnClientClick: 在触发服务器事件前执行的客户端 JavaScript（常用于删除确认）。
+```html
+<asp:Button ID="btnSave" runat="server" Text="保存" OnClick="btnSave_Click" />
+
+```
+### 2. LinkButton 控件 (链接按钮)
+外观像超链接，但行为像按钮。
+ * **渲染结果**：a 标签，通过 JavaScript 的 __doPostBack 触发提交。
+ * **适用场景**：希望在 UI 上保持简洁链接样式，但需要执行服务器逻辑时。
+ * **注意**：如果浏览器禁用 JavaScript，此控件将失效。
+### 3. ImageButton 控件 (图片按钮)
+使用图片作为点击载体的按钮。
+ * **渲染结果**：input type="image"。
+ * **特殊能力**：在点击事件中，可以获取到用户点击图片的精确坐标（x, y）。
+### 4. 关键属性：CausesValidation
+这是一个非常重要的性能和逻辑属性。
+ * **作用**：指定点击按钮时是否触发页面上的验证控件（如 RequiredFieldValidator）。
+ * **场景**：对于“取消”或“返回”按钮，通常应设置 CausesValidation="false"，否则如果页面输入不合法，按钮将无法提交。
+### 5. 按钮控件对比
+| 特性 | Button | LinkButton | ImageButton |
+|---|---|---|---|
+| **外观** | 标准按钮 | 超链接 | 图片 |
+| **HTML 标签** | input | a | input |
+| **是否依赖 JS** | 否 | 是 | 否 |
+| **支持坐标获取** | 否 | 否 | 是 |
+### 6. 后端逻辑处理示例
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    // 逻辑处理
+    Response.Write("按钮已被点击");
+}
+
+```
+### 7. 补充：CommandName 与 CommandArgument
+当你在 GridView 或 Repeater 等列表控件中使用按钮时，这两个属性非常有用。它们允许你通过同一个事件处理器区分不同的按钮操作（如“删除”或“编辑”），并传递行 ID 等参数。
+
+---
+---
+
+
+在 ASP.NET Web Forms 中，连接类型控件主要用于页面间的跳转或定位。由于它们涉及到 URL 和 HTML 标签的渲染
+## ASP.NET 连接类型控件详解
+> [!abstract] 概要
+> 连接类型控件用于实现网页之间的导航。根据是否需要服务器端参与，分为 HyperLink 和普通的 HTML 链接。
+> 
+### 1. HyperLink 控件 (超链接)
+这是最常用的导航控件。它在服务器端运行，但默认**不触发回发**（Postback）。
+ * **渲染结果**：渲染为 HTML 的 a 标签。
+ * **核心属性**：
+   * MapsUrl: 目标页面的路径（支持绝对路径和相对路径）。
+   * Text: 链接显示的文字内容。
+   * ImageUrl: 如果设置此属性，链接将显示为图片而非文字。
+   * Target: 指定打开链接的窗口（如 _blank 表示新窗口）。
+```html
+<asp:HyperLink ID="hlHome" runat="server" NavigateUrl="~/Default.aspx" Text="回到首页" />
+
+```
+### 2. HyperLink 与 LinkButton 的区别
+
+这是开发中最容易混淆的点：
+
+| 特性 | HyperLink | LinkButton |
+|---|---|---|
+| **主要用途** | 页面跳转 (Navigation) | 触发服务器事件 (Postback) |
+| **外观** | 超链接 | 超链接 |
+| **机制** | 客户端直接跳转 URL | 通过 JS 提交表单到服务器 |
+| **SEO 友好** | 是 (搜索引擎可爬取链接) | 否 (搜索机器人无法执行 JS) |
+### 3. 地址解析机制 (~)
+在 MapsUrl 中经常看到 ~ 符号：
+ * **符号含义**：代表 Web 应用程序的根目录。
+ * **优势**：无论当前页面在哪个文件夹下，使用 ~/ 都能准确指向根目录的文件，避免了因目录深度改变导致的路径失效。
+### 4. 动态设置连接 (C#)
+虽然 HyperLink 很少需要回发，但你可以在 Page_Load 中动态修改它的指向：
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack)
+    {
+        // 根据用户权限或逻辑动态修改跳转目标
+        hlProfile.NavigateUrl = "UserProfile.aspx?ID=" + CurrentUserID;
+        hlProfile.Text = "查看个人主页";
+    }
+}
+
+```
+### 5. 开发建议
+ * 如果只是单纯的跳转，请优先使用 **HyperLink**，因为它的性能更高（无需服务器往返处理）。
+ * 如果跳转前需要执行逻辑判断（如权限检查或写入数据库），则应使用 **Button** 或 **LinkButton**，并在后端使用 Response.Redirect()。
+
+---
+---
 
