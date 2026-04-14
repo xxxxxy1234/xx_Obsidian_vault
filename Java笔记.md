@@ -4763,10 +4763,10 @@ public void setAddress(Address addr) {
 ---
 ---
 
-### 5. Java 中的正则表达式用法
+### 5. 正则表达式用法
 
 
-##### 4.1 字符串快速校验
+#### 5.1 字符串快速校验
 
 （eg：public boolean matches(String regex)判断是否与正则表达式匹配）
 
@@ -4776,7 +4776,7 @@ String phone = "13812345678";
 boolean isMatch = phone.matches(regex); // 返回 true
 ```
 
-##### 4.2 Pattern 和 Matcher（进阶用法）
+#### 5.2 Pattern 和 Matcher（进阶用法）
 
 在一段文本中查找满足要求的内容（爬虫）
 
@@ -4785,7 +4785,7 @@ boolean isMatch = phone.matches(regex); // 返回 true
 
 ---
 
-######  Pattern 与 Matcher 的角色分工
+#####  Pattern 与 Matcher 的角色分工
 
 我们可以把它们的关系比作“模具”与“工人”：
 
@@ -4804,18 +4804,18 @@ boolean isMatch = phone.matches(regex); // 返回 true
 
 ######  Matcher 类（执行任务）
 
-|**方法名**|**说明**|
-|---|---|
-|**`find()`**|**查找**，扫描输入序列以查找下一个子序列（最常用）|
-|**`matches()`**|**全路径匹配**，要求整个字符串都符合规则|
-|**`group()`**|**获取内容**，返回上一次匹配到的子字符串|
-|**`group(int i)`**|**获取分组内容**，提取括号内的特定部分|
-|**`start()` / `end()`**|返回匹配到的子串在原字符串中的**开始/结束索引**|
-|**`replaceAll(String replacement)`**|**全替换**，替换所有符合规则的内容|
+|**方法名**|**参数说明**|**返回值类型**|
+|---|---|---|
+|**`find()`**|**无参数**。它会自动根据当前“指针”位置向后扫描。|`boolean` (找到返回 true)|
+|**`matches()`**|**无参数**。它尝试将整个目标字符串与模式进行匹配。|`boolean` (全匹配返回 true)|
+|**`group()`**|**无参数**。默认获取上一次匹配成功的**完整子串**。|`String`|
+|**`group(int i)`**|**`int i`**：指定捕获组的索引。`0` 代表全匹配，`1` 代表第1对括号的内容。|`String`|
+|**`start() / end()`**|**无参数**（或传入 `int group`）。返回当前匹配子串在原串中的位置。|`int`|
+|**`replaceAll(...)`**|**`String replacement`**：用于替换匹配项的**目标字符串**。|`String` (替换后的新串)|
 
----
-
-###### 代码示例
+>[!tip]
+>find
+##### 代码示例
 
 假设我们要从一堆乱七八糟的文本中提取出所有的电话号码：
 
