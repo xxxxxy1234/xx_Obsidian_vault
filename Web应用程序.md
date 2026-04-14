@@ -474,8 +474,13 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
     
 3. **属性：** 属性名和属性值之间用 `=`，值必须加双引号 `""`。
 
+---
+---
+
 
 # ASP.NET页面事件
+
+
 ## ASP.NET 页面生命周期事件
 
 > [!abstract] 简介
@@ -794,3 +799,72 @@ protected void Page_Load(object sender, EventArgs e)
 ---
 ---
 
+在 ASP.NET Web Forms 中，选择按钮控件（Selection Controls）用于在预设的选项中进行单选或多选。它们通常用于配置、筛选或表单输入。
+## ASP.NET 选择按钮控件详解
+> [!abstract] 概要
+> 选择按钮分为单选和多选两类，既可以作为独立控件使用，也可以作为列表控件（List Control）批量生成。
+> 
+### 1. CheckBox 控件 (复选框)
+用于表示一个二选一的状态（开/关）或多项选择。
+ * **核心属性**：
+   * Checked: 布尔值，获取或设置是否选中。
+   * Text: 控件旁显示的说明文字。
+   * AutoPostBack: 设置为 true 时，状态改变会立即触发服务器事件。
+ * **主要事件**：CheckedChanged。
+```html
+<asp:CheckBox ID="chkAgree" runat="server" Text="同意服务协议" />
+
+```
+### 2. RadioButton 控件 (单选按钮)
+用于在一组互斥的选项中选择一项。
+ * **分组关键**：必须设置 GroupName 属性。具有相同 GroupName 的 RadioButton 只能有一个被选中。
+ * **核心属性**：Checked、GroupName。
+```html
+<asp:RadioButton ID="rbMale" runat="server" GroupName="Gender" Text="男" />
+<asp:RadioButton ID="rbFemale" runat="server" GroupName="Gender" Text="女" />
+
+```
+### 3. CheckBoxList 与 RadioButtonList
+当你有一组动态数据需要生成选择按钮时，使用列表形式比手动放多个控件更高效。
+ * **优势**：支持数据绑定（DataSource），可以控制排列方向（RepeatDirection）。
+ * **排列控制**：
+   * RepeatDirection: Horizontal（水平）或 Vertical（垂直）。
+   * RepeatColumns: 设置显示的列数。
+```html
+<asp:RadioButtonList ID="rblScores" runat="server" RepeatDirection="Horizontal">
+    <asp:ListItem Value="1">及格</asp:ListItem>
+    <asp:ListItem Value="2">优秀</asp:ListItem>
+</asp:RadioButtonList>
+
+```
+### 4. 核心差异对比
+| 控件类型 | 逻辑关系 | 渲染结果 | 常用场景 |
+|---|---|---|---|
+| **CheckBox** | 独立逻辑 | input type="checkbox" | 勾选协议、开启提醒 |
+| **RadioButton** | 组内互斥 | input type="radio" | 性别选择、支付方式 |
+| **CheckBoxList** | 批量多选 | table 或 span 包裹的多个复选框 | 兴趣爱好标签、权限分配 |
+| **RadioButtonList** | 批量单选 | table 或 span 包裹的多个单选框 | 问卷单选题、状态切换 |
+### 5. 常用后端处理 (C#)
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    // 判断单个复选框
+    if (chkAgree.Checked) { /* 处理逻辑 */ }
+
+    // 获取单选列表的值
+    string selectedValue = rblScores.SelectedValue;
+
+    // 遍历获取多选列表的值
+    foreach (ListItem item in cblHobbies.Items)
+    {
+        if (item.Selected)
+        {
+            string hobby = item.Value;
+        }
+    }
+}
+
+```
+### 6. 开发建议
+ * **样式控制**：选择列表控件（List）默认会生成 table 标签来布局，这可能破坏 CSS 布局。建议设置 RepeatLayout="Flow"，这样会生成更简洁的 span 或 label 结构。
+ * **ID 处理**：在 JavaScript 中获取选择按钮状态时，注意 ASP.NET 自动生成的 ClientID 可能会加上父容器前缀。
