@@ -5362,7 +5362,7 @@ $$\text{Instant} + \text{ZoneId} = \text{ZonedDateTime}$$
 
 ---
 
-### ⚠️ 小贴士
+### 小贴士
 
 - **ID 格式**：时区 ID 通常遵循“区域/城市”的格式，例如 `Asia/Shanghai`、`Europe/London`。
     
@@ -5454,6 +5454,76 @@ Instant future = i1.plusSeconds(3600);
 ---
 ---
 
+## ZonedDateTime
+
+`ZonedDateTime` 是 JDK 8 时间体系中最完整的类，它包含了 **本地日期、本地时间 以及 具体的时区信息**。你可以把它看作是 `LocalDateTime` 与 `ZoneId` 的结合体。
+
+### ZonedDateTime 类常用 API
+
+|**返回类型**|**方法名**|**说明**|
+|---|---|---|
+|`static ZonedDateTime`|**`now()`**|获取系统默认时区的当前日期时间|
+|`static ZonedDateTime`|**`now(ZoneId zone)`**|获取指定时区的当前日期时间|
+|`static ZonedDateTime`|**`of(int y, int m, int d, int h, int min, int s, int n, ZoneId zone)`**|通过指定的年月日时分秒及纳秒和时区创建对象|
+|`static ZonedDateTime`|**`ofInstant(Instant instant, ZoneId zone)`**|将瞬时点（时间戳）根据时区转为带时区的时间|
+|`int`|**`getYear() / getMonthValue() / getDayOfMonth()`**|获取年、月、日等具体字段值|
+|`ZonedDateTime`|**`plusXxx(long amount)` / `minusXxx(long amount)`**|增减指定的时间分量（返回新对象）|
+|`ZonedDateTime`|**`withXxx(int newValue)`**|直接修改某个时间分量（如修改年份）并返回新对象|
+|`Instant`|**`toInstant()`**|将当前对象转换回 `Instant`（时间戳）|
+
+---
+
+### 核心特性与用法
+
+#### 1. 与 LocalDateTime 的区别
+
+- **`LocalDateTime`**：只表示 `2026-04-16 18:30`，它不知道这个时间是北京的还是纽约的。
+    
+- **`ZonedDateTime`**：表示 `2026-04-16T18:30+08:00[Asia/Shanghai]`，明确了地理位置和相对于 UTC 的偏移量。
+    
+
+#### 2. 时区转换（非常实用）
+
+假设你在北京时间，想知道现在的纽约时间：
+
+```java
+// 1. 获取当前北京时间
+ZonedDateTime bjTime = ZonedDateTime.now();
+
+// 2. 转换成纽约时间（只需要调用 withZoneSameInstant 方法）
+ZonedDateTime nyTime = bjTime.withZoneSameInstant(ZoneId.of("America/New_York"));
+
+System.out.println("北京时间: " + bjTime);
+System.out.println("纽约时间: " + nyTime);
+```
+
+#### 3. 对象的转换逻辑
+
+`ZonedDateTime` 是一个“多面手”，它可以轻松拆解为其他日期对象：
+
+- `toLocalDate()`: 提取出年月日。
+    
+- `toLocalTime()`: 提取出时分秒。
+    
+- `toLocalDateTime()`: 提取出不带时区的日期时间。
+    
+
+---
+
+### 为什么选它？
+
+在处理跨国业务、航天航空、或者需要记录特定地理位置发生的事件时，`ZonedDateTime` 是唯一能完整记录所有维度信息的类。
+
+---
+
+### 关键公式
+
+如果你感到混淆，请记住这个逻辑：
+
+$$ZonedDateTime = LocalDate + LocalTime + ZoneId$$
+
+---
+---
 
 
 # 易错点
