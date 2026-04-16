@@ -5169,9 +5169,8 @@ System.out.println("12345678".matches(regex)); // false (没字母)
 
 #### 1. 格式化（Date -> String）
 
-Java
 
-```
+```java
 // 需求：展示为 2026年04月16日 17:30:00 星期四
 SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss E");
 String result = sdf.format(new Date());
@@ -5182,9 +5181,7 @@ System.out.println(result);
 
 **关键点**：解析时的模板必须和字符串的格式**一模一样**，否则会报 `ParseException`。
 
-Java
-
-```
+```java
 String str = "2026-11-11 11:11:11";
 // 模板必须对应：yyyy-MM-dd HH:mm:ss
 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
