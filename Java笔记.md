@@ -5133,6 +5133,83 @@ System.out.println("12345678".matches(regex)); // false (没字母)
 
 ## SimpleDataFormat
 
+`SimpleDateFormat` 是 Java 提供的一个用来**格式化**（Date 转 String）和**解析**（String 转 Date）日期的类。它最大的特点就是可以根据我们定义的模式（Pattern）来灵活展示时间。
+
+
+###  常用方法说明表
+
+|**方法名**|**说明**|**示例**|
+|---|---|---|
+|`public SimpleDateFormat()`|**空参构造**，使用默认格式（如：26-4-16 下午5:30）|`new SimpleDateFormat()`|
+|`public SimpleDateFormat(String pattern)`|**带参构造**，指定日期展示的模板|`new SimpleDateFormat("yyyy-MM-dd")`|
+|`public final String format(Date date)`|**格式化**：把 Date 对象变成好看的字符串|`sdf.format(new Date())`|
+|`public Date parse(String source)`|**解析**：把字符串变成 Date 对象|`sdf.parse("2026-05-20")`|
+
+---
+
+### 常用模式字母（Pattern Characters）
+
+要写好模板，必须记住这几个字母的含义。**注意区分大小写！**
+
+|**字母**|**含义**|**示例（以当前时间为例）**|
+|---|---|---|
+|**`y`**|年|`yyyy` -> 2026|
+|**`M`**|月|`MM` -> 04（10月就是10）|
+|**`d`**|日|`dd` -> 16|
+|**`H`**|时（24小时制）|`HH` -> 17|
+|**`h`**|时（12小时制）|`hh` -> 05|
+|**`m`**|分|`mm` -> 30|
+|**`s`**|秒|`ss` -> 45|
+|**`E`**|星期几|`E` -> 星期四|
+|**`a`**|上下午标识|`a` -> 下午|
+
+---
+
+### 核心用法示例
+
+#### 1. 格式化（Date -> String）
+
+Java
+
+```
+// 需求：展示为 2026年04月16日 17:30:00 星期四
+SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss E");
+String result = sdf.format(new Date());
+System.out.println(result);
+```
+
+#### 2. 解析（String -> Date）
+
+**关键点**：解析时的模板必须和字符串的格式**一模一样**，否则会报 `ParseException`。
+
+Java
+
+```
+String str = "2026-11-11 11:11:11";
+// 模板必须对应：yyyy-MM-dd HH:mm:ss
+SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+Date date = sdf.parse(str); 
+```
+
+---
+
+### ⚠️ 两个不得不提的坑
+
+1. **线程不安全**：
+    
+    `SimpleDateFormat` 内部维护了一个 `Calendar` 对象。如果在多线程环境（如在高并发的 Web 项目）下共享同一个 `sdf` 实例，会导致日期解析出错甚至程序崩溃。
+    
+    - **对策**：在方法内部局部创建，或使用 `ThreadLocal`，或直接升级到 Java 8 的 `DateTimeFormatter`。
+        
+2. **解析异常**：
+    
+    `parse` 方法会抛出一个**编译时异常**（ParseException）。你必须写 `try...catch` 或者在方法上 `throws` 才能通过编译。
+    
+
+### 💡 小练习
+
+如果要表示“2026-04-16 17:30”这种精确到分钟的格式，模板应该怎么写？（提示：连接符 `-` 和 `:` 是可以直接写在模板里的哦。）
+
 ---
 ---
 
