@@ -5189,23 +5189,76 @@ Date date = sdf.parse(str);
 ```
 
 ---
+---
 
-### ⚠️ 两个不得不提的坑
 
-1. **线程不安全**：
-    
-    `SimpleDateFormat` 内部维护了一个 `Calendar` 对象。如果在多线程环境（如在高并发的 Web 项目）下共享同一个 `sdf` 实例，会导致日期解析出错甚至程序崩溃。
-    
-    - **对策**：在方法内部局部创建，或使用 `ThreadLocal`，或直接升级到 Java 8 的 `DateTimeFormatter`。
-        
-2. **解析异常**：
-    
-    `parse` 方法会抛出一个**编译时异常**（ParseException）。你必须写 `try...catch` 或者在方法上 `throws` 才能通过编译。
-    
+## Calendar
 
-### 💡 小练习
 
-如果要表示“2026-04-16 17:30”这种精确到分钟的格式，模板应该怎么写？（提示：连接符 `-` 和 `:` 是可以直接写在模板里的哦。）
+`Calendar` 类是 Java 提供的**日历类**，它主要解决了 `Date` 类在进行日期字段操作（比如“加一个月”、“获取星期几”）时的不足。
+
+需要注意：`Calendar` 是一个**抽象类**，不能直接 `new`。我们通常使用它的静态方法 `getInstance()` 来获取子类对象。
+
+
+### 常用方法说明表
+
+| **方法名**                                  | **说明**                                                  | **示例**                                 |
+| ---------------------------------------- | ------------------------------------------------------- | -------------------------------------- |
+| `public static Calendar getInstance()`   | **获取对象**，根据当前时区和语言环境获取日历（包括纪元、年、月、日、时、分、秒、星期等都放到一个数组当中） | `Calendar c = Calendar.getInstance();` |
+| `public final Date getTime()`            | **转为 Date 对象**，日历对象 -> 日期对象                             | `Date d = c.getTime()`                 |
+| `public final void setTime(Date date)`   | **从 Date 转换**，日期对象 -> 日历对象                              | `c.setTime(new Date())`                |
+| `public int get(int field)`              | **获取字段值**，获取年、月、日、时、分、秒等                                | `c.get(Calendar.YEAR)`                 |
+| `public void set(int field, int value)`  | **设置字段值**，修改某个时间分量                                      | `c.set(Calendar.MONTH, 0)`             |
+| `public void add(int field, int amount)` | **增减时间**，根据规则为给定的字段添加/减去时间                              | `c.add(Calendar.DATE, -1)`             |
+
+---
+
+### 核心字段参数（Field）
+
+在使用 `get`、`set`、`add` 方法时，需要传入指定的字段常量：
+
+|**常量名**|**含义**|**注意事项**|
+|---|---|---|
+|**`Calendar.YEAR`**|年|-|
+|**`Calendar.MONTH`**|月|**从 0 开始**（0代表1月，11代表12月）|
+|**`Calendar.DATE`**|日|也可以用 `DAY_OF_MONTH`|
+|**`Calendar.HOUR_OF_DAY`**|时|24小时制|
+|**`Calendar.MINUTE`**|分|-|
+|**`Calendar.SECOND`**|秒|-|
+|**`Calendar.DAY_OF_WEEK`**|星期|**周日是 1**，周一是 2...周六是 7|
+
+---
+
+###  核心代码练习
+
+#### 1. 获取信息
+
+```java
+Calendar c = Calendar.getInstance();
+int year = c.get(Calendar.YEAR);
+int month = c.get(Calendar.MONTH) + 1; // 记得 +1
+int date = c.get(Calendar.DATE);
+System.out.println(year + "年" + month + "月" + date + "日");
+```
+
+#### 2. 修改与加减（非常实用）
+
+
+```java
+// 需求：计算 100 天以后是哪一天？
+Calendar c = Calendar.getInstance();
+c.add(Calendar.DAY_OF_YEAR, 100); 
+
+// 需求：把时间设置为 2026年1月1日
+c.set(2026, 0, 1); // 月份 0 代表 1月
+```
+
+---
+
+>[!tip]
+>- **月份偏移**： Java 设计者在设计这个类时，月份是从 `0` 到 `11` 的。如果你直接设置 `12`，它会自动进位到下一年的 `1` 月。
+>- **星期偏移**： 在国际惯例中，**周日是一个星期的第一天**。所以如果你拿到的 `DAY_OF_WEEK` 是 `1`，那代表今天其实是星期天。
+>- **可变性（Mutable）**： `Calendar` 对象本身是可以被修改的。这意味着如果你把日历对象传给一个方法，方法内部改了时间，原对象的时间也就变了。
 
 ---
 ---
