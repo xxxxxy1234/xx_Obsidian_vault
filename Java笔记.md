@@ -5100,7 +5100,38 @@ System.out.println("12345678".matches(regex)); // false (没字母)
 - **结果**：得到 `Java`。
     
 - **特点**：它像个**哨兵**，看到后面是 `11` 就放行，但它**不吃** `11`，只抓 `Java`。
+---
+---
 
+
+## Date
+
+
+在 Java 中，`Date` 类（主要指 `java.util.Date`）现在很多方法都已经过时（Deprecated）了，但在处理老代码或简单的日期获取时依然会用到。
+
+### 常用方法说明表
+
+|**方法名**|**说明**|**示例**|
+|---|---|---|
+|`public Date()`|**空参构造**，获取当前系统的日期和时间|`new Date()`|
+|`public Date(long date)`|**带参构造**，把毫秒值转成 Date 对象|`new Date(0L)`|
+|`public long getTime()`|**获取毫秒值**，从1970年1月1日 00:00:00至今的毫秒数|`date.getTime()`|
+|`public void setTime(long time)`|**设置毫秒值**，修改 Date 对象代表的时间|`date.setTime(1000L)`|
+|`public boolean after(Date when)`|**判断之后**，测试此日期是否在指定日期之后|`d1.after(d2)`|
+|`public boolean before(Date when)`|**判断之前**，测试此日期是否在指定日期之前|`d1.before(d2)`|
+
+---
+
+### 关于时间的两个核心概念
+
+1. **时间原点**：`1970年1月1日 00:00:00`（中国是在 08:00:00，因为有时差）。
+    
+2. **毫秒值**：Java 中时间计算的基石。1秒 = 1000毫秒。
+
+---
+---
+
+## SimpleDataFormat
 
 ---
 ---
