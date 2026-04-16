@@ -5263,6 +5263,199 @@ c.set(2026, 0, 1); // 月份 0 代表 1月
 ---
 ---
 
+## JDK8时间类API
+
+**之前的Date、SimpleDateFormat、 Calendar属于JDK7的老旧API，在JDK8之后有更便捷更安全的API**
+
+
+#### 01. 时间点与时区（对应旧 Date）
+
+- **ZoneId**: 时区信息
+    
+- **Instant**: 时间戳（精确到纳秒）
+    
+- **ZonedDateTime**: 带时区的时间
+    
+
+#### 02. 格式化与解析（对应旧 SimpleDateFormat）
+
+- **DateTimeFormatter**: 用于日期时间的格式化展示与字符串解析
+    
+
+#### 03. 日历信息（对应旧 Calendar）
+
+- **LocalDate**: 包含年、月、日
+    
+- **LocalTime**: 包含时、分、秒
+    
+- **LocalDateTime**: 包含年、月、日、时、分、秒
+    
+
+#### 04. 时间间隔工具类
+
+- **Duration**: 计算时间间隔（以**秒、纳秒**为单位）
+    
+- **Period**: 计算时间间隔（以**年、月、日**为单位）
+    
+- **ChronoUnit**: 时间间隔计算的通用工具（支持**所有单位**）
+    
+
+---
+
+核心改进点补充：
+
+JDK 8 的这些新类都是 **不可变的（Immutable）** 且 **线程安全** 的。如果你正在写新项目，强烈建议直接使用这些 API，而不再使用老旧的 `Date` 或 `Calendar`。
+
+---
+---
+
+## ZoneID
+
+`ZoneId` 是 JDK 8 引入的处理**时区**的核心类。它取代了老旧且难用的 `TimeZone` 类，是处理全球化时间的基础。
+
+### ZoneId 类常用 API
+
+| **方法名**                                   | **说明**             | **示例**                       |
+| ----------------------------------------- | ------------------ | ---------------------------- |
+| **`static systemDefault()`**              | 获取系统默认的时区          | `ZoneId.systemDefault()`     |
+| **`static ZoneID getAvailableZoneIds()`** | 获取 Java 支持的所有时区 ID | 返回一个 `Set<String>`           |
+| **`static ZoneID of(String zoneId)`**     | 根据指定的 ID 字符串获取时区对象 | `ZoneId.of("Asia/Shanghai")` |
+
+---
+
+###  核心用法示例
+
+#### 1. 获取所有支持的时区
+
+Java 支持几百个时区，你可以通过以下代码查看：
+
+```java
+Set<String> zoneIds = ZoneId.getAvailableZoneIds();
+System.out.println(zoneIds.size()); // 数量通常在 600 个左右
+```
+
+#### 2. 获取当前系统时区
+
+```java
+ZoneId zone = ZoneId.systemDefault();
+System.out.println(zone); // 输出示例：Asia/Shanghai
+```
+
+#### 3. 手动指定时区
+
+如果你的程序需要处理跨国业务（比如纽约时间），可以直接指定：
+
+
+```java
+ZoneId zone = ZoneId.of("America/New_York");
+```
+
+---
+
+###  为什么需要 ZoneId？
+
+在旧的 `Date` 系统中，时间是不带时区的（它是基于 UTC 的绝对毫秒值），这导致在不同地区的服务器上运行程序时，时间显示经常乱套。
+
+`ZoneId` 的引入让我们可以精确控制时间在哪个地方展示。它是配合 `Instant`（时间戳）生成 `ZonedDateTime`（带时区的时间）的关键钥匙：
+
+$$\text{Instant} + \text{ZoneId} = \text{ZonedDateTime}$$
+
+---
+
+### ⚠️ 小贴士
+
+- **ID 格式**：时区 ID 通常遵循“区域/城市”的格式，例如 `Asia/Shanghai`、`Europe/London`。
+    
+- **大小写敏感**：在使用 `ZoneId.of()` 时，字符串必须完全正确，否则会抛出 `ZoneRulesException`。
+
+---
+---
+
+## Instant
+
+`Instant` 类代表的是时间线上的一个**瞬时点**，本质上是一个精确到**纳秒**的时间戳。它取代了旧的 `java.util.Date`，是 JDK 8 时间体系中与“绝对时间”挂钩的核心类。
+
+### Instant 类常用 API
+
+| **方法名**                                  | **说明**                          | **示例**                                        |
+| ---------------------------------------- | ------------------------------- | --------------------------------------------- |
+| **`static Instant now()`**               | 获取当前时间的 Instant 对象（默认 UTC 标准时间） | `Instant.now()`                               |
+| **`static Instant ofEpochMilli(long)`**  | 根据毫秒值获取 Instant 对象              | `Instant.ofEpochMilli(0L)`                    |
+| **`static Instant ofEpochSecond(long)`** | 根据秒值（及纳秒偏移）获取 Instant 对象        | `Instant.ofEpochSecond(100L)`                 |
+| **`ZonedDateTime atZone(ZoneId)`**       | 指定时区，返回 `ZonedDateTime` 对象      | `instant.atZone(ZoneId.of ("Asia/Shanghai"))` |
+| **`blolean isBefore(Instant)`**          | 判断当前瞬时点是否在指定时间之前                | `i1.isBefore(i2)`                             |
+| **`boolean isAfter(Instant)`**           | 判断当前瞬时点是否在指定时间之后                | `i1.isAfter(i2)`                              |
+| **`Instant plusXxx / minusXxx`**         | 增加或减少时间（返回新对象，原对象不变）            | `instant.plusSeconds(10)`                     |
+
+---
+
+### 核心特性解析
+
+#### 1. 默认时区是 UTC
+
+当你调用 `Instant.now()` 时，你会发现它打印的时间比中国北京时间（东八区）**慢了 8 小时**。
+
+- **原因**：`Instant` 默认使用格林威治标准时间（UTC）。
+    
+- **解决**：如果你想看到本地时间，需要结合 `ZoneId` 转换。
+    
+
+#### 2. 纳秒级精度
+
+旧的 `Date` 只能精确到毫秒，而 `Instant` 内部维护了两个字段：
+
+- `seconds`: 从时间原点开始的秒数。
+    
+- `nanos`: 纳秒部分的偏移量（$0$ 到 $999,999,999$ 之间）。
+    
+
+---
+
+### 常用代码演示
+
+#### 获取当前时间及偏移
+
+
+```java
+Instant now = Instant.now();
+System.out.println(now); // 2026-04-16T10:30:00Z (示例，比北京时间慢8小时)
+
+// 增加 8 小时偏移来查看
+OffsetDateTime bjTime = now.atOffset(ZoneOffset.ofHours(8));
+System.out.println(bjTime);
+```
+
+#### 时间点对比与计算
+
+
+```java
+Instant i1 = Instant.now();
+// 执行一段代码...
+Instant i2 = Instant.now();
+
+if (i1.isBefore(i2)) {
+    System.out.println("数据已更新");
+}
+
+// 增减操作（Instant 是不可变的，必须接收返回值）
+Instant future = i1.plusSeconds(3600); 
+```
+
+---
+
+### 为什么它比 Date 好？
+
+1. **不可变性**：`Date` 是可变的，在多线程下不安全；`Instant` 每次操作都会返回一个全新的对象，保证了线程安全。
+    
+2. **更精准**：支持纳秒，满足高频交易或精密科学计算的需求。
+    
+3. **语义清晰**：它专门负责代表“时间点”，而 `LocalDate` 负责代表“日历日期”，职责分离更明确。
+
+---
+---
+
+
+
 # 易错点
 
 ## 1
