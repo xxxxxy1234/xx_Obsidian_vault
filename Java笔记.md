@@ -5526,6 +5526,150 @@ $$ZonedDateTime = LocalDate + LocalTime + ZoneId$$
 ---
 
 
+## DateTimeFormatter
+
+
+`DateTimeFormatter` 是 JDK 8 引入的“增强版”，它彻底解决了 `SimpleDateFormat` 的痛点（比如线程不安全、不支持纳秒等）。如果你已经熟悉旧版，只需要记住它的“新姿势”即可。
+
+
+
+### DateTimeFormatter 类常用 API
+
+|**返回类型**|**方法名**|**说明**|
+|---|---|---|
+|`static DateTimeFormatter`|**`ofPattern(String pattern)`**|**获取格式化器**，指定日期展示的模板|
+|`String`|**`format(TemporalAccessor t)`**|**格式化**：把日期对象（如 `LocalDateTime`）变成字符串|
+|`TemporalAccessor`|**`parse(CharSequence text)`**|**解析**：把字符串变成日期对象（通常配合日期类的 `parse` 使用）|
+
+---
+
+### 它与 SimpleDateFormat 的核心区别
+
+|**特性**|**SimpleDateFormat (旧)**|**DateTimeFormatter (新)**|
+|---|---|---|
+|**线程安全**|**不安全**（多线程共用会报错/乱序）|**线程安全**（不可变对象，放心全局使用）|
+|**支持类型**|仅支持 `java.util.Date`|支持 `LocalDate`, `LocalDateTime`, `Instant` 等所有新类|
+|**性能**|较慢|更快|
+|**纳秒支持**|不支持|支持|
+
+---
+
+### 现代化的代码写法
+
+在 JDK 8 之后，我们很少直接调用格式化器的 `parse`，而是更习惯通过日期类（如 `LocalDateTime`）自己的静态方法来解析。
+
+#### 1. 格式化（对象 -> 字符串）
+
+
+```java
+DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+LocalDateTime now = LocalDateTime.now();
+
+// 两种写法效果一样，推荐第一种
+String result1 = dtf.format(now);
+String result2 = now.format(dtf); 
+```
+
+#### 2. 解析（字符串 -> 对象）
+
+
+```java
+String timeStr = "2026-05-20 13:14:00";
+DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+// 直接调用日期类的 parse，并传入格式化器
+LocalDateTime parseTime = LocalDateTime.parse(timeStr, dtf);
+```
+
+---
+
+### 为什么它更强大？
+
+除了自定义模板（`ofPattern`），它还内置了很多标准格式常量，例如：
+
+- `DateTimeFormatter.ISO_LOCAL_DATE` (直接格式化为 `2026-04-16`)
+    
+- `DateTimeFormatter.BASIC_ISO_DATE` (格式化为 `20260416`)
+
+
+---
+---
+
+## LocalDate、LocalTime、LocalDateTime
+
+这两张图片展示了 JDK 8 引入的三个核心本地日期时间类：`LocalDate`、`LocalTime` 和 `LocalDateTime`。它们最大的特点是不带时区，专门处理本地、人类可读的日期和时间。
+
+---
+
+###  本地日期时间类 (XXX) 核心 API 总结表
+
+这三个类在方法设计上具有极高的**规律性**。下表中的 **`XXX`** 代表 `LocalDate`、`LocalTime` 或 `LocalDateTime` 其中的任意一个。
+
+
+| **返回类型**     | **方法名**              | **说明**           | **示例**                     |
+| ------------ | -------------------- | ---------------- | -------------------------- |
+| `static XXX` | `now()`              | 获取当前系统时间的对象      | `LocalDateTime.now()`      |
+| `static XXX` | `of(...)`            | 获取指定时间的对象        | `LocalDate.of(2026, 1, 1)` |
+| `int / long` | `get` 开头的方法          | 获取年、月、日、时、分等信息   | `date.getYear()`           |
+| `boolean`    | `isBefore / isAfter` | 比较两个对象的先后关系      | `d1.isBefore(d2)`          |
+| `XXX`        | `with` 开头的方法         | 修改时间系列的方法（返回新对象） | `date.withYear(2027)`      |
+| `XXX`        | `minus` 开头的方法        | 减少时间系列的方法（返回新对象） | `date.minusDays(1)`        |
+| `XXX`        | `plus` 开头的方法         | 增加时间系列的方法（返回新对象） | `date.plusMonths(1)`       |
+
+
+---
+
+###  三个类的具体职责
+
+你可以把它们看作是一个**拆解与组合**的关系）：
+
+1. **`LocalDate`**（日期类）：
+    
+    - **只包含**：年、月、日。
+        
+    - **示例**：`2026-04-16`。
+        
+    - **`of` 方法示例**：`LocalDate.of(2026, 4, 16)`。
+        
+2. **`LocalTime`**（时间类）：
+    
+    - **只包含**：时、分、秒、纳秒。
+        
+    - **示例**：`18:30:15`。
+        
+    - **`of` 方法示例**：`LocalTime.of(18, 30, 15)`。
+        
+3. **`LocalDateTime`**（日期时间类）：
+    
+    - **包含**：年、月、日、时、分、秒、纳秒（前两者的合体）。
+        
+    - **示例**：`2026-04-16T18:30:15`。
+        
+    - **`of` 方法示例**：`LocalDateTime.of(2026, 4, 16, 18, 30, 15)`。
+        
+
+---
+
+### 精华：组合与拆解方法
+
+`LocalDateTime` 扮演着“集大成者”的角色，它提供了专门的方法与另外两个类互转：
+
+#### 从 `LocalDateTime` 中拆解
+
+|**返回类型**|**方法名**|**说明**|
+|---|---|---|
+|`LocalDate`|**`toLocalDate()`**|将 `LocalDateTime` 转换成一个 `LocalDate` 对象（只取日期）|
+|`LocalTime`|**`toLocalTime()`**|将 `LocalDateTime` 转换成一个 `LocalTime` 对象（只取时间）|
+
+---
+---
+
+
+
+---
+---
+
+
 # 易错点
 
 ## 1
