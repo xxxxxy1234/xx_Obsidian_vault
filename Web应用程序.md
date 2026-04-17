@@ -567,7 +567,7 @@ graph TD
 
 
 在 ASP.NET Web Forms 开发中，**服务器控件（Server Controls）** 是构建交互式网页的核心组件。它们在服务器端运行，并由 ASP.NET 引擎自动渲染为 HTML 代码。
-## ASP.NET 服务器控件详解
+## 服务器控件详解
 > [!tip] 核心特征
 > 服务器控件必须包含 runat="server" 属性。它们的对象模型在服务器端运行，能够保留状态（ViewState），并触发服务器端事件。
 > 
@@ -636,7 +636,7 @@ protected void Page_Load(object sender, EventArgs e)
 
 
 
-## ASP.NET 文本类型控件详解
+## 文本类型控件详解
 > [!abstract] 概要
 > 文本类型控件是 Web Forms 中最基础的交互组件，主要用于展示静态文本或接收用户输入。它们在服务器端都有对应的类模型，支持丰富的属性配置。
 > 
@@ -694,7 +694,7 @@ protected void btnSubmit_Click(object sender, EventArgs e)
 ---
 
 
-## ASP.NET 按钮类型控件详解
+## 按钮类型控件详解
 > [!abstract] 概要
 > 按钮控件主要用于向服务器提交表单数据或执行特定的后端方法。
 > 
@@ -748,7 +748,7 @@ protected void btnSubmit_Click(object sender, EventArgs e)
 
 
 在 ASP.NET Web Forms 中，连接类型控件主要用于页面间的跳转或定位。由于它们涉及到 URL 和 HTML 标签的渲染
-## ASP.NET 连接类型控件详解
+## 连接类型控件详解
 > [!abstract] 概要
 > 连接类型控件用于实现网页之间的导航。根据是否需要服务器端参与，分为 HyperLink 和普通的 HTML 链接。
 > 
@@ -800,7 +800,7 @@ protected void Page_Load(object sender, EventArgs e)
 ---
 
 
-## ASP.NET 选择类控件全量指南
+## 选择类控件全量指南
 > [!abstract] 核心逻辑
 > ASP.NET 中的选择控件分为**单体控件**（处理逻辑状态）和**列表控件**（处理数据集合）。它们都依赖于 ViewState 来维持跨页面刷新的状态。
 > 
@@ -905,7 +905,6 @@ string level = rblDifficulty.SelectedValue;
 ---
 
 
-针对你的需求，我将 **DropDownList** 和 **ListBox** 的核心功能、代码示例以及开发中的进阶细节完整整合如下。
 ## ASP.NET 列表选择控件：DropDownList 与 ListBox
 > [!abstract] 核心逻辑
 > 这两类控件都继承自 ListControl 基类，核心操作对象都是 ListItem。它们通过索引（Index）和值（Value）来管理用户的选择状态。
@@ -1007,7 +1006,7 @@ protected void btnSubmit_Click(object sender, EventArgs e)
 ---
 
 在 ASP.NET Web Forms 中，**Image 图像控件**主要用于在网页上动态或静态地显示图片。与 HTML 的 <img> 标签不同，它可以在服务器端通过代码动态更改图片路径、样式和可见性。
-## ASP.NET Image 图像控件详解
+## Image 图像控件详解
 > [!abstract] 概要
 > Image 控件渲染为 HTML 的 <img> 标签。它不触发任何服务器端事件（如点击事件），仅用于展示。如果需要点击图片触发逻辑，应使用 **ImageButton**。
 > 
@@ -1091,7 +1090,7 @@ protected void Page_Load(object sender, EventArgs e)
 ---
 
 在 ASP.NET Web Forms 中，**Panel** 控件是一个非常实用的**容器控件**。它在页面上渲染为一个 \<div> 标签，主要用于将其他控件组合在一起，以便进行统一的显示控制、布局管理或外观设置。
-## ASP.NET Panel 容器控件详解
+## Panel 容器控件详解
 > [!abstract] 概要
 > Panel 控件允许你通过控制容器的属性，一次性改变其中所有子控件的状态（如可见性、启用状态）。它也是实现局部滚动和默认按钮触发的核心组件。
 > 
@@ -1166,7 +1165,7 @@ protected void btnAdd_Click(object sender, EventArgs e)
 ---
 
 在 ASP.NET Web Forms 中，**FileUpload** 控件是处理文件上传的核心组件。它允许用户从本地计算机选择文件并将其发送到服务器。
-## ASP.NET FileUpload 文件上传控件详解
+## FileUpload 文件上传控件详解
 > [!abstract] 概要
 > FileUpload 控件在 HTML 中渲染为 \<input type="file">。由于安全限制，浏览器不允许脚本自动填写文件路径，必须由用户手动选择。
 > 
@@ -1277,7 +1276,7 @@ foreach (HttpPostedFile file in fileUploadCustom.PostedFiles)
 
 
 在 ASP.NET Web Forms 中，**数据验证控件（Validation Controls）** 是一组功能强大的组件，用于在数据提交到服务器之前检查用户输入的正确性。它们最大的优势是**自动生成双重验证逻辑**：既包含前端的 JavaScript 脚本（减少服务器压力），也包含后端的 C# 逻辑（确保安全性）。
-## ASP.NET 数据验证控件全量指南
+## 数据验证控件全量指南
 > [!abstract] 核心逻辑
 > 验证控件通过 ControlToValidate 属性与输入控件绑定。当用户点击按钮时，所有验证控件会执行检查。如果任一验证未通过，页面 Page.IsValid 将返回 false，并阻止回发。
 > 
@@ -1369,3 +1368,86 @@ protected void btnSubmit_Click(object sender, EventArgs e)
    </appSettings>
    
    ```
+
+---
+---
+
+
+在 ASP.NET Web Forms 中，**导航控件（Navigation Controls）** 用于在网站中创建统一的菜单、路径导航和侧边栏。它们通常配合 **站点地图（Site Map）** 使用，能够根据网站结构自动生成导航界面。
+## 导航控件全量指南
+> [!abstract] 核心逻辑
+> 导航控件通常不直接写死数据，而是通过 SiteMapDataSource 控件读取项目根目录下的 Web.sitemap 文件。这样当你修改网站结构时，所有页面的导航栏会自动同步更新。
+> 
+### 1. 核心导航控件详解
+#### Menu (菜单控件)
+用于创建复杂的层级菜单（类似顶部导航栏或下拉菜单）。
+ * **功能**：支持静态显示和动态悬停显示。
+ * **渲染结果**：默认渲染为 table 或 list 结构。
+ * **核心属性**：
+   * Orientation: 菜单方向（Horizontal 或 Vertical）。
+   * StaticDisplayLevels: 始终显示的层级数。
+   * MaximumDynamicDisplayLevels: 鼠标悬停时弹出的最大层级数。
+#### SiteMapPath (站点地图路径/面包屑)
+显示当前页面在网站结构中的位置（例如：首页 > 产品中心 > 手机）。
+ * **功能**：**唯一不需要** SiteMapDataSource 的导航控件，它直接自动查找 Web.sitemap。
+ * **渲染结果**：一系列超链接和分隔符。
+ * **核心属性**：PathSeparator（分隔符，默认是 ">"）。
+#### TreeView (树状视图)
+以树形折叠结构展示层级数据。
+ * **功能**：支持展开/折叠，适合管理后台的侧边栏。
+ * **核心属性**：ShowLines（是否显示连接线）、ExpandDepth（默认展开层级）。
+### 2. 核心配置文件：Web.sitemap
+要让导航控件工作，必须在项目根目录新建一个 **站点地图** 文件。
+**文件示例 (Web.sitemap)**
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<siteMap xmlns="http://schemas.microsoft.com/AspNet/SiteMap-File-1.0" >
+  <siteMapNode url="~/Default.aspx" title="首页" description="返回首页">
+    <siteMapNode url="~/Products.aspx" title="产品中心" description="我们的产品">
+      <siteMapNode url="~/Software.aspx" title="软件开发" />
+      <siteMapNode url="~/Hardware.aspx" title="硬件设备" />
+    </siteMapNode>
+    <siteMapNode url="~/About.aspx" title="关于我们" />
+  </siteMapNode>
+</siteMap>
+
+```
+### 3. 实战代码示例
+**前端代码 (.aspx)**
+```html
+<asp:SiteMapDataSource ID="SiteMapData" runat="server" />
+
+<nav>
+    <asp:SiteMapPath ID="smpCurrent" runat="server" PathSeparator=" / " />
+</nav>
+
+<hr />
+
+<asp:Menu ID="mainMenu" runat="server" DataSourceID="SiteMapData" 
+          Orientation="Horizontal" StaticDisplayLevels="2">
+</asp:Menu>
+
+<hr />
+
+<asp:TreeView ID="tvNav" runat="server" DataSourceID="SiteMapData" ShowLines="true">
+</asp:TreeView>
+
+```
+### 4. 导航控件功能对比
+| 控件名称 | 渲染效果 | 核心用途 | 数据源需求 |
+|---|---|---|---|
+| **SiteMapPath** | 水平文本链接 | 告诉用户“我在哪” | 不需要 (自动读取) |
+| **Menu** | 弹出式下拉菜单 | 网站主导航栏 | 需要 SiteMapDataSource |
+| **TreeView** | 可折叠的垂直树 | 侧边栏、目录索引 | 需要 SiteMapDataSource |
+### 5. 开发者避坑指南
+ 1. **Web.sitemap 约束**：
+   * 站点地图必须只有一个根节点（通常是“首页”）。
+   * url 属性必须唯一，不能有两个节点指向同一个页面。
+ 2. **URL 路径问题**：
+   * 建议在 Web.sitemap 中使用 ~/ 语法，确保在子文件夹下的页面也能正确跳转。
+ 3. **安全过滤 (Roles)**：
+   * 如果开启了成员资格管理，可以在 Web.sitemap 节点中设置 roles="Admin"，这样非管理员用户在导航栏中就看不见该菜单项。
+ 4. **CSS 样式覆盖**：
+   * Menu 控件默认会生成很多内联样式，这会让自定义 CSS 很难生效。建议设置 IncludeStyleBlock="false" 并在 CSS 中手动定义样式。
+ 5. **动态更新**：
+   * 导航控件是基于 Web.sitemap 的静态结构的。如果你的菜单是存储在数据库里的（动态生成的），请不要使用 SiteMapDataSource，而是直接将 DataSet 或 List 绑定给 Menu 或 TreeView 的 DataSource。
