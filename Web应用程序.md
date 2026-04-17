@@ -901,3 +901,104 @@ string level = rblDifficulty.SelectedValue;
  * **样式控制**：
    若想让列表控件生成的 HTML 更简洁，请设置 RepeatLayout="Flow"，这会去除默认生成的表格标签。
 
+---
+---
+
+
+针对你的需求，我将 **DropDownList** 和 **ListBox** 的核心功能、代码示例以及开发中的进阶细节完整整合如下。
+## ASP.NET 列表选择控件：DropDownList 与 ListBox
+> [!abstract] 核心逻辑
+> 这两类控件都继承自 ListControl 基类，核心操作对象都是 ListItem。它们通过索引（Index）和值（Value）来管理用户的选择状态。
+> 
+### 1. DropDownList (下拉列表)
+**功能介绍**：
+最常用的表单控件。渲染为单选的 select 标签。它在平时只占据一行空间，点击后才弹出选项列表。
+**核心功能点**：
+ * **单选约束**：天生只能选择一项，适合节省页面空间。
+ * **默认选中**：如果开发者不指定，它会自动选中第一个 ListItem。
+ * **常用属性**：
+   * SelectedIndex: 获取或设置选中项的索引（从 0 开始）。
+   * SelectedValue: 获取或设置选中项的 Value 值。
+**代码示例**：
+```html
+<asp:DropDownList ID="ddlCity" runat="server" AutoPostBack="true" OnSelectedIndexChanged="ddlCity_SelectedIndexChanged">
+    <asp:ListItem Value="BJ">北京</asp:ListItem>
+    <asp:ListItem Value="SH">上海</asp:ListItem>
+    <asp:ListItem Value="GZ">广州</asp:ListItem>
+</asp:DropDownList>
+
+```
+### 2. ListBox (列表框)
+**功能介绍**：
+渲染为具有 size 属性的 select 标签。它在页面上呈现为一个固定的矩形区域，展示多个选项。
+**核心功能点**：
+ * **多选模式**：通过设置 SelectionMode="Multiple" 支持 Ctrl/Shift 多选。
+ * **可见高度**：通过 Rows 属性控制显示的行数。
+ * **操作集合**：常用于权限分配、标签筛选等需要批量操作的场景。
+**代码示例**：
+```html
+<asp:ListBox ID="lbSkills" runat="server" SelectionMode="Multiple" Rows="6">
+    <asp:ListItem Value="CS">C#</asp:ListItem>
+    <asp:ListItem Value="JV">Java</asp:ListItem>
+    <asp:ListItem Value="PY">Python</asp:ListItem>
+</asp:ListBox>
+
+```
+### 3. 实战代码：数据绑定与结果提取
+在实际开发中，这两类控件通常配合数据库使用。
+**A. 动态绑定 (C#)**
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack) // 关键：防止回发时重复绑定导致状态丢失
+    {
+        BindData();
+    }
+}
+
+private void BindData()
+{
+    var depts = GetDepartments(); // 模拟获取数据库数据
+    ddlDept.DataSource = depts;
+    ddlDept.DataTextField = "DeptName"; // 页面显示的名称
+    ddlDept.DataValueField = "DeptID";   // 后台逻辑用的 ID
+    ddlDept.DataBind();
+
+    // 技巧：添加默认引导项
+    ddlDept.Items.Insert(0, new ListItem("--请选择部门--", "0"));
+}
+
+```
+**B. 获取多选结果 (ListBox 特有)**
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    string selectedValues = "";
+    // ListBox 开启多选后必须遍历 Items
+    foreach (ListItem item in lbSkills.Items)
+    {
+        if (item.Selected)
+        {
+            selectedValues += item.Value + ",";
+        }
+    }
+    Response.Write("已选： " + selectedValues.TrimEnd(','));
+}
+
+```
+### 4. 核心差异对比
+| 维度 | DropDownList | ListBox |
+|---|---|---|
+| **选择模式** | 仅限单选 | 可单选/多选 (SelectionMode) |
+| **占据空间** | 极小 (一行) | 较大 (由 Rows 决定) |
+| **交互方式** | 点击展开后选择 | 直接在列表内点击/拖选 |
+| **空值状态** | 默认必选一项 (除非手动加空项) | 可以不选中任何项 |
+### 5. 开发者避坑指南
+ * **AutoPostBack**：
+   如果你希望用户一改选项页面就立刻发生变化（如：联动下拉框），必须设置 AutoPostBack="true"。
+ * **!IsPostBack 判断**：
+   如果你的 SelectedValue 拿到的永远是第一项的值，通常是因为你在 Page_Load 里没有写 if (!IsPostBack)，导致每次刷新数据都被重置了。
+ * **InitialValue 验证**：
+   使用 RequiredFieldValidator 验证 DropDownList 时，如果第一项是“--请选择--”，请将验证控件的 InitialValue 设为该项的 Value 值。
+ * **ListItem 深度操作**：
+   可以通过 Items.FindByValue("BJ").Selected = true 在代码中动态控制哪一项被选中。
