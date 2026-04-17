@@ -1002,3 +1002,370 @@ protected void btnSubmit_Click(object sender, EventArgs e)
    使用 RequiredFieldValidator 验证 DropDownList 时，如果第一项是“--请选择--”，请将验证控件的 InitialValue 设为该项的 Value 值。
  * **ListItem 深度操作**：
    可以通过 Items.FindByValue("BJ").Selected = true 在代码中动态控制哪一项被选中。
+
+---
+---
+
+在 ASP.NET Web Forms 中，**Image 图像控件**主要用于在网页上动态或静态地显示图片。与 HTML 的 <img> 标签不同，它可以在服务器端通过代码动态更改图片路径、样式和可见性。
+## ASP.NET Image 图像控件详解
+> [!abstract] 概要
+> Image 控件渲染为 HTML 的 <img> 标签。它不触发任何服务器端事件（如点击事件），仅用于展示。如果需要点击图片触发逻辑，应使用 **ImageButton**。
+> 
+### 1. 核心属性
+| 属性 | 说明 |
+|---|---|
+| **ImageUrl** | **最核心属性**。图片的路径，支持相对路径、绝对路径和 ~/ 根目录语法。 |
+| **AlternateText** | 当图片无法显示时显示的替代文本（SEO 和无障碍访问必备）。 |
+| **ImageAlign** | 图片相对于周围文字的对齐方式（如 Left, Right, Top, Middle）。 |
+| **DescriptionUrl** | 提供图片详细说明页面的 URL（辅助功能）。 |
+| **GenerateEmptyAlternateText** | 布尔值，如果为 True，且未设置 AlternateText，则渲染为空字符串。 |
+### 2. 声明与代码示例
+#### 静态声明
+在 .aspx 页面中直接指定路径：
+```html
+<asp:Image ID="imgLogo" runat="server" 
+           ImageUrl="~/Images/logo.png" 
+           AlternateText="公司Logo" 
+           Width="200px" />
+
+```
+#### 动态修改 (C#)
+在后台代码中根据业务逻辑切换图片：
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack)
+    {
+        // 根据用户性别显示不同头像
+        if (UserGender == "Male")
+        {
+            imgAvatar.ImageUrl = "~/Images/male_avatar.jpg";
+        }
+        else
+        {
+            imgAvatar.ImageUrl = "~/Images/female_avatar.jpg";
+        }
+    }
+}
+
+```
+### 3. Image 控件 vs ImageButton 控件
+这是开发中最容易产生误区的地方：
+
+| 特性 | Image 控件 | ImageButton 控件 |
+|---|---|---|
+| **主要功能** | 纯展示 (Display) | 触发提交 (Postback) |
+| **HTML 渲染** | <img> | <input type="image"> |
+| **服务器事件** | 无 | 有 (OnClick, OnCommand) |
+| **坐标获取** | 不支持 | **支持** (可获取点击图片的 X, Y 坐标) |
+### 4. 路径处理：相对路径与 ~ 符号
+在设置 ImageUrl 时，建议始终使用 ~ 符号：
+ * **~/**：表示 Web 应用程序的根目录。
+ * **优点**：即使你的 .aspx 页面从根目录移动到了子文件夹中，~/Images/pic.jpg 依然能正确找到图片，避免了相对路径（如 ../）带来的失效风险。
+### 5. 进阶：在数据绑定控件中使用
+在 GridView 或 Repeater 中动态展示图片时，通常配合数据绑定表达式：
+```html
+<asp:GridView ID="gvProducts" runat="server">
+    <Columns>
+        <asp:TemplateField HeaderText="产品图片">
+            <ItemTemplate>
+                <asp:Image ID="imgProduct" runat="server" 
+                           ImageUrl='<%# Eval("ProductPicUrl", "~/Thumbnails/{0}") %>' />
+            </ItemTemplate>
+        </asp:TemplateField>
+    </Columns>
+</asp:GridView>
+
+```
+### 6. 开发避坑指南
+ 1. **图片不显示**：
+   * 检查路径是否正确。如果是动态生成的路径，注意反斜杠 \ 和正斜杠 / 的区别（Web 路径应使用 /）。
+   * 检查权限。确保服务器上的文件夹允许 IIS 账号读取图片文件。
+ 2. **样式控制**：
+   * 尽量使用 CssClass 来控制图片的边框、圆角等样式，而不是在服务器端设置每一个样式属性，这样更符合前后端分离原则。
+ 3. **空路径问题**：
+   * 如果 ImageUrl 绑定了一个空值，浏览器可能会显示一个破损图标。建议在后台逻辑中进行非空判断，若为空则显示一张默认的“暂无图片”。
+
+
+---
+---
+
+在 ASP.NET Web Forms 中，**Panel** 控件是一个非常实用的**容器控件**。它在页面上渲染为一个 \<div> 标签，主要用于将其他控件组合在一起，以便进行统一的显示控制、布局管理或外观设置。
+## ASP.NET Panel 容器控件详解
+> [!abstract] 概要
+> Panel 控件允许你通过控制容器的属性，一次性改变其中所有子控件的状态（如可见性、启用状态）。它也是实现局部滚动和默认按钮触发的核心组件。
+> 
+### 1. 核心功能与属性
+| 属性 | 说明 |
+|---|---|
+| **GroupingText** | 在 Panel 周围绘制边框并显示标题（渲染为 HTML 的 fieldset 和 legend）。 |
+| **Visible** | 最常用的属性。设置为 false 时，整个 Panel 及其子控件都不会渲染到 HTML 中。 |
+| **DefaultButton** | **非常实用**。指定当用户在 Panel 内按回车键时，触发哪个按钮的点击事件。 |
+| **ScrollBars** | 控制滚动条的出现（None, Horizontal, Vertical, Both, Auto）。 |
+| **HorizontalAlign** | 控制内部内容的水平对齐方式（Left, Center, Right, Justify）。 |
+| **Wrap** | 布尔值，决定内容是否在容器边缘自动换行。 |
+### 2. 典型使用场景
+#### A. 批量控制显示/隐藏 (权限切换)
+这是 Panel 最基础的用法。比如在用户登录后展示个人信息面板，未登录时展示登录面板。
+```html
+<asp:Panel ID="pnlLogin" runat="server">
+    用户名：<asp:TextBox ID="txtUser" runat="server" />
+    密码：<asp:TextBox ID="txtPwd" runat="server" TextMode="Password" />
+    <asp:Button ID="btnLogin" runat="server" Text="登录" />
+</asp:Panel>
+
+<asp:Panel ID="pnlUserInfo" runat="server" Visible="false">
+    欢迎您，<asp:Label ID="lblUser" runat="server" />
+    <asp:LinkButton ID="btnExit" runat="server" Text="退出" />
+</asp:Panel>
+
+```
+#### B. 设置默认提交按钮 (DefaultButton)
+在一个复杂的页面中，用户在搜索框里按回车，你希望触发的是“搜索按钮”而不是“保存按钮”，这时就可以用 Panel 包裹搜索区域。
+```html
+<asp:Panel ID="pnlSearch" runat="server" DefaultButton="btnSearch">
+    <asp:TextBox ID="txtKeywords" runat="server" />
+    <asp:Button ID="btnSearch" runat="server" Text="搜索" OnClick="btnSearch_Click" />
+</asp:Panel>
+
+```
+### 3. 实现局部滚动区域
+如果页面空间有限，但需要展示大量内容（如日志或条款），可以设置 Height 和 ScrollBars。
+```html
+<asp:Panel ID="pnlLog" runat="server" Height="150px" Width="300px" ScrollBars="Vertical" BorderStyle="Solid" BorderWidth="1px">
+    <asp:Label ID="lblLongText" runat="server" Text="这里有非常长的内容..." />
+</asp:Panel>
+
+```
+### 4. 后端动态操作 (C#)
+你可以通过代码动态向 Panel 中添加控件，这对于构建不确定数量的 UI 非常有用。
+```csharp
+protected void btnAdd_Click(object sender, EventArgs e)
+{
+    // 动态创建一个标签并添加到 Panel 容器中
+    Label dynamicLabel = new Label();
+    dynamicLabel.Text = "这是动态生成的标签 <br />";
+    
+    // 将控件添加到 Panel 的 Controls 集合中
+    pnlContainer.Controls.Add(dynamicLabel);
+}
+
+```
+### 5. Panel 与其他容器的对比
+| 容器控件 | 渲染标签 | 特点 |
+|---|---|---|
+| **Panel** | div | 功能最全，支持滚动条、分组标题和默认按钮。 |
+| **PlaceHolder** | **无标签** | 纯粹的占位符，不产生任何 HTML 标签，仅用于在代码中动态添加控件。 |
+| **ContentPlaceHolder** | 无标签 | 专用于母版页（MasterPage）的区域定义。 |
+### 6. 开发建议
+ 1. **布局解耦**：虽然 Panel 支持设置 BackImageUrl 等外观属性，但现代开发建议尽量通过 CssClass 配合外部 CSS 文件来管理样式，保持代码整洁。
+ 2. **ClientID 陷阱**：如果你在 JavaScript 中引用 Panel 里的子控件，注意它们的 ID 可能会被加上 Panel 的前缀。建议在子控件上设置 ClientIDMode="Static"（如果你使用的是 .NET 4.0 及以上版本）。
+ 3. **可见性注意**：Visible="false" 的 Panel 在浏览器源代码中是完全看不到的。如果你需要控件在页面上占据空间但只是隐藏（类似 CSS 的 visibility:hidden），应该通过 Style 属性来控制，而不是使用 Visible。
+
+---
+---
+
+在 ASP.NET Web Forms 中，**FileUpload** 控件是处理文件上传的核心组件。它允许用户从本地计算机选择文件并将其发送到服务器。
+## ASP.NET FileUpload 文件上传控件详解
+> [!abstract] 概要
+> FileUpload 控件在 HTML 中渲染为 \<input type="file">。由于安全限制，浏览器不允许脚本自动填写文件路径，必须由用户手动选择。
+> 
+### 1. 核心属性与方法
+| 成员类型 | 名称 | 说明 |
+|---|---|---|
+| **属性** | HasFile | 布尔值。判断用户是否选择了文件且文件内容不为空。 |
+| **属性** | FileName | 获取上传文件的名称（不含客户端路径）。 |
+| **属性** | FileBytes | 将文件内容作为字节数组读取（适合直接存入数据库）。 |
+| **属性** | PostedFile | 提供对上传文件的底层访问（如获取 ContentType 或 ContentLength）。 |
+| **属性** | AllowMultiple | (.NET 4.5+) 是否允许用户一次选择多个文件。 |
+| **方法** | SaveAs(path) | 将上传的文件保存到服务器指定的绝对物理路径。 |
+### 2. 标准上传流程示例
+上传文件通常涉及两个步骤：前端声明控件，后端点击按钮执行保存逻辑。
+**前端代码 (.aspx)**
+```html
+<asp:FileUpload ID="fileUploadCustom" runat="server" />
+<asp:Button ID="btnUpload" runat="server" Text="开始上传" OnClick="btnUpload_Click" />
+<asp:Label ID="lblStatus" runat="server" />
+
+```
+**后端逻辑 (.aspx.cs)**
+```csharp
+protected void btnUpload_Click(object sender, EventArgs e)
+{
+    // 1. 判断是否有文件
+    if (fileUploadCustom.HasFile)
+    {
+        try
+        {
+            // 2. 获取服务器物理路径（使用 Server.MapPath）
+            string savePath = Server.MapPath("~/Uploads/");
+            
+            // 确保目录存在
+            if (!System.IO.Directory.Exists(savePath))
+            {
+                System.IO.Directory.CreateDirectory(savePath);
+            }
+
+            // 3. 执行保存
+            string fileName = fileUploadCustom.FileName;
+            fileUploadCustom.SaveAs(savePath + fileName);
+
+            lblStatus.Text = "文件上传成功：" + fileName;
+        }
+        catch (Exception ex)
+        {
+            lblStatus.Text = "错误：" + ex.Message;
+        }
+    }
+    else
+    {
+        lblStatus.Text = "请先选择一个文件。";
+    }
+}
+
+```
+### 3. 文件上传的安全性限制
+#### A. 文件大小限制
+ASP.NET 默认限制上传大小为 **4MB**。如果上传大文件，会报错。
+ * **修改方法**：在 Web.config 中调整 maxRequestLength（单位为 KB）。
+```xml
+<configuration>
+  <system.web>
+    <httpRuntime maxRequestLength="51200" />
+  </system.web>
+</configuration>
+
+```
+#### B. 文件类型过滤
+为了防止上传木马（如 .exe 或 .asp），必须在后端检查后缀名。
+```csharp
+string extension = System.IO.Path.GetExtension(fileUploadCustom.FileName).ToLower();
+string[] allowedExtensions = { ".jpg", ".png", ".gif" };
+if (!allowedExtensions.Contains(extension))
+{
+    lblStatus.Text = "不支持的文件格式！";
+    return;
+}
+
+```
+### 4. 关键点：PostedFile 深度控制
+通过 PostedFile 属性，你可以获取更多文件元数据：
+ * **PostedFile.ContentLength**：获取文件字节数（用于限制大小）。
+ * **PostedFile.ContentType**：获取文件的 MIME 类型（如 image/jpeg）。
+### 5. 开发者避坑指南
+ 1. **Server.MapPath 的必要性**：
+   SaveAs 方法需要**绝对路径**（如 C:\Web\Uploads\1.jpg）。不要直接传 ~/Uploads/1.jpg，必须通过 Server.MapPath 转换。
+ 2. **文件名冲突**：
+   如果两个用户上传同名文件，后者会覆盖前者。建议在保存时使用 Guid.NewGuid() 或时间戳重命名文件。
+ 3. **UpdatePanel 冲突**：
+   **注意**：FileUpload 控件默认无法在 UpdatePanel（异步局部刷新）中工作。
+   * **解决办法**：在 UpdatePanel 的 Triggers 中将上传按钮设置为 PostBackTrigger（全页面回发触发器）。
+ 4. **HTML 表单声明**：
+   ASP.NET 的 \<form runat="server"> 默认会自动处理 enctype="multipart/form-data"，你不需要手动去改 form 标签。
+### 6. 多文件上传 (.NET 4.5+)
+如果你启用了 AllowMultiple="true"，后端需要通过 PostedFiles 集合遍历处理：
+```csharp
+foreach (HttpPostedFile file in fileUploadCustom.PostedFiles)
+{
+    file.SaveAs(Server.MapPath("~/Uploads/") + file.FileName);
+}
+
+```
+
+---
+---
+
+
+在 ASP.NET Web Forms 中，**数据验证控件（Validation Controls）** 是一组功能强大的组件，用于在数据提交到服务器之前检查用户输入的正确性。它们最大的优势是**自动生成双重验证逻辑**：既包含前端的 JavaScript 脚本（减少服务器压力），也包含后端的 C# 逻辑（确保安全性）。
+## ASP.NET 数据验证控件全量指南
+> [!abstract] 核心逻辑
+> 验证控件通过 ControlToValidate 属性与输入控件绑定。当用户点击按钮时，所有验证控件会执行检查。如果任一验证未通过，页面 Page.IsValid 将返回 false，并阻止回发。
+> 
+### 1. 核心验证控件详解
+#### RequiredFieldValidator (非空验证)
+确保用户必须输入内容。
+ * **常用属性**：InitialValue（如果输入值等于此初始值，也视为未通过，常用于下拉框“请选择”项的验证）。
+#### CompareValidator (比较验证)
+将输入值与另一个控件的值或一个固定常数进行比较。
+ * **常见用途**：确认密码（比较两个 TextBox）、日期先后比较。
+ * **核心属性**：ControlToCompare（目标控件）、ValueToCompare（固定值）、Operator（比较运算符，如 DataTypeCheck, Equal 等）。
+#### RangeValidator (范围验证)
+检查输入值是否在指定的最小值和最大值之间。
+ * **核心属性**：MinimumValue、MaximumValue、Type（必须指定类型，如 Integer, Double, Date）。
+#### RegularExpressionValidator (正则表达式验证)
+根据正则表达式检查格式是否正确。
+ * **常见用途**：验证邮箱、手机号、身份证号、邮编。
+ * **核心属性**：ValidationExpression（正则表达式字符串）。
+#### CustomValidator (自定义验证)
+当内置逻辑无法满足需求时（如：去数据库检查用户名是否重复），使用此控件。
+ * **核心事件**：OnServerValidate（服务器端 C# 逻辑）、ClientValidationFunction（客户端 JS 逻辑）。
+### 2. 辅助与显示控件
+#### ValidationSummary (验证汇总)
+不在控件旁显示错误，而是将页面上所有的错误信息收集起来，在指定位置统一以列表或摘要形式展示。
+ * **核心属性**：ShowMessageBox（是否弹出警告框）、ShowSummary（是否在页面显示）。
+### 3. 实战代码示例
+以下是一个典型的注册表单验证场景：
+**前端代码 (.aspx)**
+```html
+<div>
+    用户名：<asp:TextBox ID="txtUser" runat="server" />
+    <asp:RequiredFieldValidator ID="rfvUser" runat="server" 
+        ControlToValidate="txtUser" ErrorMessage="用户名不能为空！" ForeColor="Red" />
+    <br />
+
+    密码：<asp:TextBox ID="txtPwd" runat="server" TextMode="Password" />
+    <asp:RequiredFieldValidator ID="rfvPwd" runat="server" 
+        ControlToValidate="txtPwd" ErrorMessage="密码必填！" Display="Dynamic" />
+    <br />
+
+    确认密码：<asp:TextBox ID="txtConfirm" runat="server" TextMode="Password" />
+    <asp:CompareValidator ID="cvPwd" runat="server" 
+        ControlToValidate="txtConfirm" ControlToCompare="txtPwd" 
+        ErrorMessage="两次密码输入不一致！" />
+    <br />
+
+    年龄：<asp:TextBox ID="txtAge" runat="server" />
+    <asp:RangeValidator ID="rvAge" runat="server" 
+        ControlToValidate="txtAge" MinimumValue="1" MaximumValue="120" 
+        Type="Integer" ErrorMessage="年龄必须在1-120之间！" />
+    <br />
+
+    <asp:Button ID="btnSubmit" runat="server" Text="注册" OnClick="btnSubmit_Click" />
+</div>
+
+```
+**后端逻辑 (.aspx.cs)**
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    // 即使前端有校验，后端也必须判断 Page.IsValid
+    if (Page.IsValid)
+    {
+        // 执行数据库存入逻辑
+        Response.Write("验证通过，正在处理...");
+    }
+}
+
+```
+### 4. 核心属性对比与用法
+| 属性 | 说明 |
+|---|---|
+| **ControlToValidate** | 指定要验证的控件 ID。 |
+| **ErrorMessage** | 验证失败时显示的文本，也会出现在 ValidationSummary 中。 |
+| **Display** | Static（占用空间）、Dynamic（不占空间，报错才出现）、None（不显示）。 |
+| **ValidationGroup** | **非常重要**。将验证控件和按钮分组。只有属于同一组的按钮点击时，才会触发该组的验证（解决页面多个表单冲突）。 |
+### 5. 开发者避坑指南
+ 1. **Page.IsValid 的必要性**：
+   永远不要假设前端拦截了所有错误。某些黑客可以绕过 JS 提交数据，因此在 btn_Click 事件的第一行必须检查 if (Page.IsValid)。
+ 2. **ValidationGroup 冲突**：
+   如果页面上有“登录”和“搜索”两个区域，点击搜索时如果不希望触发登录框的“必填验证”，请分别为它们设置不同的 ValidationGroup。
+ 3. **CausesValidation 属性**：
+   对于“取消”或“返回”按钮，务必设置 CausesValidation="false"，否则由于其他输入框没填，取消按钮也无法提交跳转。
+ 4. **前端脚本库问题**：
+   在较新版本的 .NET 中，验证控件依赖 jQuery。如果报错“WebForms UnobtrusiveValidationMode 需要名为 jquery 的 ScriptResourceMapping”，请在 Web.config 中添加：
+   ```xml
+   <appSettings>
+     <add key="ValidationSettings:UnobtrusiveValidationMode" value="None" />
+   </appSettings>
+   
+   ```
