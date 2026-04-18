@@ -5664,7 +5664,77 @@ LocalDateTime parseTime = LocalDateTime.parse(timeStr, dtf);
 ---
 ---
 
+## Duration、Period、ChronoUnit
 
+
+JDK 8 引入了专门用于计算“时间差”的类，解决了以前需要手动通过毫秒值相减再换算的麻烦。
+
+---
+
+### Duration、Period、ChronoUnit 常用 API 总结
+
+#### 1. Duration 类（用于计算：时、分、秒、纳秒）
+
+主要用于计算两个“时间戳”或“本地时间”之间的间隔。
+
+|**返回类型**|**方法名**|**说明**|**示例**|
+|---|---|---|---|
+|`static Duration`|**`between(start, end)`**|计算两个时间对象之间的间隔|`Duration.between(time1, time2)`|
+|`long`|**`toDays() / toHours()`**|将间隔转为天数、小时数|`d.toHours()`|
+|`long`|**`toMinutes() / toSeconds()`**|将间隔转为分钟、秒数|`d.toSeconds()`|
+|`long`|**`toNanos()`**|将间隔转为纳秒数|`d.toNanos()`|
+
+#### 2. Period 类（用于计算：年、月、日）
+
+主要用于计算两个“日期”之间的间隔。
+
+|**返回类型**|**方法名**|**说明**|**示例**|
+|---|---|---|---|
+|`static Period`|**`between(start, end)`**|计算两个日期对象之间的间隔|`Period.between(date1, date2)`|
+|`int`|**`getYears()`**|获取间隔中的整年数|`p.getYears()`|
+|`int`|**`getMonths()`**|获取间隔中的整月数|`p.getMonths()`|
+|`int`|**`getDays()`**|获取间隔中的天数|`p.getDays()`|
+|`long`|**`toTotalMonths()`**|获取间隔的总月数|`p.toTotalMonths()`|
+
+#### 3. ChronoUnit 工具类（全能型，计算任意单位）
+
+这是一个枚举类，可以非常直观地计算两个时间点之间**指定单位**的差距。
+
+|**返回类型**|**方法名**|**说明**|**示例**|
+|---|---|---|---|
+|`long`|**`between(start, end)`**|计算两个时间点之间相差多少个指定单位|`ChronoUnit.DAYS.between(d1, d2)`|
+
+---
+
+### 核心区别与选择
+
+1. **Duration**：侧重于**绝对时间**的流逝（秒、纳秒）。比如计算代码跑了多久，或者两个 `LocalTime` 差多少秒。
+    
+2. **Period**：侧重于**日历时间**（年、月、日）。比如计算你出生到现在是多少年零几个月。
+    
+    - _注意_：`Period` 的 `getDays()` 拿的是日期的**差值部分**，不是总天数。
+        
+3. **ChronoUnit**：最强大的工具。如果你想直接知道两个日期之间**总共相差多少天**，或者**总共相差多少小时**，用它最方便。
+    
+
+---
+
+### 典型场景对比
+
+```java
+LocalDate start = LocalDate.of(2023, 1, 1);
+LocalDate end = LocalDate.of(2026, 4, 16);
+
+// 使用 Period：结果是 "3年3个月15天" (各个字段是独立的)
+Period p = Period.between(start, end);
+
+// 使用 ChronoUnit：结果是 "1201天" (直接算出总和)
+long days = ChronoUnit.DAYS.between(start, end);
+```
+
+**一句话总结：**
+
+算“经过了多久”用 **Duration**；算“离现在几年几月”用 **Period**；算“总共差多少天/周/月”用 **ChronoUnit**。
 
 ---
 ---
