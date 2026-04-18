@@ -5739,6 +5739,91 @@ long days = ChronoUnit.DAYS.between(start, end);
 ---
 ---
 
+## 包装类
+
+
+在 Java 中，**包装类（Wrapper Classes）** 是为了让基本数据类型（如 `int`, `double`）也能拥有“对象”的特性。有了包装类，基本类型就可以调用方法、存入集合（如 `ArrayList`），并在泛型中使用。
+
+
+---
+
+### 基本类型与包装类对应表
+
+|**基本类型**|**包装类**|**初始值**|
+|---|---|---|
+|`byte`|`Byte`|`null`|
+|`short`|`Short`|`null`|
+|**`int`**|**`Integer`**|`null`|
+|**`long`**|**`Long`**|`null`|
+|`float`|`Float`|`null`|
+|`double`|`Double`|`null`|
+|**`char`**|**`Character`**|`null`|
+|**`boolean`**|**`Boolean`**|`null`|
+
+---
+
+### Integer 类常用 API 总结
+
+由于 `Integer` 是最常用的包装类，这里以它为例展示核心方法。
+
+| **返回类型**         | **方法名**                     | **说明**                   | **示例**                            |
+| ---------------- | --------------------------- | ------------------------ | --------------------------------- |
+|                  | `public Integer(int value)` | 根据传递的整数创建对象              |                                   |
+|                  | `public Integer(String s)`  | 根据传递的字符串创建对象             |                                   |
+| `static Integer` | **`valueOf(int i)`**        | 将基本类型 `int` 转换为包装类对象     | `Integer.valueOf(100)`            |
+| `static Integer` | **`valueOf(String s)`**     | 将字符串转换为包装类对象             | `Integer.valueOf("123")`          |
+| `static int`     | **`parseInt(String s)`**    | **最常用**：将字符串转成基本类型 `int` | `int i = Integer.parseInt("123")` |
+| `static String`  | **`toBinaryString(int i)`** | 将整数转为二进制字符串形式            | `Integer.toBinaryString(10)`      |
+| `static String`  | **`toHexString(int i)`**    | 将整数转为十六进制字符串形式           | `Integer.toHexString(255)`        |
+| `int`            | **`intValue()`**            | 将对象中的值取出来转回基本类型          | `inObj.intValue()`                |
+
+---
+
+### 核心特性：自动装箱与拆箱
+
+这是 JDK 5 引入的最重要的改进，让基本类型和包装类可以自动转换。
+
+1. **自动装箱**：Java 自动把基本类型变成对象。
+    
+    - `Integer i = 10;` （底层调用 `Integer.valueOf(10)`）
+        
+2. **自动拆箱**：Java 自动把对象变成基本类型。
+    
+    - `int n = i;` （底层调用 `i.intValue()`）
+        
+
+---
+
+### 包装类的一个“著名大坑”：整数型常量池
+
+在使用 `==` 比较包装类对象时，要格外小心：
+
+```java
+Integer a = 127;
+Integer b = 127;
+System.out.println(a == b); // true
+
+Integer c = 128;
+Integer d = 128;
+System.out.println(c == d); // false！
+```
+
+- **原理**：为了效率，Java 内部对 `-128` 到 `127` 之间的 `Integer` 对象做了缓存。在这个范围内的数会复用同一个对象，超出这个范围则会 `new` 新对象。
+    
+- **铁律**：包装类对象的比较，**请务必使用 `equals()` 方法**。
+    
+
+---
+
+### 总结
+
+- 包装类主要用于**集合、泛型**以及**基本类型与字符串之间的转换**。
+    
+- 所有的包装类都是**不可变（Immutable）**的。
+    
+- 转换字符串时，推荐使用 `Integer.parseInt()` 或 `Double.parseDouble()`。
+
+
 
 # 易错点
 
