@@ -5831,9 +5831,85 @@ System.out.println(c == d); // false！
     
 - 所有的包装类都是**不可变（Immutable）**的。
     
-- 转换字符串时，推荐使用 `Integer.parseInt()` 或 `Double.parseDouble()`。
+- 转换字符串时，推荐使用 `Integer.parseInt()` 或 `Double.parseDouble()`
+
+---
+---
 
 
+## Arrays
+
+`Arrays` 类是 Java 提供的一个专门用于操作数组（如排序、查找、填充等）的工具类。它位于 `java.util` 包下，其内部方法全部是静态（`static`）的。
+
+
+### Arrays 类常用 API 总结表
+
+| **方法名**                                                 | **说明**                                  | **示例**                                  |
+| ------------------------------------------------------- | --------------------------------------- | --------------------------------------- |
+| `static String toString(type[] a)`                      | **数组转字符串**：把数组内容拼接成字符串，方便打印查看           | `Arrays.toString(arr)`                  |
+| `static void sort(type[] a)`                            | **默认排序**：对数组进行升序排序（底层为优化后的快速排序）         | `Arrays.sort(arr)`                      |
+| `static void sort(T[] a, Comparator c)`                 | **自定义排序**：通过比较器 `Comparator` 指定特殊的排序规则  | `Arrays.sort(arr, (o1, o2) -> o2 - o1)` |
+| `static type[] copyOf(type[] original, int newLength)`  | **拷贝数组**：从头开始拷贝，可指定新数组的长度（常用于扩容）        | `Arrays.copyOf(arr, 10)`                |
+| `static type[] copyOfRange(type[] a, int from, int to)` | **范围拷贝**：拷贝指定范围的元素（包含头 `from`，不含尾 `to`） | `Arrays.copyOfRange(arr, 2, 5)`         |
+| `static int binarySearch(type[] a, type key)`           | **二分查找**：获取元素索引（注意：**数组必须先有序**）         | `Arrays.binarySearch(arr, 10)`          |
+| `static void fill(type[] a, type val)`                  | **填充数组**：用指定的值覆盖数组中的所有元素                | `Arrays.fill(arr, 0)`                   |
+| `static boolean equals(type[] a, type[] a2)`            | **内容比较**：判断两个数组的长度和对应位置的元素是否都相等         | `Arrays.equals(arr1, arr2)`             |
+
+
+---
+
+### 🔍 核心重点解析
+
+#### 1. 二分查找的“前置条件”
+
+在使用 `binarySearch` 之前，**必须保证数组是有序的**。
+
+- 如果元素存在，返回索引。
+    
+- 如果元素不存在，返回 `-(插入点 + 1)`。
+    
+
+#### 2. 自定义排序（Comparator）
+
+如果你想让数组**降序**排列，或者按照对象的某个属性排序，就需要用到 `Comparator` 接口。
+
+- **口诀**：`o1 - o2` 是升序，`o2 - o1` 是降序。
+    
+- **注意**：这种方式只能对**引用数据类型**（如 `Integer`, `String`）进行排序，基本类型（如 `int`）如果想降序，建议手动反转或转成包装类。
+    
+
+Java
+
+```
+Integer[] arr = {5, 2, 8, 1};
+Arrays.sort(arr, (o1, o2) -> o2 - o1); // 降序：8, 5, 2, 1
+```
+
+#### 3. 数组扩容
+
+`Arrays.copyOf` 常用于数组动态扩容：
+
+Java
+
+```
+int[] oldArr = {1, 2, 3};
+// 扩容到长度为10，原数据保留，新位默认为0
+int[] newArr = Arrays.copyOf(oldArr, 10); 
+```
+
+---
+
+### 💡 总结
+
+`Arrays` 类极大地简化了我们对数组的底层操作。以前需要写 `for` 循环来打印数组或搬运数据，现在基本都是“一句话代码”。
+
+对于这些 API，你最感兴趣的是**二分查找**的逻辑，还是**自定义排序**的写法？
+
+
+
+
+---
+---
 
 # 易错点
 
