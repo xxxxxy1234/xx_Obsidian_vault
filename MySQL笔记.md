@@ -1477,6 +1477,124 @@ ALTER TABLE my_table ENGINE = MyISAM;
 ## 存储引擎特点
 
 
+### 1. InnoDB：全能型选手（默认引擎）
+
+InnoDB 是目前最通用的引擎，它的核心目标是**高可靠性**和**高性能**。
+
+#### 核心特点：
+
+- **事务安全 (ACID)**：支持提交、回滚和崩溃恢复，确保数据万无一失。
+    
+- **行级锁 (Row-level Locking)**：允许多个会话同时修改同一张表的不同行，极大提高了并发性能。
+    
+- **外键约束 (Foreign Key)**：维护数据库的完整性，防止孤儿数据的产生。
+    
+- **逻辑存储结构**：数据存储在表空间（Tablespace）中。
+
+
+```sql
+-- 1. 查看当前 InnoDB 存储引擎的变量配置（如缓存池大小、刷盘策略等）
+SHOW VARIABLES LIKE 'innodb%';
+
+-- 2. 查看 InnoDB 逻辑存储结构的段、区、页状态（需要权限）
+SELECT * FROM information_schema.INNODB_METRICS WHERE NAME LIKE 'buffer%';
+
+-- 3. 查看当前正在运行的事务（排查死锁或长事务）
+SELECT * FROM information_schema.INNODB_TRX;
+
+-- 4. 查看行锁的争用情况
+SHOW STATUS LIKE 'innodb_row_lock%';
+```
+
+---
+
+### 2. MyISAM：读取专家（非事务型）
+
+在早期的读多写少场景下非常流行，但因为它不支持事务且容易损坏，现在已逐渐退居二线。
+
+#### 核心特点：
+
+- **表级锁 (Table-level Locking)**：只要有一个人在写，整张表就不能读，高并发下是灾难。
+    
+- **不支持事务**：没有回滚功能，服务器宕机时数据容易损坏。
+    
+- **空间压缩**：支持静态表、动态表和压缩表。压缩表可以极大节省磁盘空间。
+    
+
+```sql
+-- 1. 使用 myisampack 工具压缩 MyISAM 表（在操作系统命令行执行而非 SQL）
+-- myisampack [options] file_name
+
+-- 2. 检查并修复损坏的 MyISAM 表（这是 InnoDB 不需要的手动维护工作）
+CHECK TABLE 表名;
+REPAIR TABLE 表名;
+
+-- 3. 查看 MyISAM 表的索引键缓存命中率
+SHOW STATUS LIKE 'key%';
+```
+
+---
+
+### 3. Memory：速度之王（内存型）
+
+数据全部存放在内存中，适合作为临时中转站。
+
+#### 核心特点：
+
+- **极速响应**：因为不需要 IO 读写磁盘，速度比 InnoDB 快好几个数量级。
+    
+- **易失性**：一旦 MySQL 服务重启，表中的**数据会清空**，但**表结构（定义）会保留**。
+    
+- **Hash 索引**：默认使用 Hash 索引，等值查询极快。
+    
+
+
+```sql
+-- 1. 创建 Memory 表并手动指定 Hash 索引以提升等值查询速度
+CREATE TABLE tmp_table (
+    id INT,
+    name VARCHAR(20),
+    INDEX USING HASH (id)
+) ENGINE = Memory;
+
+-- 2. 查看内存表允许占用的最大内存限制
+SHOW VARIABLES LIKE 'max_heap_table_size';
+
+-- 3. 修改内存表大小限制（全局生效）
+SET GLOBAL max_heap_table_size = 1024 * 1024 * 128; -- 设置为 128MB
+```
+
+---
+
+### 存储引擎特性对比总表
+
+|**特性**|**InnoDB**|**MyISAM**|**Memory**|
+|---|---|---|---|
+|**外键**|支持|不支持|不支持|
+|**事务**|支持|不支持|不支持|
+|**锁颗粒度**|**行锁** (极佳)|**表锁** (较差)|**表锁** (较快)|
+|**存储文件**|`.ibd` (数据+索引)|`.MYD`(数据) + `.MYI`(索引)|内存(无磁盘文件)|
+|**崩溃恢复**|自动恢复|手动修复|丢失数据|
+
+---
+
+### 综合管理命令
+
+如果你想快速筛选出当前数据库里所有**非 InnoDB** 的表，并把它们改过来：
+
+
+```sql
+-- 第一步：找出非 InnoDB 表
+SELECT TABLE_NAME, ENGINE 
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = '你的数据库名' AND ENGINE <> 'InnoDB';
+
+-- 第二步：转换引擎（注意：这会触发全表重构，建议在低峰期操作）
+ALTER TABLE 表名 ENGINE = InnoDB;
+```
+
+---
+---
 
 ## 存储引擎选择
 
