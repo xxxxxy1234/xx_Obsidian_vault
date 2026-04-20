@@ -2003,17 +2003,104 @@ graph TD
     
 
 ---
+---
 
 ### 遍历 Collection 的三种通用方式
 
-由于 `Collection` 并不都支持索引，所以我们不能用普通的 `for(int i=0;...)`。通用的方式有：
+针对 `Collection` 系列集合，由于其中的 `Set` 系列没有索引，我们不能使用传统的 `for` 循环（通过 `i` 下标）来遍历。Java 提供了三种通用的遍历方式。
 
-1. **迭代器 (Iterator)**：最经典的遍历方式。
+
+|**遍历方式**|**返回类型 方法名/语法**|**说明**|**示例**|
+|---|---|---|---|
+|**迭代器遍历**|`Iterator<E> iterator()`|**最基础**：通过 `hasNext()` 和 `next()` 手动控制指针移动|`Iterator<String> it = list.iterator();`|
+|**增强 for**|`for (E element : coll)`|**最常用**：底层是迭代器，代码最简洁，专门用于遍历数组和集合|`for (String s : coll) { ... }`|
+|**Lambda 表达式**|`void forEach(Consumer action)`|**最现代**：JDK 8 之后的新方式，利用函数式编程简化逻辑|`coll.forEach(s -> System.out.println(s));`|
+
+---
+---
+
+
+
+## 迭代器
+
+
+迭代器（Iterator）是 Java 集合体系专用的遍历方式，它最大的特点是**不依赖索引**，因此它是所有 `Collection` 集合（包括 `List` 和 `Set`）通用的遍历手段。
+==它指向的不是元素而是缝隙==
+
+---
+
+### 迭代器（Iterator）常用 API 总结表
+
+| **返回类型 方法名**             | **说明**                                        | **示例**                                   |
+| ------------------------ | --------------------------------------------- | ---------------------------------------- |
+| `Iterator<E> iterator()` | **获取迭代器**：`Collection` 接口的方法，返回一个指向集合开头的迭代器对象 | `Iterator<String> it = list.iterator();` |
+| `boolean hasNext()`      | **判断**：检查当前位置的后面是否有元素                         | `while(it.hasNext()) { ... }`            |
+| `E next()`               | **获取并移动**：取出当前指向的元素，并将指针（偏移量）移向下一个位置          | `String s = it.next();`                  |
+| `void remove()`          | **删除**：删除迭代器最近一次返回的元素（遍历时删除的唯一安全方式）           | `it.remove();`                           |
+
+---
+
+### 迭代器的工作原理（指针逻辑）
+
+迭代器在工作时，可以形象地理解为一个**移动的指针**：
+
+1. **初始化**：调用 `iterator()` 后，指针指向集合的第一个元素**之前**。
     
-2. **增强 for (foreach)**：底层其实就是迭代器，代码最简洁。
+2. **判断 (`hasNext`)**：询问指针后面还有没有元素。
     
-3. **Lambda 表达式**：JDK 8 后的新姿势，如 `coll.forEach(s -> System.out.println(s))`。
+3. **取值与移动 (`next`)**：
     
+    - 第一步：越过当前元素。
+        
+    - 第二步：返回越过的那个元素。
+        
+4. **循环**：重复上述过程，直到 `hasNext()` 返回 `false`，表示指针已到达集合末尾。
+    
+
+---
+
+### 迭代器遍历的注意点
+
+1. **越界异常**：如果 `hasNext()` 已经返回 `false`，你强行再调用 `next()`，会抛出 `NoSuchElementException` 异常。
+2. **指针不复位**：迭代器的指针不会主动复位，要想再次遍历可以再次调用`iterator()`获取一个新的迭代器对象
+    
+3. **多次调用 `next()`**：在一个循环体内，原则上只能调用**一次** `next()`。如果调用多次，会导致指针跳跃过快，漏掉元素或报错。
+    
+4. **并发修改异常 (`ConcurrentModificationException`)**：
+    
+    - **错误写法**：在迭代器遍历过程中，使用**集合对象**的方法增删元素（如 `list.remove()`）。
+        
+    - **正确写法**：如果需要删除，必须使用**迭代器对象**的方法（如 `it.remove()`）。
+        
+
+---
+
+### 标准代码示例
+
+```java
+Collection<String> coll = new ArrayList<>();
+coll.add("Java");
+coll.add("MySQL");
+coll.add("Spring");
+
+// 1. 获取迭代器对象
+Iterator<String> it = coll.iterator();
+
+// 2. 利用循环判断获取
+while (it.hasNext()) {
+    String s = it.next();
+    System.out.println(s);
+    
+    // 3. 安全删除示例
+    if ("MySQL".equals(s)) {
+        it.remove(); 
+    }
+}
+```
+
+### 总结
+
+迭代器就像是集合的“领路人”，它虽然写起来比增强 `for` 繁琐一点，但它是唯一能在遍历时**安全执行删除操作**的工具。在 `Set` 系列集合这种没有下标的场景下，它更是底层的核心基石。
 
 
 ---
