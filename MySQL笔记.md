@@ -1479,17 +1479,88 @@ ALTER TABLE my_table ENGINE = MyISAM;
 
 ### 1. InnoDB：全能型选手（默认引擎）
 
-InnoDB 是目前最通用的引擎，它的核心目标是**高可靠性**和**高性能**。
+InnoDB 是 MySQL 5.5 版本之后的**默认存储引擎**。它是一种兼顾了“高可靠性”和“高性能”的通用存储引擎。
 
-#### 核心特点：
+####  三大核心特点
 
-- **事务安全 (ACID)**：支持提交、回滚和崩溃恢复，确保数据万无一失。
+- **事务 (Transaction)**：DML 操作完全遵循 **ACID 模型**。它支持提交（Commit）、回滚（Rollback）和崩溃恢复能力，保证了数据的安全性。
     
-- **行级锁 (Row-level Locking)**：允许多个会话同时修改同一张表的不同行，极大提高了并发性能。
+- **行级锁 (Row-level Locking)**：锁的粒度细化到了每一行，这使得多个连接可以同时修改同一张表的不同数据，极大地提高了多用户并发访问的性能。
     
-- **外键约束 (Foreign Key)**：维护数据库的完整性，防止孤儿数据的产生。
+- **外键 (Foreign Key)**：支持物理外键约束，强制维护数据的逻辑完整性和参照一致性。
     
-- **逻辑存储结构**：数据存储在表空间（Tablespace）中。
+
+####  磁盘文件
+
+- **文件格式**：每张表都会对应一个 `表名.ibd` 文件。
+    
+- **存储内容**：该文件是一个独占的**表空间**，里面包含了表的结构（元数据）、实际数据和索引。
+    
+- **关键参数**：`innodb_file_per_table`（控制是每张表一个文件，还是所有表共享一个大文件）。
+    
+
+---
+
+#### InnoDB 逻辑存储结构（由大到小）
+
+InnoDB 存储数据并不是乱塞的，而是层层嵌套的盒模型：
+
+1. **TableSpace（表空间）**：最高层级，对应磁盘上的 `.ibd` 文件。
+    
+2. **Segment（段）**：分为数据段、索引段、回滚段等。
+    
+3. **Extent（区）**：固定的单元大小，通常为 **1M**。一个区由 **64 个连续的页** 组成。
+    
+4. **Page（页）**：InnoDB 磁盘管理的**最小单位**，默认大小为 **16K**。为了提高磁盘 IO 效率，数据库每次读写至少是一页。
+    
+5. **Row（行）**：最终数据存放的地方。每一行除了你定义的字段，还包含：
+    
+    - `Trx id`：最后一次修改本行的事务 ID。
+        
+    - `Roll pointer`：回滚指针（指向 Undo Log，用于事务回滚）。
+        
+
+---
+
+#### 相关的 SQL 实用命令
+
+##### 查看文件存储配置
+
+```sql
+-- 查看是否开启了每张表独立表空间（ON 代表每张表都有自己的 .ibd 文件）
+SHOW VARIABLES LIKE 'innodb_file_per_table';
+
+-- 查看数据文件的存放路径
+SHOW VARIABLES LIKE 'datadir';
+```
+
+##### 查看外键与约束
+
+```sql
+-- 查看某张表的建表语句，确认是否有 FOREIGN KEY
+SHOW CREATE TABLE 表名;
+
+-- 临时关闭外键约束检查（常用于大数据量导入）
+SET foreign_key_checks = 0;
+SET foreign_key_checks = 1; -- 恢复
+```
+
+##### 监控行锁情况
+
+
+```sql
+-- 查看当前数据库行锁的争用状态
+SHOW STATUS LIKE 'innodb_row_lock%';
+-- 如果 innodb_row_lock_waits 值很大，说明并发冲突严重
+```
+
+##### 查看逻辑页大小
+
+```sql
+-- 验证图片中提到的 Page 默认大小是否为 16384 字节 (16K)
+SHOW GLOBAL STATUS LIKE 'innodb_page_size';
+```
+
 
 
 ```sql
@@ -1505,6 +1576,7 @@ SELECT * FROM information_schema.INNODB_TRX;
 -- 4. 查看行锁的争用情况
 SHOW STATUS LIKE 'innodb_row_lock%';
 ```
+
 
 ---
 
