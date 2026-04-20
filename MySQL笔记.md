@@ -1310,8 +1310,86 @@ SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
 ## MySQL体系结构
 
+```mermaid
+graph TD
+    subgraph Connection_Layer [连接层]
+        A[客户端] --> B[连接池]
+        B --> C[认证与授权]
+    end
+
+    subgraph Server_Layer [服务层]
+        C --> D[SQL接口]
+        D --> E[解析器]
+        E --> F[查询优化器]
+    end
+
+    subgraph Engine_Layer [引擎层]
+        F --> G{插件式存储引擎}
+        G --> H[InnoDB]
+        G --> I[MyISAM]
+        G --> J[Memory]
+    end
+
+    subgraph Storage_Layer [存储层]
+        H --> K[文件系统]
+        I --> K
+        K --> L[(磁盘数据与日志)]
+    end
+```
+
+
+### 1. 连接层 (Connectors & Connection Pool)
+
+- **功能**：负责处理客户端的连接请求。
+    
+- **核心工作**：
+    
+    - **连接池**：管理连接，避免频繁创建/销毁连接的开销。
+        
+    - **身份验证**：校验用户名、密码。
+        
+    - **权限校验**：检查该用户是否有权限操作某个数据库或表。
+        
+
+### 2. 服务层 (SQL Interface & Parser & Optimizer)
+
+这是 MySQL 的“大脑”，所有跨存储引擎的功能都在这里实现。
+
+- **SQL Interface**：接收 SQL 命令，返回查询结果。
+    
+- **Parser (解析器)**：对 SQL 进行词法、语法分析，生成“解析树”（判断你 SQL 写得对不对）。
+    
+- **Optimizer (查询优化器)**：**最关键的一步**。它会决定使用哪个索引，或者决定表的连接顺序，选出它认为“代价最低”的执行计划。
+    
+- **Cache (缓存)**：MySQL 8.0 之前有查询缓存，但因为命中率低且维护成本高，8.0 后被彻底废除。
+    
+
+### 3. 引擎层 (Pluggable Storage Engines)
+
+MySQL 的核心特色。
+
+- **特点**：存储引擎是基于表的，而不是基于数据库的。
+    
+- **常用引擎**：
+    
+    - **InnoDB**：默认引擎。支持**事务 (ACID)**、行级锁、外键。
+        
+    - **MyISAM**：读取速度快，但不支持事务，只有表级锁。
+        
+    - **Memory**：数据存在内存中，速度极快，但断电即失。
+        
+
+### 4. 存储层 (File System)
+
+- **功能**：将数据和日志（Redo, Undo, Binary log）存储在文件系统之上，并完成与存储引擎的交互。
+
+---
+---
+
 
 ## 存储引擎简介
+
+
 
 
 ## 存储引擎特点
