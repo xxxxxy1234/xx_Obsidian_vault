@@ -46,7 +46,7 @@ sout快速输出System.out.println
 
 “数组名.forr ” 可以快速打出for循环反向遍历数组元素
 
-“数组名.for ” 可以快速打出foreach循环遍历数组元素
+“数组名.for ” 可以快速打出“增强for循环”循环遍历数组元素
 
 “数字.fori ”可以快速打出for循环遍历从0到这个数
 
