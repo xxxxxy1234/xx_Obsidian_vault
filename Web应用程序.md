@@ -582,7 +582,7 @@ graph TD
 ### 2. HTML 控件 vs 服务器控件
 | 特性       | HTML 控件 (客户端)          | 服务器控件 (Server Controls)                  |
 | -------- | ---------------------- | ---------------------------------------- |
-| **声明方式** | <input type="text">    | <asp:TextBox ID="txt1" runat="server" /> |
+| **声明方式** | \<input type="text">   | <asp:TextBox ID="txt1" runat="server" /> |
 | **生命周期** | 仅在浏览器运行，无服务器交互         | 参与页面生命周期（Init, Load, Unload 等）           |
 | **状态保持** | 页面刷新后数据丢失（除非手动处理）      | 自动通过 **ViewState** 保持输入内容                |
 | **编程模型** | 通常通过 JavaScript/DOM 操作 | 在 C# 后置代码中直接通过 ID 访问                     |
