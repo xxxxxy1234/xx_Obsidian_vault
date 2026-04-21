@@ -487,7 +487,7 @@ ASP.NET 的灵魂是 **C#**。你需要掌握：
 > ASP.NET 页面在服务器上运行并呈现为 HTML 的过程中，会经历一系列有序的事件。理解这些事件对于处理控件初始化、状态维护（ViewState）和业务逻辑触发至关重要。
 > 
 ### 1. 核心事件流程图
-在 Obsidian 中建议使用 Mermaid 插件查看（默认支持）：
+
 ```mermaid
 graph TD
     A[PreInit] --> B[Init]
