@@ -2119,14 +2119,106 @@ EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age = 25;
 
 
 
-
-
 ---
 ---
 
 
 
 ## 索引语法
+
+
+为了让你在操作时更得心应手，我把索引的语法分为**创建、查看、删除**三个维度进行整理。你可以直接将这些 SQL 命令应用到你的练习中。
+
+---
+
+### 1. 创建索引
+
+创建索引有三种常见方式。通常我们建议在建表后根据查询需求手动添加。
+
+- **常规索引 / 唯一索引 / 全文索引**
+```sql
+-- 语法：CREATE [UNIQUE|FULLTEXT] INDEX 索引名 ON 表名(字段名,...);
+-- 示例：为 name 字段创建普通索引
+CREATE INDEX idx_user_name ON tb_user(name);
+
+-- 示例：为 phone 字段创建唯一索引
+CREATE UNIQUE INDEX idx_user_phone ON tb_user(phone);
+```
+
+
+- **联合索引（复合索引）**
+
+> **注意**：字段顺序非常重要，会影响“最左前缀法则”的生效。
+
+```sql
+-- 示例：为专业、年龄、状态创建联合索引
+CREATE INDEX idx_user_pro_age_sta ON tb_user(profession, age, status);
+```
+
+---
+
+### 2. 查看索引
+
+在优化慢查询之前，必须先看清楚现有的索引结构。
+
+```sql
+-- 语法：SHOW INDEX FROM 表名;
+SHOW INDEX FROM tb_user;
+
+-- 进阶技巧：在 Linux 终端或命令行工具中，结尾加 \G 可以垂直显示，更清晰
+SHOW INDEX FROM tb_user\G;
+```
+
+---
+
+### 3. 删除索引
+
+如果发现某个索引长期不被使用，或者严重拖慢了写入速度，应及时清理。
+
+```sql
+-- 语法一：DROP INDEX 索引名 ON 表名;
+DROP INDEX idx_user_name ON tb_user;
+
+-- 语法二：使用 ALTER TABLE 命令删除
+ALTER TABLE tb_user DROP INDEX idx_user_phone;
+```
+
+---
+
+### 索引管理实用 SQL 指南
+
+除了基础增删改查，这几个操作在实际开发中出镜率极高：
+
+#### 修改索引（变相实现）
+
+MySQL 不支持直接 `ALTER` 一个索引。通常的做法是先删除旧的，再创建新的。
+
+```sql
+DROP INDEX idx_old ON my_table;
+CREATE INDEX idx_new ON my_table(new_column);
+```
+
+#### 查看建表语句中的索引
+
+这是查看主键索引（PRIMARY KEY）定义最快的方法。
+
+
+```sql
+SHOW CREATE TABLE tb_user;
+```
+
+#### 生产环境注意事项
+
+在数据量很大的表（如千万级）上创建索引时，会产生大量的磁盘 IO 并导致锁表。
+
+```sql
+-- MySQL 5.6+ 支持在线 DDL，可以减少对业务的影响
+ALTER TABLE tb_user ADD INDEX idx_test(col), ALGORITHM=INPLACE, LOCK=NONE;
+```
+
+---
+---
+
 
 ## SQL性能分析
 
