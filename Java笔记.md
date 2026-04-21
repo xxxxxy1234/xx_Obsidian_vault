@@ -6372,6 +6372,11 @@ coll.forEach(new Consumer<String> ()) {
 | `E set(int index, E element)`    | **修改**：修改指定索引处的元素，返回被替换的旧元素   | `list.set(0, "JDK17")`      |
 | `E get(int index)`               | **获取**：返回指定索引处的元素             | `String s = list.get(2)`    |
 
+>[!tip] remove 的重载陷阱
+>这是 `List` 中最容易让人抓狂的一个小细节。如果你存的是 `Integer` 集合，调用 `remove` 时要特别小心：*Collection和List都有remove方法*
+>- `list.remove(1)`：默认会把 `1` 当成**索引**，删掉下标为 1 的元素。
+>- `list.remove(Integer.valueOf(1))`：这才会去删掉集合里**数值**为 1 的那个对象。
+
 ---
 
 ### List 的三大核心特征
@@ -6401,42 +6406,86 @@ coll.forEach(new Consumer<String> ()) {
     
 
 ---
+### 列表迭代器（ListIterator）
 
-### 代码小例子：List 独有的普通 for
 
+它是 `List` 接口特有的迭代器。如果说普通迭代器是只能单向行驶的“老式火车”，那么 `ListIterator` 就是可以随时挂倒挡、甚至在行驶中原地变魔术的“特种车辆”。
+
+
+#### ListIterator 常用 API 总结表
+
+|**返回类型 方法名**|**说明**|**示例**|
+|---|---|---|
+|`ListIterator<E> listIterator()`|**获取对象**：List 接口独有，获取列表迭代器|`list.listIterator()`|
+|`boolean hasPrevious()`|**判断向前**：检查当前指针**左边**是否还有元素|`it.hasPrevious()`|
+|`E previous()`|**后退并获取**：指针左移一格，并返回跨过的元素|`it.previous()`|
+|`void add(E e)`|**添加**：在当前指针位置**插入**一个元素|`it.add("新元素")`|
+|`void set(E e)`|**修改**：用新元素**替换**上一次 next 或 previous 返回的元素|`it.set("修改值")`|
+
+
+#### ListIterator 的三大“神技”
+
+##### 1. 双向遍历（倒车功能）
+
+普通迭代器只能从头走到尾，回不了头。`ListIterator` 允许你通过 `hasPrevious()` 和 `previous()` 实现**逆向遍历**。
+
+- **注意**：如果要直接逆向遍历，必须先让指针通过 `next()` 走到最末尾，否则在起点位置左边是没人的。
+    
+
+##### 2. 遍历的同时添加元素
+
+我们在讲“迭代器注意点”时说过，遍历时用集合的 `add` 会报错。但 `ListIterator` 提供了自己的 `add(E e)` 方法。
+
+- **效果**：它会在当前指针指向的缝隙处插入元素，且**不会**触发并发修改异常（ConcurrentModificationException）。
+    
+
+##### 3. 实时修改元素
+
+通过 `set(E e)` 方法，你可以一边看，一边把刚才看过的那个元素给改了。这在普通迭代器里是做不到的。
+
+
+#### 代码实战演练
 
 ```java
 List<String> list = new ArrayList<>();
-list.add("Java");
-list.add("Python");
+list.add("Apple");
+list.add("Banana");
+list.add("Cherry");
 
-// 因为有索引，我们可以这样玩
-for (int i = 0; i < list.size(); i++) {
-    String s = list.get(i);
-    System.out.println("第" + i + "个元素是：" + s);
+ListIterator<String> it = list.listIterator();
+
+while (it.hasNext()) {
+    String s = it.next();
+    if ("Banana".equals(s)) {
+        // 发现香蕉，在它后面插一个橙子
+        it.add("Orange"); 
+        // 把香蕉改成大香蕉
+        it.set("Big Banana"); 
+    }
 }
+
+// 此时列表：[Apple, Big Banana, Orange, Cherry]
 ```
 
----
 
-### 避坑指南：remove 的重载陷阱
+#### 为什么我们平时很少见它？
 
-这是 `List` 中最容易让人抓狂的一个小细节。如果你存的是 `Integer` 集合，调用 `remove` 时要特别小心：
+虽然 `ListIterator` 功能强大，但在实际开发中出镜率并不高，原因有三：
 
-- `list.remove(1)`：默认会把 `1` 当成**索引**，删掉下标为 1 的元素。
+1. **场景少**：大部分业务只需要从头到尾扫一遍（增强 for 就够了）。
     
-- `list.remove(Integer.valueOf(1))`：这才会去删掉集合里**数值**为 1 的那个对象。
+2. **太复杂**：它的指针逻辑比普通迭代器更绕，容易把自己绕晕。
+    
+3. **List 限制**：它只能用在 `List` 上，不能用于 `Set` 或 `Map`（因为它们没索引/无序，没法定义“前一个”）。
     
 
-### 总结
+#### 总结建议
 
-`List` 就像是一个**带编号的储物柜**。比起 `Collection` 的模糊感，`List` 给了你掌控每一个位置的权力。
-
-
-
-
-
-
+- 如果只是单纯**看数据**：用增强 for 或 Lambda `forEach`。
+    
+- 如果需要**边看边删**：用普通 `Iterator`。
+    
+- 如果需要**边看边加、边看边改**，或者需要**倒着走**：请祭出 `ListIterator`。
 
 
 ---
