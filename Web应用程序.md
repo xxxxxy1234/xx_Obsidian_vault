@@ -1629,7 +1629,90 @@ if (Request.Cookies["UserSettings"] != null)
  3. **编码问题**：
    如果获取到的中文是乱码，请检查 Web.config 中的 requestEncoding 配置，确保与前端发送的编码（通常为 UTF-8）一致。
  4. **验证请求 (ValidateRequest)**：
-   ASP.NET 默认开启请求验证，如果用户在输入框输入 <html> 等脚本，服务器会抛出“检测到潜在危险的 Request.Form 值”的异常。如果确实需要接收 HTML（如富文本编辑器），需在 .aspx 指令中设置 ValidateRequest="false"。
+   ASP.NET 默认开启请求验证，如果用户在输入框输入 \<html> 等脚本，服务器会抛出“检测到潜在危险的 Request.Form 值”的异常。如果确实需要接收 HTML（如富文本编辑器），需在 .aspx 指令中设置 ValidateRequest="false"。
+
+---
+---
 
 
-__
+在 ASP.NET Web Forms 中，**Server 对象**（由 System.Web.HttpServerUtility 类定义）是一个极其重要的工具类。它封装了服务器端的实用方法，主要用于处理 URL 编码、路径映射、页面跳转以及与 COM 组件的交互。
+## ASP.NET Server 对象深度解析
+> [!abstract] 概要
+> Server 对象是当前 Web 应用程序运行环境的抽象。它不像 Request 或 Response 专注于 HTTP 数据流，而是专注于“服务器内部”的处理逻辑。
+> 
+### 1. 核心常用方法
+| 方法 | 功能说明 |
+|---|---|
+| **MapPath()** | **最高频使用**。将虚拟路径（如 ~/）转换为物理磁盘路径。 |
+| **HtmlEncode()** | 将字符串转换为 HTML 编码格式，防止脚本注入（XSS）。 |
+| **HtmlDecode()** | 将 HTML 编码的字符串还原为原始字符。 |
+| **UrlEncode()** | 对 URL 进行编码，确保特殊字符（如空格、中文）在传输中不报错。 |
+| **Transfer()** | 在服务器内部终止当前页执行，直接切换并处理新页面。 |
+| **Execute()** | 执行另一个页面并捕获其输出结果，执行完后返回原页面继续执行。 |
+| **GetLastError()** | 获取前一个页面或当前请求中发生的最后一个异常。 |
+| **ClearError()** | 清除当前的异常记录。 |
+### 2. 深度实战：核心功能代码示例
+#### A. 路径映射 (MapPath)
+在保存上传文件或读取本地配置文件时，你必须知道它在硬盘上的绝对位置。
+```csharp
+// 获取根目录下 Uploads 文件夹的绝对路径
+string physicalPath = Server.MapPath("~/Uploads/");
+// 输出示例: C:\inetpub\wwwroot\MySite\Uploads\
+
+```
+#### B. 数据安全 (HtmlEncode)
+防止用户在留言板输入 <script>alert('hack')</script>。
+```csharp
+string rawInput = Request.Form["comment"];
+// 将 < 转换为 &lt; 确保它作为文本显示而非脚本执行
+string safeOutput = Server.HtmlEncode(rawInput);
+lblComment.Text = safeOutput;
+
+```
+#### C. 页面间跳转 (Transfer vs Execute)
+```csharp
+// 场景1：Server.Transfer
+// 浏览器地址栏不变，一次请求，效率高，但只能跳转到站内
+Server.Transfer("Success.aspx");
+
+// 场景2：Server.Execute
+// 执行 Info.aspx 的内容并将其嵌入到当前位置，然后接着执行后面的代码
+Server.Execute("Info.aspx");
+Response.Write("这是在执行完 Info.aspx 后显示的内容");
+
+```
+### 3. 错误处理机制
+当页面发生未处理的异常时，可以在 Page_Error 或 Global.asax 中使用 Server 对象捕捉：
+```csharp
+protected void Page_Error(object sender, EventArgs e)
+{
+    // 获取异常详情
+    Exception ex = Server.GetLastError();
+    
+    // 记录日志逻辑...
+    
+    // 清除错误，防止显示黄色报错页面
+    Server.ClearError();
+    Response.Write("抱歉，系统忙，请稍后再试。");
+}
+
+```
+### 4. 关键点对比：Server.Transfer 与 Response.Redirect
+这是开发中必须区分的两种跳转：
+
+| 特性 | Response.Redirect | Server.Transfer |
+|---|---|---|
+| **跳转位置** | 浏览器（客户端） | 服务器（内部） |
+| **请求次数** | 2 次 | 1 次 |
+| **浏览器 URL** | 变为新地址 | **保持原地址不变** |
+| **跳转范围** | 任何网站（如百度） | 仅限本站点内部 |
+| **性能** | 略低（需要往返） | 略高 |
+### 5. 开发者避坑指南
+ 1. **MapPath 的路径前缀**：
+   ~ 代表根目录。一定要习惯使用 ~/path，而不是 ../path。因为 ../ 会根据当前页面的深度变化，容易导致文件找不到。
+ 2. **UrlEncode 的应用场景**：
+   当你通过 Response.Redirect 传中文字符串时，必须先用 Server.UrlEncode 包装，否则在某些浏览器中会接收到乱码。
+ 3. **HTML 编码的选择**：
+   在 ASP.NET 4.5+ 中，使用 <%: 变量 %> 这种语法会自动调用 Server.HtmlEncode。如果你是在代码中使用 Response.Write，请务必手动编码。
+ 4. **COM 组件释放**：
+   虽然现在用得少了，但如果你通过 Server.CreateObject 创建了 COM 对象（如旧版 Excel 操作），记得手动释放资源，防止内存泄漏。
