@@ -2245,12 +2245,10 @@ SHOW GLOBAL STATUS LIKE 'Com_______';
     
 - **开启方式**：在配置文件 `my.cnf` 或 `my.ini` 中设置：
     
-    
-    
-    ```Ini, TOML
+```Ini, TOML
     slow_query_log=1 # 开启
     long_query_time=2 # 设置阈值为2秒
-    ```
+```
     
 - **分析工具**：可以使用 `mysqldumpslow` 对日志进行分类汇总。
     
