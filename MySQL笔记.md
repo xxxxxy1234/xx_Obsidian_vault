@@ -2222,6 +2222,93 @@ ALTER TABLE tb_user ADD INDEX idx_test(col), ALGORITHM=INPLACE, LOCK=NONE;
 
 ## SQL性能分析
 
+在进行 SQL 优化之前，我们必须先找到“病灶”。SQL 性能分析的核心在于通过各种工具定位低效查询并分析其执行原因。
+
+---
+### 1. 查看 SQL 执行频次
+
+了解当前数据库是以查询为主，还是以增删为主，从而决定优化的侧重点。
+
+```sql
+-- 查看当前数据库的增删改查次数（全局或当前会话）
+SHOW GLOBAL STATUS LIKE 'Com_______'; 
+-- 七个下划线代表匹配关键字如 Select, Insert, Update, Delete
+```
+
+---
+
+### 2. 慢查询日志 (Slow Query Log)
+
+慢查询日志记录了所有执行时间超过指定参数（`long_query_time`）的 SQL 语句。
+
+- **查看状态**：`SHOW VARIABLES LIKE 'slow_query_log';`
+    
+- **开启方式**：在配置文件 `my.cnf` 或 `my.ini` 中设置：
+    
+    
+    
+    ```Ini, TOML
+    slow_query_log=1 # 开启
+    long_query_time=2 # 设置阈值为2秒
+    ```
+    
+- **分析工具**：可以使用 `mysqldumpslow` 对日志进行分类汇总。
+    
+
+---
+
+### 3. profile 详情
+
+`profiles` 可以让你清晰地看到在执行 SQL 时，时间具体消耗在了哪个环节（如 Sending data, Sorting 等）。
+
+
+```sql
+-- 查看当前 MySQL 是否支持 profile
+SELECT @@have_profiling;
+
+-- 开启 profiling
+SET profiling = 1;
+
+-- 查看所有 SQL 的耗时概况
+SHOW PROFILES;
+
+-- 查看指定 query_id 的详细耗时
+SHOW PROFILE FOR QUERY [query_id];
+```
+
+---
+
+### 4. explain 执行计划（最核心）
+
+`EXPLAIN` 是优化 SQL 的大杀器，它可以模拟优化器执行 SQL。
+
+```sql
+-- 语法：EXPLAIN + SQL语句
+EXPLAIN SELECT * FROM user WHERE id = 1;
+```
+
+#### 执行计划关键字段解析：
+
+|**字段**|**含义**|**状态说明**|
+|---|---|---|
+|**id**|查询序列号|id 相同执行顺序从上到下；id 不同，越大越先执行。|
+|**type**|**连接类型**|**性能由好到差**：`system` > `const` > `eq_ref` > `ref` > `range` > `index` > `ALL`。|
+|**key**|**实际用到的索引**|如果为 NULL，说明没用到索引。|
+|**rows**|预估扫描行数|扫描行数越少，性能越好。|
+|**Extra**|额外信息|**Using index**（覆盖索引，快）；**Using filesort**（文件排序，慢）。|
+
+---
+
+### 5. 性能分析总结建议
+
+- **先看 type**：如果是 `ALL` 或 `index`，说明需要优化索引。
+    
+- **关注 Extra**：出现 `Using filesort` 或 `Using temporary` 时，通常意味着需要建立联合索引。
+
+---
+---
+
+
 ## 索引使用
 
 ## 索引设计原则
