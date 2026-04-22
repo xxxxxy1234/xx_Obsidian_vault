@@ -6896,6 +6896,74 @@ public E next() {
     
 - **?**：表示不确定的通配符（进阶内容）。
 
+---
+
+
+### 泛型的继承（容易踩坑）
+
+很多人直觉上认为，既然 `Integer` 是 `Number` 的子类，那么 `List<Integer>` 理所当然也是 `List<Number>` 的子类。**这是错误的！**
+
+- **结论**：泛型不具备继承性。`List<Object>` 和 `List<String>` 是两种完全不同的类型，它们之间**没有继承关系**，不能互相赋值。
+    
+- **原因**：为了保证类型安全。如果允许这种赋值，你可以通过 `List<Object>` 往 `List<String>` 里加个 `Integer`，这就乱套了。
+
+
+虽然**装载这些数据的“容器类型”不具备继承性**，但是数据能继承
+```java
+List<Number> list = new ArrayList<> ();
+list.add(new Integer(10)); // 完美运行：数据具备继承性
+list.add(new Double(1.1));  // 完美运行：数据具备继承性
+```
+
+
+---
+
+### 通配符 (Wildcards) `?`
+
+为了处理那种“我不确定是什么类型，但我想让它更通用”的情况，Java 引入了通配符 `?`。
+
+|**符号**|**名称**|**含义**|
+|---|---|---|
+|**`?`**|**无界通配符**|表示任意类型。|
+|**`<? extends T>`**|**上限通配符**|表示类型必须是 **T 或 T 的子类**。|
+|**`<? super T>`**|**下限通配符**|表示类型必须是 **T 或 T 的父类**。|
+
+---
+
+#### 上限通配符 `<? extends T>`
+
+- **场景**：只能接收 T 及其子类。
+    
+- **作用**：主要用于**从集合中读取数据**。你可以确信取出来的东西一定是 T（或者是 T 的子类，可以向上转型为 T）。
+    
+- **局限**：不能往里写数据（除了 `null`），因为编译器不知道你具体存的是哪个子类。
+
+```java
+// 只能接收 Number 及其子类 (Integer, Double 等)
+public void show(ArrayList<? extends Number> list) {
+    Number n = list.get(0); // 安全，取出来的肯定是数字
+    // list.add(10);        // 错误！万一 list 原本是 ArrayList<Double> 呢？
+}
+```
+
+---
+
+#### 下限通配符 `<? super T>`
+
+- **场景**：只能接收 T 及其父类。
+    
+- **作用**：主要用于**往集合中存数据**。
+    
+- **局限**：取数据时只能用 `Object` 接收，因为不确定具体是哪个父类。
+  
+```java
+// 只能接收 Integer 及其父类 (Number, Object)
+public void addData(ArrayList<? super Integer> list) {
+    list.add(10);           // 安全，不管父类是谁，都能装下 Integer
+    // Integer i = list.get(0); // 错误！取出来的可能是 Object
+}
+```
+
 
 
 ---
