@@ -2059,7 +2059,25 @@ SHOW VARIABLES LIKE 'innodb_adaptive_hash_index';
     - 如果没主键，找第一个 `UNIQUE` 索引。
         
     - 如果都没，InnoDB 会自动生成一个隐式的 `rowid`。
-        
+
+```mermaid
+graph TD
+    subgraph Clustered_Tree [聚集索引]
+    Root[ID范围: 1-10] --- L1[ID: 1]
+    Root --- L2[ID: 5]
+    Root --- L3[ID: 10]
+    
+    L1 -.-> D1[("1 | 张三 | 20岁 | 北京")]
+    L2 -.-> D2[("5 | 李四 | 25岁 | 上海")]
+    L3 -.-> D3[("10 | 王五 | 30岁 | 广州")]
+    end
+    
+    style D1 fill:#f9f,stroke:#333
+    style D2 fill:#f9f,stroke:#333
+    style D3 fill:#f9f,stroke:#333
+```
+
+
 
 #### 二级索引 / 辅助索引 (Secondary Index)
 
@@ -2069,6 +2087,35 @@ SHOW VARIABLES LIKE 'innodb_adaptive_hash_index';
     
 - **回表查询**：如果你通过二级索引查到了数据，但查询的字段不在索引里，MySQL 需要拿到主键值去聚集索引里再查一次，这个过程叫**回表**。
     
+
+
+```mermaid
+graph TD
+    subgraph Secondary_Tree [二级索引: 姓名索引]
+    SRoot[姓名首字母: Z-W] --- SL1[张三]
+    SRoot --- SL2[李四]
+    SRoot --- SL3[王五]
+    
+    SL1 -.-> K1["ID: 1"]
+    SL2 -.-> K2["ID: 5"]
+    SL3 -.-> K3["ID: 10"]
+    end
+    
+    style K1 fill:#bbf,stroke:#333
+    style K2 fill:#bbf,stroke:#333
+    style K3 fill:#bbf,stroke:#333
+```
+
+
+
+>[!tip] 回表查询
+>简单来说，**回表查询**就是“走两次索引树”。
+>1. **第一次**：你在**二级索引**（非主键索引）中找到了对应记录的主键值。
+>2. **第二次**：拿到主键值后，回到**聚集索引**（主键索引）中，根据主键查找出这一行完整的记录。
+>3. **发生的逻辑：**
+>	当你查询的列没有被二级索引完全覆盖（比如你只给 `name` 建了索引，却查 `SELECT *`），由于 `name` 索引树的叶子节点只存了主键 ID，数据库就不得不“回表”去拿剩下的字段。
+
+
 
 ---
 
@@ -2108,13 +2155,6 @@ EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age = 25;
     
 - **优势**：直接在二级索引树上拿到结果，不需要回表，效率极高。
     
-
->[!tip] 回表查询
->简单来说，**回表查询**就是“走两次索引树”。
->1. **第一次**：你在**二级索引**（非主键索引）中找到了对应记录的主键值。
->2. **第二次**：拿到主键值后，回到**聚集索引**（主键索引）中，根据主键查找出这一行完整的记录。
->3. **发生的逻辑：**
->	当你查询的列没有被二级索引完全覆盖（比如你只给 `name` 建了索引，却查 `SELECT *`），由于 `name` 索引树的叶子节点只存了主键 ID，数据库就不得不“回表”去拿剩下的字段。
 
 
 
