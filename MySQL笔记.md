@@ -2133,6 +2133,9 @@ EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age = 25;
 
 ### 1. 创建索引
 
+>[!tip]
+>*创建索引就是在建立B+树的过程*
+
 创建索引有三种常见方式。通常我们建议在建表后根据查询需求手动添加。
 
 - **常规索引 / 唯一索引 / 全文索引**
@@ -2814,6 +2817,83 @@ SELECT * FROM tb_user FORCE INDEX(idx_name) WHERE name LIKE '张%';
     _注意：除非万不得已，否则不建议在生产代码中使用，因为数据分布是动态变化的。_
     
 
+
+---
+---
+
+### SQL提示
+
+
+当你在执行计划中发现 MySQL 优化器没有选择你预期的索引时，可以通过 **SQL 提示（SQL Hints）** 强行干预或建议优化器如何使用索引。
+
+这是在海量数据背景下进行 SQL 调优的“终极手段”。
+
+---
+
+#### 1. 常见的 SQL 提示类型
+
+SQL 提示主要分为三种：建议、忽略和强制。
+
+##### USE INDEX（建议使用）
+
+告诉 MySQL 建议使用这个索引，但优化器依然会计算成本，如果它觉得全表扫描更好，它可能还是不听你的。
+
+
+```sql
+SELECT * FROM tb_user USE INDEX(idx_user_name) WHERE name = 'Armin';
+```
+
+##### IGNORE INDEX（忽略索引）
+
+明确告诉 MySQL 不要使用某个索引。这通常用于你发现某个索引反而让查询变慢时（比如区分度极低的索引）。
+
+
+```sql
+SELECT * FROM tb_user IGNORE INDEX(idx_user_name) WHERE name = 'Armin';
+```
+
+##### FORCE INDEX（强制使用）
+
+这是最强力的指令。哪怕优化器计算出全表扫描更快，它也必须走这个索引。
+
+
+```sql
+SELECT * FROM tb_user FORCE INDEX(idx_user_name) WHERE name = 'Armin';
+```
+
+---
+
+#### 2. 为什么需要 SQL 提示？
+
+在大多数情况下，MySQL 的查询优化器非常聪明，但在以下两种场景它会“犯错”：
+
+1. **数据统计信息不准**：MySQL 依靠采样统计来估算成本，如果表的数据变动剧烈，统计信息过旧，优化器会选错索引。
+    
+2. **数据分布影响**：正如我们之前聊过的，如果查询结果占全表 20%-30%，优化器常会放弃索引转而全表扫描。如果你确定回表 IO 开销可以接受，可以用 `FORCE INDEX`。
+    
+
+---
+
+#### 3. 场景演示：多索引竞争
+
+假设一张表在 `name` 上有单列索引，在 `name` 和 `age` 上有联合索引。
+
+
+```sql
+-- 优化器可能会纠结选哪一个，你可以直接指定
+SELECT * FROM tb_user FORCE INDEX(idx_user_name_age) WHERE name = 'Armin' AND age = 20;
+```
+
+---
+
+#### 4. 落地建议与风险
+
+- **慎用 FORCE INDEX**：代码中写死了索引名，万一以后索引被删了或改名了，SQL 会直接报错。
+    
+- **优先考虑 ANALYZE TABLE**：如果发现优化器选错索引，先尝试运行 `ANALYZE TABLE 表名;`。这会让 MySQL 重新统计数据分布，通常能让优化器恢复理智，而不需要在代码里写死提示。
+    
+- **配合 EXPLAIN 使用**：每次加完 Hint 后，必须通过 `EXPLAIN` 观察 `key` 字段，确保提示真的生效了。
+    
 
 ---
 ---
