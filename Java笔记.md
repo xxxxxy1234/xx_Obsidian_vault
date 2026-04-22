@@ -2883,7 +2883,7 @@ public class Demo {
 
 ### 1. 定义格式
 
-抽象类使用 `abstract` 关键字修饰类。不能被实例化（不能 `new`），只能作为父类被继承。
+抽象类使用 `abstract` 关键字修饰类。不能被实例化（不能 `new`），只能作为父类被继承。但也可以作为父类的引用指向子类对象
 
 ```java
 public abstract class 类名 {
