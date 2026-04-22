@@ -2395,4 +2395,112 @@ EXPLAIN SELECT * FROM user WHERE id = 1;
 
 ## 索引使用
 
+### 验证索引效率
+
+验证索引效率最直接的方法，就是通过对比**“有索引”**与**“无索引”**在处理海量数据时的耗时差异。
+
+为了让你在本地环境能真实感受到这种“毫秒级”与“秒级”的差距，建议通过以下步骤进行验证：
+
+---
+
+#### 1. 准备千万级大表
+
+首先需要一张数据量足够的表。你可以编写一个简单的存储过程，向表中插入 100 万到 1000 万条随机数据。
+
+
+```sql
+-- 创建一张简单的测试表
+CREATE TABLE tb_test_user (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50),
+    email VARCHAR(50),
+    age INT
+) ENGINE=InnoDB;
+```
+
+---
+
+#### 2. 无索引状态下的查询
+
+在没有任何辅助索引的情况下，根据非主键字段进行查询。
+
+```sql
+-- 确保 username 字段没有索引
+-- 执行查询并记录耗时
+SELECT * FROM tb_test_user WHERE username = 'user_888888';
+```
+
+- **现象**：由于是全表扫描（Type=ALL），你会发现执行时间可能需要 **1-5 秒**（取决于数据量和机器性能）。
+    
+- **分析**：查看执行计划：
+    
+    `EXPLAIN SELECT * FROM tb_test_user WHERE username = 'user_888888';`
+    
+    你会看到 `type` 为 `ALL`，`rows` 几乎等于表的总行数。
+    
+
+---
+
+#### 3. 创建索引并验证
+
+现在为该字段建立索引，再次执行相同的 SQL。
+
+
+```sql
+-- 创建索引
+CREATE INDEX idx_user_name ON tb_test_user(username);
+
+-- 再次执行查询
+SELECT * FROM tb_test_user WHERE username = 'user_888888';
+```
+
+- **现象**：执行耗时通常会瞬间降至 **0.00s** 或 **0.01s**。
+    
+- **原因**：数据库通过 B+Tree 索引树直接定位到了数据页，磁盘 IO 次数从数万次缩减到了 3-4 次。
+    
+
+---
+
+#### 4. 使用 EXPLAIN 深度验证
+
+单纯看时间是不够的，还需要观察 MySQL 内部的变化。
+
+
+```sql
+EXPLAIN SELECT * FROM tb_test_user WHERE username = 'user_888888';
+```
+
+**对比指标：**
+
+- **type**：从 `ALL` 变为 `ref`（说明成功使用了非唯一性索引）。
+    
+- **rows**：从数百万行变为 **1 行**（说明精准定位）。
+    
+- **key**：从 `NULL` 变为 `idx_user_name`。
+    
+
+---
+
+#### 5. 进阶验证：覆盖索引 vs 回表
+
+你可以通过以下两个 SQL 对比“覆盖索引”带来的进一步效率提升：
+
+
+```sql
+-- 场景 A：只查 ID（命中覆盖索引，不回表）
+EXPLAIN SELECT id FROM tb_test_user WHERE username = 'user_888888';
+-- Extra 会显示 Using index
+
+-- 场景 B：查所有字段（需要回表获取其他列）
+EXPLAIN SELECT * FROM tb_test_user WHERE username = 'user_888888';
+-- Extra 不会显示 Using index
+```
+
+---
+---
+
+
+
+
+
 ## 索引设计原则
