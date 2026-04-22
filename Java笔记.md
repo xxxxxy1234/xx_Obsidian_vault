@@ -6899,13 +6899,31 @@ public E next() {
 ---
 
 
-### 泛型的继承（容易踩坑）
+### 泛型不具备继承性
+
 
 很多人直觉上认为，既然 `Integer` 是 `Number` 的子类，那么 `List<Integer>` 理所当然也是 `List<Number>` 的子类。**这是错误的！**
 
-- **结论**：泛型不具备继承性。`List<Object>` 和 `List<String>` 是两种完全不同的类型，它们之间**没有继承关系**，不能互相赋值。
+```java
+// 假设 A 同学创建了一个专门装 Integer 的列表
+List<Integer> intList = new ArrayList<>();
+intList.add(100);
+
+// 假设 Java 允许泛型继承（实际上不行！）
+List<Number> numList = intList; 
+
+// B 同学拿到了 numList，他看到泛型是 Number，于是：
+numList.add(1.1); // 合法操作！Double 也是 Number 嘛
+```
+
+**此时，灾难发生了：** A 同学完全不知道 B 同学干了什么，他依然坚信 `intList` 里全是整数。 当他执行 `Integer i = intList.get(1);` 时，程序会因为试图把 `1.1`（Double）强转成 `Integer` 而**瞬间崩溃**。
+
+
+
+- **结论**：泛型不具备继承性。`List<Number>` 和 `List<Integer>` 是两种完全不同的类型，它们之间**没有继承关系**，不能互相赋值。
     
-- **原因**：为了保证类型安全。如果允许这种赋值，你可以通过 `List<Object>` 往 `List<String>` 里加个 `Integer`，这就乱套了。
+- **原因**：为了保证类型安全。如果允许这种赋值，那以后你甚至可以通过 `List<Object>` 往 `List<String>` 里加个 `Integer`，这就乱套了。
+
 
 
 虽然**装载这些数据的“容器类型”不具备继承性**，但是数据能继承
