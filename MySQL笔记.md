@@ -2499,7 +2499,98 @@ EXPLAIN SELECT * FROM tb_test_user WHERE username = 'user_888888';
 ---
 ---
 
+### 最左前缀法则
 
+**最左前缀法则**是联合索引（复合索引）使用过程中最重要的规则。如果违背了这个法则，即使你建了索引，MySQL 也会视而不见，导致索引失效。
+
+---
+
+#### 1. 什么是最左前缀法则？
+
+如果一个索引包含了多个列（联合索引），在查询时必须遵守以下规则：
+
+- **必须从索引的最左列开始**：不能跳过索引中的第一列。
+    
+- **不能跳过中间列**：如果跳过了中间的某一列，只有该列之前的索引部分会生效。
+    
+
+---
+
+#### 2. 实例演示
+
+假设我们为表 `tb_user` 创建了一个联合索引：`idx_user_pro_age_sta(profession, age, status)`。
+
+##### 场景 A：完全匹配（全速前进）
+
+
+```sql
+-- 走索引，且用到了三个字段
+EXPLAIN SELECT * FROM tb_user WHERE profession = 'CS' AND age = 20 AND status = '1';
+
+--y也走索引，且用到了三个字段（优化器立功）
+EXPLAIN SELECT * FROM tb_user WHERE profession = 'CS' AND status = '1' AND age = 20 ;
+```
+
+##### 场景 B：最左丢了（索引失效）
+
+
+```sql
+-- 不走索引！因为丢了最左边的 profession
+EXPLAIN SELECT * FROM tb_user WHERE age = 20 AND status = '1';
+```
+
+##### 场景 C：中间断了（部分失效）
+
+
+```sql
+-- 走索引，但只用到了 profession。因为中间跳过了 age，导致 status 无法使用索引
+EXPLAIN SELECT * FROM tb_user WHERE profession = 'CS' AND status = '1';
+```
+
+---
+
+#### 3. 为什么会有这个法则？
+
+这和 **B+Tree** 的存储结构有关。
+
+在联合索引的 B+Tree 中，数据是先按照第一个字段排序，在第一个字段相同的情况下再按第二个字段排序。
+
+- 如果你直接查第二个字段，而没有第一个字段的约束，那么第二个字段在整个索引树中是**无序**的。
+    
+- 既然无序，B+Tree 就无法进行二分查找，只能选择全表扫描。
+    
+
+---
+
+#### 4. 关键点：WHERE 子句的顺序重要吗？
+
+**不重要。**
+
+```sql
+-- 虽然 SQL 里 age 在前面，但 MySQL 优化器会自动调整顺序以匹配索引
+EXPLAIN SELECT * FROM tb_user WHERE age = 20 AND profession = 'CS'; 
+```
+
+- **结论**：只要查询条件里包含最左列，MySQL 优化器会自动帮你优化顺序。
+
+
+---
+
+#### 5. 范围查询的影响
+
+在联合索引中，如果出现了范围查询（`>`、`<`），那么该字段**右侧**的索引列将失效。
+
+```sql
+-- 这里的 age 使用了 > 范围查询，导致后面的 status 索引失效
+EXPLAIN SELECT * FROM tb_user WHERE profession = 'CS' AND age > 20 AND status = '1';
+```
+
+- **规避方案**：在业务允许的情况下，尽量使用 `>=` 或 `<=`，这样右侧的索引在某些 MySQL 版本中依然可以生效。
+
+
+
+---
+---
 
 
 
