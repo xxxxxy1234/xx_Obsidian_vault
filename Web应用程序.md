@@ -596,6 +596,9 @@ graph TD
  11. Unload
 
 
+---
+---
+
 
 
 在 ASP.NET Web Forms 开发中，**服务器控件（Server Controls）** 是构建交互式网页的核心组件。它们在服务器端运行，并由 ASP.NET 引擎自动渲染为 HTML 代码。
@@ -832,7 +835,7 @@ protected void Page_Load(object sender, EventArgs e)
 ---
 
 
-## 选择类控件全量指南
+## 选择型控件全量指南
 > [!abstract] 核心逻辑
 > ASP.NET 中的选择控件分为**单体控件**（处理逻辑状态）和**列表控件**（处理数据集合）。它们都依赖于 ViewState 来维持跨页面刷新的状态。
 > 
@@ -937,7 +940,7 @@ string level = rblDifficulty.SelectedValue;
 ---
 
 
-## ASP.NET 列表选择控件：DropDownList 与 ListBox
+## 列表选择控件：DropDownList 与 ListBox
 > [!abstract] 核心逻辑
 > 这两类控件都继承自 ListControl 基类，核心操作对象都是 ListItem。它们通过索引（Index）和值（Value）来管理用户的选择状态。
 > 
@@ -1806,7 +1809,7 @@ protected void Page_Error(object sender, EventArgs e)
 在 ASP.NET Web Forms 中，**ViewState（视图状态）** 是一种极其重要的**页面级**状态管理机制。它解决了 HTTP 协议“无状态”的问题，使得页面在经过服务器往返（Postback）后，依然能够“记住”控件的属性值（如 TextBox 里的文字、Label 的颜色等）。
 ## ASP.NET ViewState 深度解析
 > [!abstract] 核心原理
-> ViewState 并不是存在服务器内存里的，而是被序列化成一个**隐藏的 Base64 编码字符串**，存放在 HTML 源代码的一个名为 __VIEWSTATE 的表单域中。它随页面一起发给浏览器，又随表单提交一起传回服务器。
+> ViewState 并不是存在服务器内存里的，而是被序列化成一个**隐藏的 Base64 编码字符串**，存放在 HTML 源代码的一个名为 __VIEWSTATE 的表单域中。它随页面一起发给浏览器，又随表单提交一起传回服务器。__
 > 
 ### 1. ViewState 的工作流程
  1. **初次请求**：服务器生成页面，将控件的状态序列化并放入 __VIEWSTATE 隐藏域，发给浏览器。
@@ -2094,3 +2097,100 @@ Session 的行为可以在 Web.config 中全局控制：
  4. **性能损耗**：
    即便一个页面不需要 Session，ASP.NET 默认也会尝试锁定它。如果某个页面完全不涉及状态（如纯展示页），可以在指令中设置 EnableSessionState="False" 来提高性能。
 
+---
+---
+
+在 ASP.NET Web Forms 的状态管理家族中，**Application 对象**（由 System.Web.HttpApplicationState 类定义）处于最高层级。它是**全局性**的，意味着全网站的所有用户共享同一个 Application 对象。
+## ASP.NET Application 全局状态详解
+> [!abstract] 核心逻辑
+> 如果说 Session 是每个人的“私人储物柜”，那么 Application 就是大厅里的“公共告示板”。从网站启动那一刻起，它就存在于服务器内存中，直到网站关闭或服务器重启。
+> 
+### 1. 核心特征
+ * **作用域**：整个 Web 应用程序（所有用户、所有页面）。
+ * **生命周期**：随网站启动（Start）而生，随网站关闭（End）而灭。
+ * **存储位置**：服务器内存。
+ * **数据类型**：支持存储任何 Object。
+### 2. 常用操作与代码示例
+#### A. 存取全局数据
+由于数据是共享的，存取方式非常直接。
+```csharp
+// 存储全局信息
+Application["SiteName"] = "我的路面病害检测系统";
+
+// 读取数据（需判空和类型转换）
+if (Application["SiteName"] != null)
+{
+    string name = Application["SiteName"].ToString();
+}
+
+```
+#### B. 解决并发冲突（Lock/Unlock）
+这是 Application 与 Session 最大的不同。因为多个用户可能同时修改同一个全局变量，为了防止数据写乱，必须使用**锁定机制**。
+```csharp
+Application.Lock(); // 锁定，防止其他用户同时修改
+int count = (int)Application["VisitCount"];
+Application["VisitCount"] = count + 1;
+Application.UnLock(); // 解放，允许其他用户访问
+
+```
+### 3. 典型应用场景：统计在线人数
+通常配合项目根目录下的 Global.asax 文件使用。
+**Global.asax.cs 逻辑：**
+```csharp
+protected void Application_Start(object sender, EventArgs e)
+{
+    // 网站启动时，初始化在线人数为 0
+    Application["OnlineUsers"] = 0;
+}
+
+protected void Session_Start(object sender, EventArgs e)
+{
+    // 有新用户进入（Session开启）
+    Application.Lock();
+    Application["OnlineUsers"] = (int)Application["OnlineUsers"] + 1;
+    Application.UnLock();
+}
+
+protected void Session_End(object sender, EventArgs e)
+{
+    // 用户离开（Session超时或关闭）
+    Application.Lock();
+    Application["OnlineUsers"] = (int)Application["OnlineUsers"] - 1;
+    Application.UnLock();
+}
+
+```
+### 4. 开发者避坑指南
+ 1. **内存开销**：
+   既然是全局共享，千万不要把大量数据（如整个数据库表）塞进 Application。这会永久占用服务器内存，导致其他进程变慢。
+ 2. **死锁风险**：
+   调用 Application.Lock() 后务必记得 Application.UnLock()。如果代码中间报错导致没解锁，整个网站的该功能都会瘫痪。建议使用 try...finally 块确保解锁。
+ 3. **数据易失性**：
+   Application 存在内存里。一旦你修改了 Web.config、更新了 DLL 或重启了 IIS，所有数据都会被**清空**。重要的持久化数据请存入数据库。
+ 4. **替代方案 (Cache)**：
+   如果你是为了提高性能而缓存数据，ASP.NET 提供了更专业的 **Cache 对象**。它支持设置滑动过期时间（比如 5 分钟没用就自动清理），比 Application 更智能。
+
+---
+---
+
+
+## 状态管理对象对照大表
+| 状态管理对象 | 存储位置 | 生命周期（存活多久） | 安全性 | 存储容量 | 存储类型 | 典型应用场景 |
+|---|---|---|---|---|---|---|
+| **ViewState** | **客户端** (页面隐藏域 __VIEWSTATE) | **页面级**：仅在当前页面回发（Postback）时有效。 | 中：Base64编码，可防篡改但默认不加密。 | 较小：过大会影响页面加载速度。 | 可序列化的对象 (Object) | 保持 TextBox 或 GridView 的显示状态。 |
+| **HiddenField** | **客户端** (HTML 隐藏域 <input type="hidden">) | **页面级**：仅在当前页面有效，适合与 JavaScript 交互。 | **极低**：用户查看网页源码即可见明文。 | 较小：仅限简单字符串。 | 仅限字符串 (String) | 存储数据库 ID 或 JavaScript 计算结果。 |
+| **Cookie** | **客户端** (浏览器内存或用户硬盘) | **自定义**：可设置为“会话级”或“持久级”（如保存30天）。 | **低**：用户可手动修改或禁用。 | **极小**：单个域名下通常限制 **4KB**。 | 仅限字符串 (String) | “记住用户名”、保存用户偏好设置。 |
+| **Session** | **服务器端** (内存/状态服务/数据库) | **用户级**：默认 **20分钟** 无操作后过期（会话超时）。 | **高**：数据存在服务器，客户端仅持有一个 SessionID。 | 较大：理论受限服务器内存。 | 任意对象 (Object) | **用户登录状态**、购物车。 |
+| **Application** | **服务器端** (内存) | **全局级**：从网站启动到网站关闭（或服务器重启）。 | **高**：全站共享，用户不可见。 | 较大：理论受限服务器内存。 | 任意对象 (Object) | 统计**在线人数**、全局配置信息。 |
+### 核心选择建议：我该用哪个？
+ 1. **如果你只想让当前页面刷新后记住点东西：**
+   * 简单的文字/ID \rightarrow **HiddenField** (方便 JS 操作) 或 **ViewState** (方便服务器端操作)。
+ 2. **如果你想让用户换个页面还能认出他：**
+   * 敏感的登录信息 \rightarrow **Session**。
+   * 非敏感、想长期保存的（如下次来自动填名） \rightarrow **Cookie**。
+ 3. **如果你想统计整个网站的情况：**
+   * 所有人都能看到的公共数据 \rightarrow **Application**。
+### 开发者必记的三大“雷区”
+ * **容量雷区**：不要往 **ViewState** 和 **Cookie** 里塞大数据，否则网页会变极慢。
+ * **安全雷区**：**Cookie** 和 **HiddenField** 是暴露在外的，千万别存密码、金额等关键数据。
+ * **内存雷区**：**Session** 和 **Application** 存得越多，服务器内存占用越高。如果用户量巨大，记得改用数据库存储模式。
