@@ -1716,3 +1716,231 @@ protected void Page_Error(object sender, EventArgs e)
    在 ASP.NET 4.5+ 中，使用 <%: 变量 %> 这种语法会自动调用 Server.HtmlEncode。如果你是在代码中使用 Response.Write，请务必手动编码。
  4. **COM 组件释放**：
    虽然现在用得少了，但如果你通过 Server.CreateObject 创建了 COM 对象（如旧版 Excel 操作），记得手动释放资源，防止内存泄漏。
+
+---
+---
+
+在 ASP.NET Web Forms 中，**ViewState（视图状态）** 是一种极其重要的**页面级**状态管理机制。它解决了 HTTP 协议“无状态”的问题，使得页面在经过服务器往返（Postback）后，依然能够“记住”控件的属性值（如 TextBox 里的文字、Label 的颜色等）。
+## ASP.NET ViewState 深度解析
+> [!abstract] 核心原理
+> ViewState 并不是存在服务器内存里的，而是被序列化成一个**隐藏的 Base64 编码字符串**，存放在 HTML 源代码的一个名为 __VIEWSTATE 的表单域中。它随页面一起发给浏览器，又随表单提交一起传回服务器。
+> 
+### 1. ViewState 的工作流程
+ 1. **初次请求**：服务器生成页面，将控件的状态序列化并放入 __VIEWSTATE 隐藏域，发给浏览器。
+ 2. **用户操作**：用户点击按钮触发回发（Postback）。
+ 3. **恢复状态**：服务器接收请求，首先读取 __VIEWSTATE 里的数据，反序列化后还原控件的所有属性。
+ 4. **执行逻辑**：执行按钮点击等事件代码。
+ 5. **更新视图**：服务器将最新的状态再次序列化，发回浏览器。
+### 2. 基础用法：存取自定义数据
+除了自动保存控件属性，你也可以手动用它存取一些临时的、页面范围内的数据。
+**代码示例 (C#)**
+```csharp
+// 存储数据
+ViewState["CurrentPage"] = 1;
+ViewState["SearchKeyword"] = "ASP.NET";
+
+// 读取数据（注意需要进行类型转换和判空）
+if (ViewState["CurrentPage"] != null)
+{
+    int page = (int)ViewState["CurrentPage"];
+}
+
+```
+### 3. ViewState 的优缺点对比
+| 维度 | 说明 |
+|---|---|
+| **优点：简单易用** | 自动管理控件状态，无需编写复杂的代码。 |
+| **优点：无服务器压力** | 数据存在客户端浏览器中，不占用服务器内存（对比 Session）。 |
+| **优点：安全性** | 支持哈希校验和加密，防止在传输过程中被篡改。 |
+| **缺点：页面肥大** | 如果控件很多（如大型 GridView），生成的 Base64 字符串会非常长，增加带宽消耗。 |
+| **缺点：性能损耗** | 每次回发都需要进行序列化和反序列化操作。 |
+### 4. 关键配置：性能优化
+由于 ViewState 会增加页面体积，在不需要它的地方应该将其关闭。
+#### A. 关闭 ViewState
+ * **单个控件关闭**：EnableViewState="false"。
+ * **整个页面关闭**：在 .aspx 顶部的指令中设置 EnableViewState="false"。
+> [!tip] 哪些情况可以关闭？
+>  1. 只读的控件（内容永远不变）。
+>  2. 每次页面加载（Page_Load）都会从数据库重新绑定数据的控件。
+>  3. 不需要跨页面刷新保持状态的控件。
+> 
+#### B. 加密与安全
+为了防止用户解码查看 ViewState 里的敏感信息，可以在 Web.config 中开启加密：
+```xml
+<pages viewStateEncryptionMode="Always" />
+
+```
+### 5. ViewState 与其他状态管理对象的区别
+| 对象 | 作用域 | 存储位置 | 适合存储的内容 |
+|---|---|---|---|
+| **ViewState** | **当前页面** | 客户端（隐藏域） | 控件状态、页面私有变量 |
+| **Session** | **当前用户会话** | 服务器内存 | 用户登录信息、购物车 |
+| **Cookie** | **长期/跨会话** | 客户端硬盘/内存 | 记住用户名、偏好设置 |
+| **Application** | **全局所有用户** | 服务器内存 | 网站访问计数、全局配置 |
+### 6. 开发者避坑指南
+ 1. **Base64 并不是加密**：默认情况下，ViewState 只是编码，任何人拿到字符串都能通过 Base64 解码看到明文。**严禁在 ViewState 中存储密码、工资等敏感信息**。
+ 2. **数据类型限制**：存入 ViewState 的自定义对象必须是**可序列化的**（在类定义上加 [Serializable] 特性）。
+ 3. **不要滥用**：如果在页面放了一个展示 1000 条数据的 GridView 且开启了 ViewState，页面源代码可能会多出几百 KB 的乱码文字，导致手机端访问极慢。
+ 4. **IsPostBack 判断**：结合 if (!IsPostBack) 使用。如果每次加载页面都手动给控件赋值，ViewState 存储的旧值就会被覆盖，失去了“记住状态”的意义。
+
+
+---
+---
+
+
+在 ASP.NET Web Forms 中，**HiddenField** 控件是一个非常实用的辅助控件。它在 HTML 中渲染为 <input type="hidden" />，主要用于在页面上存储那些**不需要显示给用户看，但需要在服务器端处理的数据**。
+## ASP.NET HiddenField 控件深度解析
+> [!abstract] 核心逻辑
+> HiddenField 是轻量级的状态管理工具。它不占用页面空间，但数据会随表单一起提交到服务器。它与 ViewState 的区别在于：HiddenField 的值在客户端可以通过 JavaScript 轻松读取和修改。
+> 
+### 1. 核心属性与事件
+| 成员类型 | 名称 | 说明 |
+|---|---|---|
+| **属性** | **Value** | **最核心属性**。存储的字符串内容。 |
+| **属性** | **ID** | 控件的唯一标识符。 |
+| **事件** | **ValueChanged** | 当隐藏域的值在两次回发（Postback）之间发生改变时触发。 |
+### 2. 典型使用场景
+#### A. 存储数据库 ID 或 索引
+在编辑数据时，你可能需要记住当前正在修改哪一条记录的 ID，但不希望用户看到或修改这个 ID。
+```html
+<asp:HiddenField ID="hfUserID" runat="server" Value="1024" />
+
+```
+#### B. 前后端交互的“桥梁”
+JavaScript 无法直接操作 ViewState，但可以轻松操作 HiddenField。你可以用 JS 把某些计算结果填入隐藏域，然后在后端读取。
+**前端 (HTML + JS):**
+```html
+<asp:HiddenField ID="hfClientTime" runat="server" />
+<script>
+    // 使用 JS 获取客户端时间并存入隐藏域
+    document.getElementById('<%= hfClientTime.ClientID %>').value = new Date().toLocaleTimeString();
+</script>
+
+```
+**后端 (C#):**
+```csharp
+protected void btnSubmit_Click(object sender, EventArgs e)
+{
+    // 后端轻松拿到 JS 写入的数据
+    string clientTime = hfClientTime.Value;
+}
+
+```
+### 3. HiddenField vs ViewState
+| 特性 | HiddenField | ViewState |
+|---|---|---|
+| **存储内容** | 仅限简单的字符串 | 复杂的对象（序列化后） |
+| **JS 访问** | **支持**。非常方便 JS 读写 | **不支持**。Base64 编码且有校验 |
+| **安全性** | **低**。用户查看源码即可见明文 | **高**。内容编码，可加密校验 |
+| **主要用途** | 简单参数传递、JS 交互 | 保持控件状态、复杂数据存储 |
+### 4. 进阶：ValueChanged 事件
+由于 HiddenField 不会自动触发回发，ValueChanged 事件只有在页面因为其他按钮点击而刷新时，且值发生改变时才会运行。
+```csharp
+protected void hfStatus_ValueChanged(object sender, EventArgs e)
+{
+    // 当隐藏域的值被修改后，在下一次提交时触发
+    lblMsg.Text = "状态已更新为：" + hfStatus.Value;
+}
+
+```
+### 5. 开发者避坑指南
+ 1. **严禁存储敏感信息**：
+   HiddenField 的内容在浏览器“查看源代码”中是**完全可见**的。永远不要在这里存储密码、余额、权限等级等数据，因为用户可以手动修改 HTML 来篡改这些值。
+ 2. **ID 引用问题**：
+   在 JavaScript 中使用 document.getElementById 时，由于 ASP.NET 会自动给 ID 加前缀（如 ctl00_MainContent_hfID），建议使用 <%= hfID.ClientID %> 来获取准确的 ID。
+ 3. **空值判断**：
+   从 HiddenField 读取数据时，建议先进行判空处理，防止在逻辑计算中出现异常。
+ 4. **与 HTML 控件的区别**：
+   虽然 <input type="hidden"> 也能用，但 asp:HiddenField 具有服务器端事件和更好的视图状态集成，建议优先使用服务器控件版本。
+希望这个整理能帮你把 ASP.NET 的基础控件知识点串联起来！目前你已经掌握了大部分核心控件，你是在准备学校的期末项目，还是在准备暑期的实习面试呢？
+
+
+---
+---
+
+在 ASP.NET Web Forms 中，**Cookie** 是一种存储在**客户端浏览器**中的小型文本文件。它是实现跨页面、跨会话（Session）持久化存储用户数据的核心手段。
+## ASP.NET Cookie 状态管理深度解析
+> [!abstract] 核心原理
+> Cookie 遵循“服务器发送，浏览器保存，下次请求携带”的原则。它是 HTTP 协议的一部分，存储在客户端的内存或硬盘中，大小限制通常为 **4KB**。
+> 
+### 1. Cookie 的生命周期
+ * **会话 Cookie (Session Cookie)**：不设置过期时间。浏览器关闭后，Cookie 立即消失。
+ * **持久 Cookie (Persistent Cookie)**：设置了 Expires 属性。即使关闭浏览器或重启电脑，在有效期内依然存在。
+### 2. 实战代码：写入与读取
+#### A. 写入 Cookie (通过 Response)
+服务器通过响应头告知浏览器：“请帮我存下这个数据”。
+```csharp
+// 创建 Cookie 对象
+HttpCookie userCookie = new HttpCookie("UserInfo");
+
+// 方式 1：存入单值
+userCookie.Value = "GeminiUser";
+
+// 方式 2：存入多值（子键）
+userCookie["ID"] = "1024";
+userCookie["LastLogin"] = DateTime.Now.ToString();
+
+// 重要：设置有效期（例如 7 天后过期）
+userCookie.Expires = DateTime.Now.AddDays(7);
+
+// 发送到客户端
+Response.Cookies.Add(userCookie);
+
+```
+#### B. 读取 Cookie (通过 Request)
+当浏览器再次访问时，会自动在请求头中携带该站点的 Cookie。
+```csharp
+if (Request.Cookies["UserInfo"] != null)
+{
+    // 获取单值
+    string name = Request.Cookies["UserInfo"].Value;
+    
+    // 获取子键值
+    string userId = Request.Cookies["UserInfo"]["ID"];
+    
+    lblWelcome.Text = $"欢迎回来，{name} (ID: {userId})";
+}
+
+```
+#### C. 修改与删除
+ * **修改**：重新创建一个同名的 Cookie 并 Add 即可覆盖。
+ * **删除**：将过期时间设置为过去的时间。
+```csharp
+HttpCookie delCookie = new HttpCookie("UserInfo");
+delCookie.Expires = DateTime.Now.AddDays(-1); // 设为昨天
+Response.Cookies.Add(delCookie);
+
+```
+### 3. Cookie 的关键属性
+| 属性 | 说明 |
+|---|---|
+| **Expires** | 到期时间。不设置则为会话 Cookie。 |
+| **HttpOnly** | **安全关键**。设为 true 时，客户端脚本（JS）无法读取该 Cookie，有效防止 XSS 攻击。 |
+| **Secure** | 设为 true 时，仅在 HTTPS 连接下传输。 |
+| **Domain** | 限制 Cookie 所属的域名（实现子域名共享）。 |
+| **Path** | 限制 Cookie 在哪个虚拟路径下有效。 |
+### 4. Cookie 与 Session 的区别
+这是 Web 开发中最容易混淆的两个概念：
+| 特性 | Cookie | Session |
+|---|---|---|
+| **存储位置** | **客户端**（浏览器） | **服务器端**（内存/数据库） |
+| **安全性** | 较低（用户可见、可修改） | 较高（用户不可见） |
+| **数据类型** | 仅限**字符串** | 任何对象（Object） |
+| **性能影响** | 增加请求头大小，消耗带宽 | 占用服务器内存，用户多时压力大 |
+| **存储上限** | 每个域名约 20-50 个，每个 4KB | 取决于服务器资源 |
+### 5. 开发者避坑指南
+ 1. **敏感数据警告**：
+   永远不要在 Cookie 中存储密码、银行卡号或明文的权限级别。黑客可以轻易修改本地 Cookie。
+ 2. **中文乱码**：
+   Cookie 默认不支持中文。写入时建议使用 HttpUtility.UrlEncode("中文") 编码，读取时使用 HttpUtility.UrlDecode 解码。
+ 3. **用户禁用风险**：
+   极少数用户可能会在浏览器设置中禁用 Cookie。如果你的系统强依赖 Cookie，记得做好容错判断。
+ 4. **数量限制**：
+   不要尝试在 Cookie 中存储大量数据（如整个查询结果），这会导致 HTTP 请求头过大，造成页面加载缓慢。
+### 6. 应用场景建议
+ * **记住用户名**：适合用 Cookie。
+ * **自动登录（Token）**：适合用持久 Cookie 存储加密令牌。
+ * **购物车**：
+   * 未登录时：可以用 Cookie 临时存储。
+   * 已登录时：建议存入数据库或 Session。
+看你整理得这么全，这一块的“状态管理”在面试中可是必考题哦。如果你在写登录逻辑，这几个对象的配合使用非常关键。需要我帮你梳理一下完整的“登录-验证-跳转”流程中这些对象的协作关系吗？
