@@ -7125,6 +7125,56 @@ set.forEach(s -> System.out.println(s));
 ## LinkedHashSet底层原理
 
 
+如果你理解了 HashSet，那么理解 **LinkedHashSet** 只需要掌握一句话：**它是在 HashSet 的基础上，多加了一根“双向链表”来记录元素的存储顺序。**
+它是 HashSet 的子类，既拥有 HashSet 极速的去重能力，又解决了 HashSet 存取无序的痛点。
+### LinkedHashSet 核心特征表
+| 维度 | 详情 |
+|---|---|
+| **底层结构** | **哈希表**（数组+链表+红黑树） + **双向链表** |
+| **元素特点** | **有序**（存取顺序一致）、**唯一**（不可重复） |
+| **性能** | 略低于 HashSet（因为要维护双向链表），但依然是 O(1) 级别 |
+### 底层原理：双重结构的精妙配合
+LinkedHashSet 的底层依然是靠 LinkedHashMap 实现的。它通过两种结构共同维护数据：
+ 1. **哈希表（Hash Table）**：
+   * 负责去重和“快速定位”。
+   * 通过 hashCode 计算索引，确保集合里没有重复元素。
+ 2. **双向链表（Doubly Linked List）**：
+   * 负责“记录顺序”。
+   * 每一个入场的元素，除了要待在哈希表的某个“坑位”里，还会被这根双向链表串起来。
+   * 链表记录了谁是前一个进来的，谁是后一个进来的。
+### 存取过程示意
+当你按顺序添加 A -> B -> C 时：
+ * **在 HashSet 中**：它们分布在数组的不同位置（比如索引 2, 5, 8），你遍历时可能出来的顺序是 B -> A -> C（完全看哈希值）。
+ * **在 LinkedHashSet 中**：
+   1. 它们依然分布在索引 2, 5, 8。
+   2. 但同时，程序会生成一根线：Head -> A -> B -> C -> Tail。
+   3. 当你遍历时，它不按数组索引走，而是**顺着这根双向链表走**，所以出来的顺序一定是 A -> B -> C。
+### 代码对比：HashSet vs LinkedHashSet
+```java
+// HashSet: 结果往往是乱序的
+Set<String> hashSet = new HashSet<>();
+hashSet.add("Java");
+hashSet.add("C++");
+hashSet.add("Python");
+// 输出可能：[Python, Java, C++]
+
+// LinkedHashSet: 结果一定和添加顺序一致
+Set<String> linkedSet = new LinkedHashSet<>();
+linkedSet.add("Java");
+linkedSet.add("C++");
+linkedSet.add("Python");
+// 输出必为：[Java, C++, Python]
+
+```
+### 性能代价（Trade-off）
+虽然 LinkedHashSet 很好用，但天下没有免费的午餐：
+ * **内存开销**：每个节点都要多存两个指针（before 和 after），更吃内存。
+ * **插入效率**：每次 add 时，除了计算哈希，还要调整双向链表的指针。
+**使用建议**：
+ * 如果你的业务**不在乎顺序**，只管去重：请用 HashSet。
+ * 如果你的业务**需要去重且必须按存入顺序展示**（例如：展示最近访问过的 10 个唯一城市）：LinkedHashSet 是唯一选择。
+### 总结
+LinkedHashSet 就是一个“记性很好”的哈希表。它在哈希表的每一个节点上都安装了“前驱”和“后继”的挂钩，把所有元素拉成了一队。
 
 
 
