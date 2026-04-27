@@ -3282,3 +3282,9 @@ SELECT * FROM tb_user WHERE name = 'Armin' AND age = 20;
 
 ---
 ---
+
+
+# SQL优化
+
+
+## 插入数据优化
