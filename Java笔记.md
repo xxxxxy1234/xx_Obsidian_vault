@@ -7006,6 +7006,83 @@ public void addData(ArrayList<? super Integer> list) {
  * **变色**：把红变黑，或者黑变红。
  * **左旋**：以某个节点为支点，逆时针旋转。
  * **右旋**：以某个节点为支点，顺时针旋转。
+
+
+```mermaid
+graph TD
+    %% 核心节点及样式
+    Start[<b style='font-size:16px'>红黑树添加节点</b>]
+    style Start fill:#E57373,stroke:#B71C1C,stroke-width:2px,color:white,font-weight:bold
+
+    %% 根节点逻辑路径
+    IsRoot{<b style='color:#B71C1C'>是根节点？</b>}
+    style IsRoot fill:none,stroke:#E57373,color:#B71C1C
+    Op_Root[<b style='color:white'>直接变为黑色</b>]
+    style Op_Root fill:#1E88E5,stroke:#0D47A1,color:white
+
+    %% 非根节点逻辑入口
+    NotRoot[<b style='color:#E57373'>非根节点</b>]
+    style NotRoot fill:none,stroke:#E57373,color:#E57373
+    CheckParent{<b style='color:#E57373'>父节点颜色？</b>}
+    style CheckParent fill:none,stroke:#E57373,color:#E57373
+
+    %% 父黑色路径
+    ParentBlack[<b style='color:#EF6C00'>父黑色</b>]
+    style ParentBlack fill:none,stroke:#EF6C00,color:#EF6C00
+    Op_PBlack[<b style='color:white'>无需任何操作</b>]
+    style Op_PBlack fill:#FF9800,stroke:#EF6C00,color:white
+
+    %% 父红色路径
+    ParentRed[<b style='color:#B71C1C'>父红色</b>]
+    style ParentRed fill:none,stroke:#B71C1C,color:#B71C1C
+    CheckUncle{<b style='color:#B71C1C'>叔叔节点颜色？</b>}
+    style CheckUncle fill:none,stroke:#B71C1C,color:#B71C1C
+
+    %% 场景1：叔叔红色
+    UncleRed[<b style='color:#B71C1C'>叔叔红色 (场景1)</b>]
+    style UncleRed fill:none,stroke:#B71C1C,color:#B71C1C
+    Step1_1[将父设为黑色, 将叔叔设为黑色]
+    Step1_2[将祖父设为红色]
+    Step1_3(如果祖父为根，再将根变回黑色)
+    Step1_4(如果祖父非根，将祖父设为当前节点再进行其他判断)
+    style Step1_1 fill:#E57373,stroke:#B71C1C,color:black
+    style Step1_2 fill:#E57373,stroke:#B71C1C,color:black
+    style Step1_3 fill:#E57373,stroke:#B71C1C,color:black,stroke-dasharray: 5 5
+    style Step1_4 fill:#E57373,stroke:#B71C1C,color:black,stroke-dasharray: 5 5
+
+    %% 场景2/3：叔叔黑色
+    UncleBlack{<b style='color:#B71C1C'>叔叔黑色</b>}
+    style UncleBlack fill:none,stroke:#B71C1C,color:#B71C1C
+
+    %% 场景2：LR (父左子，当前右子)
+    LRCase[<b style='color:#2E7D32'>当前节点是父的右孩子 (LR) (场景2)</b>]
+    style LRCase fill:none,stroke:#2E7D32,color:#2E7D32
+    Op_LR[<b style='color:white'>把父作为当前节点并左旋，再进行判断</b>]
+    style Op_LR fill:#4CAF50,stroke:#2E7D32,color:white
+
+    %% 场景3：LL (父左子，当前左子)
+    LLCase[<b style='color:#424242'>当前节点是父的左孩子 (LL) (场景3)</b>]
+    style LLCase fill:none,stroke:#424242,color:#424242
+    Step3_1[将父设为黑色]
+    Step3_2[将祖父变为红色]
+    Step3_3[以祖父为支点进行右旋]
+    style Step3_1 fill:#BDBDBD,stroke:#424242,color:black
+    style Step3_2 fill:#BDBDBD,stroke:#424242,color:black
+    style Step3_3 fill:#BDBDBD,stroke:#424242,color:black
+
+    %% 逻辑连线
+    Start --> IsRoot
+    IsRoot -- 是 --> Op_Root
+    IsRoot -- 否 --> NotRoot
+    NotRoot --> CheckParent
+    CheckParent --> ParentBlack --> Op_PBlack
+    CheckParent --> ParentRed --> CheckUncle
+    CheckUncle --> UncleRed --> Step1_1 --> Step1_2 --> Step1_3 --> Step1_4
+    CheckUncle --> UncleBlack --> LRCase --> Op_LR
+    CheckUncle --> UncleBlack --> LLCase --> Step3_1 --> Step3_2 --> Step3_3
+
+```
+
 ### 性能对比：红黑树 vs AVL 树
 这是很多人的盲区。AVL 树（平衡二叉树）也是平衡的，为什么 Java 集合（如 TreeMap）偏爱红黑树？
 
