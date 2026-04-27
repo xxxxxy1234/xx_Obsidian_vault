@@ -6989,6 +6989,9 @@ public void addData(ArrayList<? super Integer> list) {
 
 
 红黑树本质上是一种**自平衡的二叉查找树**。如果你觉得普通的二叉查找树（BST）太容易退化成一根瘦长的“竹竿”（链表），那么红黑树就是给树加了“自动平衡器”。
+
+---
+
 ### 红黑树的五大“铁律”
 红黑树之所以能保持平衡，全靠这五条近乎苛刻的规则。只要违反了其中任何一条，它就会通过“旋转”或“变色”来强行恢复。
  1. **节点非红即黑**：没别的颜色。
@@ -6996,11 +6999,19 @@ public void addData(ArrayList<? super Integer> list) {
  3. **叶子节点（NIL节点）都是黑色**：这里的叶子指最末端的空节点。
  4. **红色节点不能相连**：红色节点的两个子节点必须是黑色（即不能出现连续的红）。
  5. **黑高一致**：从任一节点到其每个叶子的所有路径，必须包含相同数量的黑色节点。
+
+---
+
 ### 为什么有了二叉树，还需要红黑树？
  1. **二叉查找树（BST）的尴尬**：
    如果你按顺序插入 1, 2, 3, 4, 5，普通的二叉树会变成一条直线。这时候查找 5 需要找 5 次，效率退化成 O(n)。
  2. **红黑树的优势**：
    由于“黑高一致”和“红不相连”的限制，红黑树确保了最长路径不会超过最短路径的两倍。这意味着它在最坏情况下的查找效率依然能稳定在 **O(\log n)**。
+
+
+---
+
+
 ### 红黑树如何保持平衡？（变身三招）
 当你在红黑树里 add 一个元素（默认新节点是**红色**）导致规则被破坏时，它会使出这三个招式：
  * **变色**：把红变黑，或者黑变红。
@@ -7010,91 +7021,69 @@ public void addData(ArrayList<? super Integer> list) {
 
 ```mermaid
 graph TD
-    %% 核心节点及样式
-    Start[<b style='font-size:16px'>红黑树添加节点</b>]
-    style Start fill:#E57373,stroke:#B71C1C,stroke-width:2px,color:white,font-weight:bold
+    %% 核心流程
+    Start[红黑树添加节点] --> IsRoot{是否根节点?}
+    
+    IsRoot -- 是 --> Op_Root[直接变为黑色]
+    IsRoot -- 否 --> NotRoot[非根节点]
 
-    %% 根节点逻辑路径
-    IsRoot{<b style='color:#B71C1C'>是根节点？</b>}
-    style IsRoot fill:none,stroke:#E57373,color:#B71C1C
-    Op_Root[<b style='color:white'>直接变为黑色</b>]
-    style Op_Root fill:#1E88E5,stroke:#0D47A1,color:white
-
-    %% 非根节点逻辑入口
-    NotRoot[<b style='color:#E57373'>非根节点</b>]
-    style NotRoot fill:none,stroke:#E57373,color:#E57373
-    CheckParent{<b style='color:#E57373'>父节点颜色？</b>}
-    style CheckParent fill:none,stroke:#E57373,color:#E57373
-
-    %% 父黑色路径
-    ParentBlack[<b style='color:#EF6C00'>父黑色</b>]
-    style ParentBlack fill:none,stroke:#EF6C00,color:#EF6C00
-    Op_PBlack[<b style='color:white'>无需任何操作</b>]
-    style Op_PBlack fill:#FF9800,stroke:#EF6C00,color:white
-
-    %% 父红色路径
-    ParentRed[<b style='color:#B71C1C'>父红色</b>]
-    style ParentRed fill:none,stroke:#B71C1C,color:#B71C1C
-    CheckUncle{<b style='color:#B71C1C'>叔叔节点颜色？</b>}
-    style CheckUncle fill:none,stroke:#B71C1C,color:#B71C1C
+    %% 非根节点逻辑
+    NotRoot --> CheckParent{父节点颜色?}
+    
+    CheckParent -- 黑色 --> Op_PBlack[无需任何操作]
+    CheckParent -- 红色 --> CheckUncle{叔叔节点颜色?}
 
     %% 场景1：叔叔红色
-    UncleRed[<b style='color:#B71C1C'>叔叔红色 (场景1)</b>]
-    style UncleRed fill:none,stroke:#B71C1C,color:#B71C1C
-    Step1_1[将父设为黑色, 将叔叔设为黑色]
-    Step1_2[将祖父设为红色]
-    Step1_3(如果祖父为根，再将根变回黑色)
-    Step1_4(如果祖父非根，将祖父设为当前节点再进行其他判断)
-    style Step1_1 fill:#E57373,stroke:#B71C1C,color:black
-    style Step1_2 fill:#E57373,stroke:#B71C1C,color:black
-    style Step1_3 fill:#E57373,stroke:#B71C1C,color:black,stroke-dasharray: 5 5
-    style Step1_4 fill:#E57373,stroke:#B71C1C,color:black,stroke-dasharray: 5 5
+    CheckUncle -- 红色 --> Case1[场景1: 叔叔红色]
+    Case1 --> Step1_1[父/叔 变黑, 祖父 变红]
+    Step1_1 --> Step1_2{祖父是根?}
+    Step1_2 -- 是 --> Step1_3[变回黑色]
+    Step1_2 -- 否 --> Step1_4[祖父设为当前点再判断]
 
     %% 场景2/3：叔叔黑色
-    UncleBlack{<b style='color:#B71C1C'>叔叔黑色</b>}
-    style UncleBlack fill:none,stroke:#B71C1C,color:#B71C1C
+    CheckUncle -- 黑色/缺失 --> CheckPos{当前节点位置?}
+    
+    %% 场景2：LR/RL
+    CheckPos -- 是父的右孩子 --> Case2[场景2: LR型]
+    Case2 --> Op_LR[以父为支点左旋]
+    Op_LR --> Case3
 
-    %% 场景2：LR (父左子，当前右子)
-    LRCase[<b style='color:#2E7D32'>当前节点是父的右孩子 (LR) (场景2)</b>]
-    style LRCase fill:none,stroke:#2E7D32,color:#2E7D32
-    Op_LR[<b style='color:white'>把父作为当前节点并左旋，再进行判断</b>]
-    style Op_LR fill:#4CAF50,stroke:#2E7D32,color:white
+    %% 场景3：LL/RR
+    CheckPos -- 是父的左孩子 --> Case3[场景3: LL型]
+    Case3 --> Step3_1[父变黑, 祖父变红]
+    Step3_1 --> Step3_2[以祖父为支点右旋]
 
-    %% 场景3：LL (父左子，当前左子)
-    LLCase[<b style='color:#424242'>当前节点是父的左孩子 (LL) (场景3)</b>]
-    style LLCase fill:none,stroke:#424242,color:#424242
-    Step3_1[将父设为黑色]
-    Step3_2[将祖父变为红色]
-    Step3_3[以祖父为支点进行右旋]
-    style Step3_1 fill:#BDBDBD,stroke:#424242,color:black
-    style Step3_2 fill:#BDBDBD,stroke:#424242,color:black
-    style Step3_3 fill:#BDBDBD,stroke:#424242,color:black
-
-    %% 逻辑连线
-    Start --> IsRoot
-    IsRoot -- 是 --> Op_Root
-    IsRoot -- 否 --> NotRoot
-    NotRoot --> CheckParent
-    CheckParent --> ParentBlack --> Op_PBlack
-    CheckParent --> ParentRed --> CheckUncle
-    CheckUncle --> UncleRed --> Step1_1 --> Step1_2 --> Step1_3 --> Step1_4
-    CheckUncle --> UncleBlack --> LRCase --> Op_LR
-    CheckUncle --> UncleBlack --> LLCase --> Step3_1 --> Step3_2 --> Step3_3
-
+    %% 样式美化
+    style Start fill:#f9f,stroke:#333,stroke-width:2px
+    style Op_Root fill:#000,color:#fff
+    style Op_PBlack fill:#ddd
+    style Case1 fill:#ffcccc
+    style Case2 fill:#ccffcc
+    style Case3 fill:#ccccff
 ```
 
 ### 性能对比：红黑树 vs AVL 树
 这是很多人的盲区。AVL 树（平衡二叉树）也是平衡的，为什么 Java 集合（如 TreeMap）偏爱红黑树？
 
-| 特性 | AVL 树 | 红黑树 |
-|---|---|---|
-| **平衡程度** | 极度平衡（高度差 \le 1） | 相对平衡（高度差 \le 2 倍） |
-| **查询效率** | 极快（因为更矮） | 快 |
+| 特性       | AVL 树             | 红黑树               |
+| -------- | ----------------- | ----------------- |
+| **平衡程度** | 极度平衡（高度差 \le 1）   | 相对平衡（高度差 \le 2 倍） |
+| **查询效率** | 极快（因为更矮）          | 快                 |
 | **增删效率** | 慢（因为要频繁旋转来保持严苛平衡） | **更快**（旋转次数少，变色多） |
-| **结论** | 适合查询极多、增删极少的场景 | **全能选手**，性能最均衡 |
+| **结论**   | 适合查询极多、增删极少的场景    | **全能选手**，性能最均衡    |
+
+
+---
+
+
 ### 在 Java 集合中的地位
  * **TreeSet / TreeMap**：全程使用红黑树，保证了元素的有序性和 O(\log n) 的增删改查。
  * **HashMap**：在 JDK 8 之后，当链表长度超过 **8** 且数组长度超过 **64** 时，链表会进化为**红黑树**，防止哈希冲突导致的性能雪崩。
+
+
+---
+
+
 ### 总结
 红黑树就像是一个**自带“自我修复”功能的整理狂**。虽然它的逻辑极其复杂（源码能看晕很多人），但它为 Java 集合提供了极其稳定的性能保障：
  * **查得快**（比链表快得多）。
@@ -7112,6 +7101,8 @@ graph TD
 
 既然我们已经深入探讨了 List 那个有序、有索引、甚至有点“死板”的世界，现在欢迎来到 **Set 集合**的领地。
 如果说 List 是一个**带编号的储物柜**，那么 Set 更像是一个**高标准的俱乐部**：它最大的特点就是**无序**（存取顺序可能不一致）、**无索引**，以及最硬核的——**元素不可重复**。
+
+---
 ### Set 系列集合常用 API 总结表
 由于 Set 接口继承自 Collection，且它没有索引，所以它**没有**像 List 那样新增特有的方法。它更强调的是“唯一性”。
 
@@ -7120,6 +7111,9 @@ graph TD
 | boolean add(E e) | **添加**：如果集合中已存在该元素，则添加失败返回 false | set.add("A") |
 | Iterator<E> iterator() | **获取迭代器**：因为没索引，这是最基础的遍历方式 | set.iterator() |
 | int size() | **大小**：返回集合中不重复元素的个数 | set.size() |
+
+---
+
 ### Set 家族的三大干将
 虽然它们都叫 Set，但内部性格迥异：
 
@@ -7128,6 +7122,9 @@ graph TD
 | **HashSet** | **哈希表** (数组+链表+红黑树) | **无序**、唯一、性能最高 | 最常用，单纯为了去重 |
 | **LinkedHashSet** | **哈希表+双向链表** | **有序**（存取顺序一致）、唯一 | 需要去重，但又要保证存取顺序 |
 | **TreeSet** | **红黑树** (自平衡二叉排序树) | **可排序**、唯一 | 需要对存入的元素进行大小排序 |
+
+---
+
 
 ### Set 的遍历方式
 因为没有索引，所以 Set 失去了普通 for 循环（带 i 的那种）的资格。
@@ -7148,7 +7145,10 @@ for (String s : set) {
 set.forEach(s -> System.out.println(s));
 
 ```
-### 🎓 总结建议
+
+---
+
+### 总结建议
  * **如果你只需要去重**：无脑选 HashSet，速度最快。
  * **如果你去重且要保证存取顺序**：选 LinkedHashSet。
  * **如果你要去重且要按大小排序**：选 TreeSet。
@@ -7156,76 +7156,165 @@ set.forEach(s -> System.out.println(s));
 ---
 ---
 
+
+
 ## HashSet底层原理
 
 既然聊到了 **HashSet**，我们就进入了 Java 集合框架中最巧妙的设计之一。HashSet 并不是从零开始实现的，它的核心逻辑其实全盘委派给了 **HashMap**。
+
 如果要用一句话总结它的原理，那就是：**利用哈希表（Hash Table）来确保唯一性，利用 HashMap 的 Key 来存储元素。**
+
+---
+
 ### 什么是哈希（Hash）？
+
 在聊底层之前，先理解“哈希”这个动作：
- * **哈希函数**：它像是一台“绞肉机”，你丢进去一个任意大小的对象（String、Student 等），它通过特定算法（hashCode() 方法）吐出一个**整数（哈希值）**。
- * **核心特性**：
-   1. **确定性**：同一个对象，哈希值一定相同。
-   2. **碰撞性**：不同的对象，哈希值**可能**相同（这就是哈希冲突）。
+
+- **哈希函数**：它像是一台“绞肉机”，你丢进去一个任意大小的对象（String、Student 等），它通过特定算法（`hashCode()` 方法）吐出一个**整数（哈希值）**。
+    
+- **核心特性**：
+    
+    1. **确定性**：同一个对象，哈希值一定相同。
+        
+    2. **碰撞性**：不同的对象，哈希值**可能**相同（这就是哈希冲突）。
+        
+
+---
+
 ### HashSet 的底层结构
+
 在 JDK 8 以后，HashSet（实际上是 HashMap）的底层结构是：**数组 + 链表 + 红黑树**。
- 1. **默认数组长度**：16（DEFAULT_INITIAL_CAPACITY）。
- 2. **加载因子**：0.75（DEFAULT_LOAD_FACTOR）。
-   * 这意味着当数组用到 16 * 0.75 = 12 个位置时，就会触发扩容（扩容为原来的 2 倍）。
+
+1. **默认数组长度**：16（`DEFAULT_INITIAL_CAPACITY`）。
+    
+2. **加载因子**：0.75（`DEFAULT_LOAD_FACTOR`）。
+    
+    - 这意味着当数组用到 $16 \times 0.75 = 12$ 个位置时，就会触发扩容（扩容为原来的 2 倍）。
+        
+
+---
+
 ### 元素的“入住”全流程（HashSet.add()）
-当你执行 set.add("Java") 时，底层发生了以下精彩的“三步走”：
+
+当你执行 `set.add("Java")` 时，底层发生了以下精彩的“三步走”：
+
 #### 第一步：计算落点（Index）
-程序根据对象的 hashCode() 经过二次哈希运算，计算出该元素在数组中的位置。
- * 计算公式大致为：index = (n - 1) \& hash（n 为数组长度）。
+
+程序根据对象的 `hashCode()` 经过二次哈希运算，计算出该元素在数组中的位置。
+
+- 计算公式大致为：$index = (n - 1) \& hash$（$n$ 为数组长度）。
+    
+
 #### 第二步：查岗（哈希冲突处理）
- * 如果计算出的位置是**空**的：直接把元素存进去。
- * 如果该位置**已经有元素**（哈希冲突）：
-   1. 调用 equals() 方法比较内容。
-   2. **内容相同**：认定为重复，**丢弃新元素**，add 返回 false。
-   3. **内容不同**：JDK8以前，新元素存入数组，老元素挂在新元素下面。JDK8以后，新元素直接挂在老元素下面
+
+- 如果计算出的位置是**空**的：直接把元素存进去。
+    
+- 如果该位置**已经有元素**（哈希冲突）：
+    
+    1. 调用 `equals()` 方法比较内容。
+        
+    2. **内容相同**：认定为重复，**丢弃新元素**，`add` 返回 `false`。
+        
+    3. **内容不同**：老元素以链表的形式挂在下面，新元素作为“小尾巴”跟上（JDK 8 采用尾插法）。
+        
+
 #### 第三步：进化（树化）
- * 如果同一个位置的链表长度达到 **8**，且数组总长度达到 **64**，为了防止查询变慢，这个链表会自动转化为**红黑树**。
+
+- 如果同一个位置的链表长度达到 **8**，且数组总长度达到 **64**，为了防止查询变慢，这个链表会自动转化为**红黑树**。
+    
+
+---
+
 ### 为什么必须重写 hashCode 和 equals？
-这是初学者最容易掉的坑。如果你自定义了一个 Student 类而不重写这两个方法：
- 1. **默认 hashCode**：使用的是 Object 类的实现，通常是根据**内存地址**计算的。两个属性一模一样的学生，地址不同，哈希值就不同。
- 2. **后果**：由于哈希值不同，它们会被分配到数组的不同位置，HashSet 根本没机会调用 equals 去对比，导致**去重失败**。
+
+这是初学者最容易掉的坑。如果你自定义了一个 `Student` 类而不重写这两个方法：
+
+1. **默认 hashCode**：使用的是 Object 类的实现，通常是根据**内存地址**计算的。两个属性一模一样的学生，地址不同，哈希值就不同。
+    
+2. **后果**：由于哈希值不同，它们会被分配到数组的不同位置，`HashSet` 根本没机会调用 `equals` 去对比，导致**去重失败**。
+    
+
 **结论：**
- * hashCode() 决定了你在哪个“坑位”。
- * equals() 决定了在同一个“坑位”里你们是不是同一个人。
-### 总结
- * **是否有序？** 无序。因为哈希值是分散的，存取的顺序完全由哈希算法决定。
- * **是否允许 Null？** 允许，但只能存一个 null（放在数组索引为 0 的位置）。
- * **性能如何？** 增删改查的时间复杂度接近 **O(1)**，是非常高效的集合。
+
+- `hashCode()` 决定了你在哪个“坑位”。
+    
+- `equals()` 决定了在同一个“坑位”里你们是不是同一个人。
+    
+
+---
+
+### HashSet 常用面试点总结
+
+- **是否有序？** 无序。因为哈希值是分散的，存取的顺序完全由哈希算法决定。
+    
+- **是否允许 Null？** 允许，但只能存一个 `null`（放在数组索引为 0 的位置）。
+    
+- **性能如何？** 增删改查的时间复杂度接近 **$O(1)$**，是非常高效的集合。
+    
+
 ---
 ---
+
+
 
 ## LinkedHashSet底层原理
 
+如果你理解了 `HashSet`，那么理解 **`LinkedHashSet`** 只需要掌握一句话：**它是在 `HashSet` 的基础上，多加了一根“双向链表”来记录元素的存储顺序。**
 
-如果你理解了 HashSet，那么理解 **LinkedHashSet** 只需要掌握一句话：**它是在 HashSet 的基础上，多加了一根“双向链表”来记录元素的存储顺序。**
-它是 HashSet 的子类，既拥有 HashSet 极速的去重能力，又解决了 HashSet 存取无序的痛点。
+它是 `HashSet` 的子类，既拥有 `HashSet` 极速的去重能力，又解决了 `HashSet` 存取无序的痛点。
+
+---
+
 ### LinkedHashSet 核心特征表
-| 维度 | 详情 |
+
+|**维度**|**详情**|
 |---|---|
-| **底层结构** | **哈希表**（数组+链表+红黑树） + **双向链表** |
-| **元素特点** | **有序**（存取顺序一致）、**唯一**（不可重复） |
-| **性能** | 略低于 HashSet（因为要维护双向链表），但依然是 O(1) 级别 |
+|**底层结构**|**哈希表**（数组+链表+红黑树） + **双向链表**|
+|**元素特点**|**有序**（存取顺序一致）、**唯一**（不可重复）|
+|**性能**|略低于 `HashSet`（因为要维护双向链表），但依然是 $O(1)$ 级别|
+
+---
+
 ### 底层原理：双重结构的精妙配合
-LinkedHashSet 的底层依然是靠 LinkedHashMap 实现的。它通过两种结构共同维护数据：
- 1. **哈希表（Hash Table）**：
-   * 负责去重和“快速定位”。
-   * 通过 hashCode 计算索引，确保集合里没有重复元素。
- 2. **双向链表（Doubly Linked List）**：
-   * 负责“记录顺序”。
-   * 每一个入场的元素，除了要待在哈希表的某个“坑位”里，还会被这根双向链表串起来。
-   * 链表记录了谁是前一个进来的，谁是后一个进来的。
+
+`LinkedHashSet` 的底层依然是靠 `LinkedHashMap` 实现的。它通过两种结构共同维护数据：
+
+1. **哈希表（Hash Table）**：
+    
+    - 负责“去重”和“快速定位”
+        
+    - 通过 `hashCode` 计算索引，确保集合里没有重复元素
+        
+2. **双向链表（Doubly Linked List）**：
+    
+    - 负责“记录顺序”
+        
+    - 每一个入场的元素，除了要待在哈希表的某个“坑位”里，还会被这根双向链表串起来。
+        
+    - 链表记录了谁是前一个进来的，谁是后一个进来的。
+        
+
+---
+
 ### 存取过程示意
-当你按顺序添加 A -> B -> C 时：
- * **在 HashSet 中**：它们分布在数组的不同位置（比如索引 2, 5, 8），你遍历时可能出来的顺序是 B -> A -> C（完全看哈希值）。
- * **在 LinkedHashSet 中**：
-   1. 它们依然分布在索引 2, 5, 8。
-   2. 但同时，程序会生成一根线：Head -> A -> B -> C -> Tail。
-   3. 当你遍历时，它不按数组索引走，而是**顺着这根双向链表走**，所以出来的顺序一定是 A -> B -> C。
+
+当你按顺序添加 `A -> B -> C` 时：
+
+- **在 HashSet 中**：它们分布在数组的不同位置（比如索引 2, 5, 8），你遍历时可能出来的顺序是 `B -> A -> C`（完全看哈希值）。
+    
+- **在 LinkedHashSet 中**：
+    
+    1. 它们依然分布在索引 2, 5, 8。
+        
+    2. 但同时，程序会生成一根线：`Head -> A -> B -> C -> Tail`。
+        
+    3. 当你遍历时，它不按数组索引走，而是**顺着这根双向链表走**，所以出来的顺序一定是 `A -> B -> C`。
+        
+
+---
+
 ### 代码对比：HashSet vs LinkedHashSet
+
 ```java
 // HashSet: 结果往往是乱序的
 Set<String> hashSet = new HashSet<>();
@@ -7240,17 +7329,31 @@ linkedSet.add("Java");
 linkedSet.add("C++");
 linkedSet.add("Python");
 // 输出必为：[Java, C++, Python]
-
 ```
+
+---
+
 ### 性能代价（Trade-off）
-虽然 LinkedHashSet 很好用，但天下没有免费的午餐：
- * **内存开销**：每个节点都要多存两个指针（before 和 after），更吃内存。
- * **插入效率**：每次 add 时，除了计算哈希，还要调整双向链表的指针。
+
+虽然 `LinkedHashSet` 很好用，但天下没有免费的午餐：
+
+- **内存开销**：每个节点都要多存两个指针（`before` 和 `after`），更吃内存。
+    
+- **插入效率**：每次 `add` 时，除了计算哈希，还要调整双向链表的指针。
+    
+
 **使用建议**：
- * 如果你的业务**不在乎顺序**，只管去重：请用 HashSet。
- * 如果你的业务**需要去重且必须按存入顺序展示**（例如：展示最近访问过的 10 个唯一城市）：LinkedHashSet 是唯一选择。
+
+- 如果你的业务**不在乎顺序**，只管去重：请用 `HashSet`。
+    
+- 如果你的业务**需要去重且必须按存入顺序展示**（例如：展示最近访问过的 10 个唯一城市）：`LinkedHashSet` 是唯一选择。
+    
+
+---
+
 ### 总结
-LinkedHashSet 就是一个“记性很好”的哈希表。它在哈希表的每一个节点上都安装了“前驱”和“后继”的挂钩，把所有元素拉成了一队。
+
+`LinkedHashSet` 就是一个“记性很好”的哈希表。它在哈希表的每一个节点上都安装了“前驱”和“后继”的挂钩，把所有元素拉成了一队。
 
 
 
