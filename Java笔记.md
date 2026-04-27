@@ -7480,11 +7480,114 @@ if (cpr != null) {
 |**维护性**|适合“一劳永逸”的简单排序|适合业务多变、逻辑复杂的排序|
 |**去重依据**|依赖 `compareTo` 返回 0|依赖 `compare` 返回 0|
 
+---
+
+
+### 两种排序方式使用场景
+
+#### 场景一：自然排序 (Comparable) —— 默认的“主权”逻辑
+
+**适用场景：** 当一个对象**天生就具备某种排序属性**，且在全系统中这个规则几乎不会改变时。
+
+**业务模型：** 存储学生信息，默认永远按**学号（ID）**从小到大排列。
+
+```java
+// 1. 让类实现 Comparable 接口
+public class Student implements Comparable<Student> {
+    private int id;
+    private String name;
+
+    public Student(int id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    // 2. 重写 compareTo 方法定义“天生”规则
+    @Override
+    public int compareTo(Student o) {
+        // 按照 ID 升序
+        return this.id - o.id; 
+    }
+
+    @Override
+    public String toString() {
+        return "Student{id=" + id + ", name='" + name + "'}";
+    }
+}
+
+// 使用时：
+TreeSet<Student> ts = new TreeSet<>();
+ts.add(new Student(102, "张三"));
+ts.add(new Student(101, "李四"));
+// 结果会自动排好：101, 102
+```
+
+---
+
+#### 场景二：比较器排序 (Comparator) —— 临时的“策略”逻辑
+
+**适用场景：**
+
+1. **多维度需求**：同一个类，在不同页面要按不同规则排（比如：一会儿按价格排，一会儿按销量排）。
+    
+2. **三方类限制**：你用的是 Java 自带的 `String` 或别人写的类，你没法修改它的源码去实现 `Comparable`。
+    
+    **业务模型：** 在一个搜索页面，要求字符串按**长度**排序，长度一样再按**字母序**。
+
+```java
+// 在创建 TreeSet 的构造器中直接传入比较器（推荐使用 Lambda 写法）
+TreeSet<String> ts = new TreeSet<>((s1, s2) -> {
+    // 1. 主要条件：长度升序
+    int result = s1.length() - s2.length();
+    // 2. 次要条件：长度一样时，调用 String 原有的字典序（防止同长度的被去重）
+    return result == 0 ? s1.compareTo(s2) : result;
+});
+
+ts.add("python");
+ts.add("java");
+ts.add("c");
+ts.add("php");
+
+// 结果：[c, php, java, python]
+```
+
+---
+
+#### 实战选型指南
+
+你可以根据以下思维导图的逻辑来决定：
+
+1. **如果你能改源码，且该类有且仅有一种排序逻辑：**
+    
+    - **选自然排序**。这叫“约定优于配置”，让对象自带排队基因，代码最干净。
+        
+2. **如果出现以下情况，必须选比较器排序：**
+    
+    - **不能改源码**（如排序 `String`, `Integer`, `LocalDateTime`）。
+        
+    - **排序规则多变**（同一个 `Student`，在 A 页面按成绩排，B 页面按年龄排）。
+        
+    - **需要极简代码**（使用 `Comparator.comparing(...).thenComparing(...)` 链式调用）。
+        
+
+---
+
+#### 进阶技巧：Comparator 的链式写法
+
+在现代 Java 开发中，我们很少再写那种繁琐的 `if-else` 了，推荐你掌握这种写法：
+
+```java
+// 语义极其明确：先按成绩降序，成绩一样按年龄升序
+TreeSet<Student> ts = new TreeSet<>(
+    Comparator.comparingInt(Student::getScore).reversed()
+              .thenComparingInt(Student::getAge)
+);
+```
 
 
 ---
 
-### 进阶提醒：TreeSet 的“去重陷阱”
+### TreeSet 的“去重陷阱”
 
 这是 `TreeSet` 和 `HashSet` 最大的区别：
 
