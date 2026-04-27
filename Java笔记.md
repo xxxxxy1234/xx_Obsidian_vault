@@ -7023,7 +7023,7 @@ for (String s : set) {
 }
 
 // 方式二：forEach
-set.forEach(System.out::println);
+set.forEach(s -> System.out.println(s));
 
 ```
 ### 🎓 总结建议
