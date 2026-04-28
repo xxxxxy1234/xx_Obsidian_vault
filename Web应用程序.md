@@ -2194,3 +2194,13 @@ protected void Session_End(object sender, EventArgs e)
  * **容量雷区**：不要往 **ViewState** 和 **Cookie** 里塞大数据，否则网页会变极慢。
  * **安全雷区**：**Cookie** 和 **HiddenField** 是暴露在外的，千万别存密码、金额等关键数据。
  * **内存雷区**：**Session** 和 **Application** 存得越多，服务器内存占用越高。如果用户量巨大，记得改用数据库存储模式。
+
+
+---
+---
+
+# 主题、母版
+
+
+## 主题
+
