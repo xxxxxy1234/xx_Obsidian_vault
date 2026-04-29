@@ -7811,6 +7811,9 @@ arr[i]=c;
 若执行Student s[]=new student[10]；不会报错，因为这里**new的是数组不是对象**，s[0] = null ，s[1] = null ... s[9] = null，如果再执行s[0].study()这种会报错（空指针异常NullPointerException），要想new对象，后续要添加s[0] = new Student("张三"); s[1] = new Student("李四");才可以
 
 
+## 3
+
+如果接口定义在了外部类里面，默认是 **static** 的，所以它属于**外部类**，不属于外部类的对象，所以引用它必须：**外部类名。内部接口名**（或者导包）
 
 ---
 ---
