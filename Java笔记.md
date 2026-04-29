@@ -7737,9 +7737,96 @@ TreeSet<Student> ts = new TreeSet<>(
 4. **一对一映射**：一个 Key 只能指向一个 Value。
 
 >[!tip]
->有两个`Entry`
+>有4个`Entry`
 >- `java.util.Map.Entry`：**接口**（公共规范）
 >- `TreeMap.Entry`：**具体内部类**（TreeMap 自己的实现）
+
+---
+
+
+### 💡 关于Entry
+
+
+在 Java 的世界里，`Entry` 并不是一个孤立的存在。虽然我们最常用的是 `Map.Entry`，但实际上为了适配不同的场景（如排序、并发、不同的底层结构），Java 定义了多种 `Entry` 的实现。
+
+我们可以从**接口定义**和**底层实现**两个维度来梳理。
+
+---
+
+#### 1. 核心接口：Map.Entry<K, V>
+
+这是所有键值对的“祖宗”，定义在 `java.util.Map` 接口内部。它规定了键值对必须拥有的基本行为：`getKey()`、`getValue()`、`setValue()`。
+
+---
+
+#### 2. 标准库提供的通用实现
+
+Java 在 `AbstractMap` 类中提供了两个可以直接拿来用的工具类，方便开发者自定义 Map 或者进行数据传递：
+
+|**实现类**|**特点**|**场景**|
+|---|---|---|
+|**`SimpleEntry`**|**可变**。允许通过 `setValue` 修改值。|临时存储一对数据，或者在自定义 Map 逻辑时使用。|
+|**`SimpleImmutableEntry`**|**不可变**。调用 `setValue` 会抛出异常。|保证线程安全或数据不被篡改的场景。|
+
+---
+
+#### 3. 各大集合内部的“打工人”实现
+
+这是你最常接触到，但平时“看不见”的实现。每种 Map 为了优化性能，都定制了自己的 `Entry`：
+
+##### ① HashMap.Node (及其子类)
+
+- **`Node<K,V>`**：`HashMap` 的基本节点。除了 Key/Value，还维护了 `hash` 值和指向下一个节点的 `next` 指针。
+    
+- **`TreeNode<K,V>`**：当链表转红黑树时，`Node` 会变成 `TreeNode`。它多了 `parent`、`left`、`right`、`prev` 等属性来维护树结构。
+    
+
+##### ② LinkedHashMap.Entry
+
+- 它是 `HashMap.Node` 的子类。
+    
+- **特殊点**：多了 `before` 和 `after` 两个指针。正是这两个指针，串联起了所有元素的**存取顺序**。
+    
+
+##### ③ TreeMap.Entry
+
+- 这是 `TreeMap` 内部实现的红黑树节点。
+    
+- **特殊点**：它不存储哈希值，而是存储 `color`（红/黑）以及树的父子节点引用。
+    
+
+---
+
+#### 4. 并发包中的 Entry (ConcurrentHashMap)
+
+在 `java.util.concurrent` 包中，为了保证多线程安全，`Entry` 的实现更加复杂：
+
+- **`ForwardingNode`**：这是一个特殊的节点，只在 `ConcurrentHashMap` **扩容**时出现。它告诉其他线程：“这个桶正在搬家，请去新表查找”。
+    
+- **`ReservationNode`**：占位符节点，在使用 `computeIfAbsent` 等方法时，先占住坑位防止其他线程写入。
+    
+
+---
+
+#### 5. 外部框架或特殊用途
+
+- **`DefaultMapEntry` (Commons Collections)**：Apache 工具库提供的增强版。
+    
+- **`BatchEntry`**：在某些数据库框架（如 MyBatis）或缓存中间件中，用于批量处理键值对。
+    
+
+---
+
+#### 总结
+
+你可以把 Java 里的 `Entry` 理解为不同规格的“快递盒”：
+
+1. **`Map.Entry`** 是快递盒的**国家标准**（尺寸、封条怎么贴）。
+    
+2. **`SimpleEntry`** 是**通用纸盒**（谁都能用）。
+    
+3. **`Node` / `TreeMap.Entry`** 是**顺丰/京东的专用盒**（为了自家运输效率，加了防震泡沫、定位器等私有属性）。
+
 
 ---
 
