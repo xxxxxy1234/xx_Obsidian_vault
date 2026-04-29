@@ -7744,42 +7744,97 @@ TreeSet<Student> ts = new TreeSet<>(
 
 ### Map的三种遍历方式
 
+Map 的遍历不像 List 那样可以直接用索引 `i`，因为它底层的存储结构是散散落落的。Java 为我们提供了三种主要的遍历方式，分别对应不同的使用场景。
+
+---
+
+#### 1. 方式一：键找值 (keySet)
+
+这种方式最符合直觉：先把所有的“钥匙”（Key）拿出来，然后拿着钥匙去开锁找“柜子里的东西”（Value）。
+
+- **逻辑**：通过 `map.keySet()` 得到一个包含所有 Key 的 `Set` 集合。
+    
+- **代码**：
+
+    ```java
+    Map<String, String> map = new HashMap<>();
+    map.put("郭靖", "黄蓉");
+    map.put("杨过", "小龙女");
+    
+    // 1. 获取所有的 Key
+    Set<String> keys = map.keySet();
+    // 2. 遍历 Key，通过 get(key) 获取 Value
+    for (String key : keys) {
+        String value = map.get(key);
+        System.out.println(key + " 的 CP 是 " + value);
+    }
+    ```
+    
+- **适用场景**：当你**只需要用到 Key**，或者逻辑上更倾向于从 Key 出发时。
+    
+- **缺点**：效率相对较低，因为每次 `get(key)` 都要在底层重新计算一次哈希地址。
+    
+
+---
+
+#### 2. 方式二：键值对 (entrySet) —— 最推荐
+
+这是性能最好的方式。它直接把“夫妻俩”打包成一个整体（`Entry` 对象）丢给你。
+
+- **逻辑**：通过 `map.entrySet()` 获取一个包含 `Entry` 对象的 `Set`。每个 `Entry` 里都同时存着 Key 和 Value。
+    
+- **代码**：
+
+    ```java
+    // 直接获取所有的“键值对”对象
+    Set<Map.Entry<String, String>> entries = map.entrySet();
+    
+    for (Map.Entry<String, String> entry : entries) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+        System.out.println(key + " <---> " + value);
+    }
+    ```
+    
+- **适用场景**：**同时需要 Key 和 Value** 的所有场景。它是大批量数据处理时的首选，因为它省去了二次查找的过程。
+    
+
+---
+
+#### 3. 方式三：Lambda 表达式 (forEach)
+
+这是 JDK 8 之后最优雅、最现代的写法，代码极其简洁。
+
+- **逻辑**：底层其实还是通过 `entrySet` 遍历，但在代码层面被封装成了函数式接口。
+    
+- **代码**：
+
+    ```java
+    map.forEach((key, value) -> {
+        System.out.println(key + " 关联了 " + value);
+    });
+    ```
+    
+- **适用场景**：追求代码简洁，不需要在遍历过程中进行复杂的增删操作。
 
 
 ---
 
-### 🔬 核心深度：HashMap 如何处理重复的 Key？
+### 小贴士
 
-这和 `HashSet` 的逻辑一模一样（因为 `HashSet` 底层就是个 `HashMap`）：
+如果你在遍历过程中需要**删除**元素，请务必使用**迭代器 (Iterator)** 或者 `removeIf` 方法，直接用增强 for 循环调用 `map.remove()` 会抛出著名的 `ConcurrentModificationException` 异常。
 
-1. 计算 Key 的 `hashCode`。
-    
-2. 通过 `equals` 比较。
-    
-3. **结论**：如果 `hashCode` 相同且 `equals` 返回 true，Map 就会认为这是同一个 Key，从而执行 **“覆盖”** 操作。
-    
-
-**因此，如果你的 Key 是自定义对象（如 Student），必须重写 `hashCode` 和 `equals`！**
 
 ---
+---
 
-### 💡 总结建议
-
-- **绝大多数情况**：用 `HashMap`。
-    
-- **需要存取有序**：用 `LinkedHashMap`。
-    
-- **需要根据 Key 排序**：用 `TreeMap`（别忘了 `TreeMap` 的 Key 必须实现 `Comparable` 或传入 `Comparator`）。
-    
-
-既然 `Map` 的基础咱们已经铺垫好了，你现在是想看看 `HashMap` 那个著名的 **“1.8版本红黑树转换机制”**，还是想看看 `TreeMap` 是怎么利用你刚才学的 **“两种排序方式”** 来排 Key 的？
+## HashMap
 
 
 
 
 ---
 ---
-
 # 易错点
 
 ## 1
