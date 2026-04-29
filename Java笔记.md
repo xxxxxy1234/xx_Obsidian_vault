@@ -7706,7 +7706,7 @@ TreeSet<Student> ts = new TreeSet<>(
 
 ### Map 集合的核心规则
 
-1. **键值对 (Entry)**：每个元素是一个 `Map.Entry` 对象，形式为 `Key=Value`。
+1. **键值对 (Entry)**：`Map` 接口内部定义的一个静态内部接口，每个元素是一个 `Map.Entry` 对象，形式为 `Key=Value`。
     
 2. **键（Key）唯一**：这是 Map 的命脉。如果你往同一个 Key 里存入新的 Value，旧的 Value 会被**覆盖**（并返回旧值）。
     
@@ -7739,6 +7739,10 @@ TreeSet<Student> ts = new TreeSet<>(
 | `void clear()`                        | **清空**：删除所有键值对。                         |
 | `int size()`                          | **长度**：返回键值对的数量。                        |
 | `boolean isEmpty()`                   | **判断**：检查 Map 中是否为空                     |
+
+
+>[!tip]
+>`get` 是 **Map 接口**的方法，而 `getKey` 和 `getValue` 是 **Entry 接口**的方法。
 
 ---
 
