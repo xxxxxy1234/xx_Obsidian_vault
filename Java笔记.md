@@ -6963,6 +6963,28 @@ public void show(ArrayList<? extends Number> list) {
 }
 ```
 
+
+>[!attention]
+>只有在**基本数据类型**层面，Java 才支持自动转型（隐式转换）
+>```java
+>int a = 10;
+>double b = a; // ✅ 完全没问题，int 自动提升为 double
+>```
+>这是因为基本类型是按值存储的，只是数值的拷贝，没有类型安全的风险。
+>
+>但泛型里，**包装类**的关系完全不一样！
+>`Integer` 和 `Double` 都是 `Number` 的子类，但它们之间是平级的兄弟关系，没有继承关系
+>```java
+>Integer i = 10; 
+>Double d = i; // ❌ 编译报错！类型不兼容
+>```
+>哪怕是 `int` 能自动转 `double`，包装类 `Integer` 和 `Double` 之间也没有任何自动转换
+
+
+
+
+
+
 ---
 
 #### 下限通配符 `<? super T>`
@@ -7713,7 +7735,11 @@ TreeSet<Student> ts = new TreeSet<>(
 3. **值（Value）可重复**：就像不同的人可以叫同一个名字。
     
 4. **一对一映射**：一个 Key 只能指向一个 Value。
-    
+
+>[!tip]
+>有两个`Entry`
+>- `java.util.Map.Entry`：**接口**（公共规范）
+>- `TreeMap.Entry`：**具体内部类**（TreeMap 自己的实现）
 
 ---
 
