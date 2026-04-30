@@ -6075,6 +6075,7 @@ graph TD
 | `boolean isEmpty()`            | **判断为空**：判断当前集合是否为空       | `coll.isEmpty()`                |
 | `int size()`                   | **获取长度**：返回集合中元素的个数       | `coll.size()`                   |
 | `Object[] toArray()`           | **转数组**：把集合中的元素全部存储到数组中   | `Object[] arr = coll.toArray()` |
+|                                |                           |                                 |
 
 ---
 
