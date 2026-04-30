@@ -7898,12 +7898,14 @@ Map 的遍历不像 List 那样可以直接用索引 `i`，因为它底层的存
 
 这是性能最好的方式。它直接把“夫妻俩”打包成一个整体（`Entry` 对象）丢给你。
 
-- **逻辑**：通过 `map.entrySet()` 获取一个包含 `Entry` 对象的 `Set`。每个 `Entry` 里都同时存着 Key 和 Value。
+- **逻辑**：通过 `map.entrySet()` 获取一个包含**所有** `Entry` 对象的 `Set`。每个 `Entry` 里都同时存着 Key 和 Value。
     
 - **代码**：
 
     ```java
-    // 直接获取所有的“键值对”对象
+    // 直接获取所有的“键值对”对象，必须把他们统一放在Set集合才行
+    //不能是Map.Entry<String, String> entries = map.entrySet();
+    //Map.Entry<String, String>只能指一个键值对对象
     Set<Map.Entry<String, String>> entries = map.entrySet();
     
     for (Map.Entry<String, String> entry : entries) {
