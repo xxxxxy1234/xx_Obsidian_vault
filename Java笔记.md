@@ -8265,7 +8265,196 @@ static final class Entry<K,V> implements Map.Entry<K,V> {
 ---
 ---
 
+## 可变参数
 
+在 Java 中，**可变参数（Varargs）** 是一项非常实用的语法糖。它允许你在调用方法时传入**任意数量**的参数（甚至可以不传），而不需要手动创建数组。
+
+你可以把它看作是一个“可以自动打包成数组的参数”。
+
+---
+
+### 1. 基本语法
+
+使用三个点 `...` 来定义可变参数。
+
+```java
+public static void sum(int... numbers) {
+    // 在方法内部，numbers 实际上就是一个 int[] 数组
+    int total = 0;
+    for (int num : numbers) {
+        total += num;
+    }
+    System.out.println("总和是: " + total);
+}
+```
+
+**多种调用方式：**
+
+- `sum(1, 2, 3);` // 传入 3 个参数
+    
+- `sum(10, 20);` // 传入 2 个参数
+    
+- `sum();` // 不传参数，此时 numbers 是一个长度为 0 的空数组
+    
+- `sum(new int[]{1, 2, 3});` // 也可以直接传入一个现成的数组
+    
+
+---
+
+### 2. 使用规则（极其重要）
+
+为了避免解析歧义，Java 对可变参数有两条死规定：
+
+1. **只能有一个可变参数**：一个方法里不能定义两个 `...`。
+    
+2. **必须是最后一个参数**：如果方法有多个参数，可变参数必须放在参数列表的**末尾**。
+    
+
+**❌ 错误示例：**
+
+```java
+// 错误！可变参数必须在最后
+public void test(int... nums, String name) { } 
+
+// 错误！不能有多个可变参数
+public void test(String... s1, int... i1) { } 
+```
+
+**✅ 正确示例：**
+
+```java
+public void test(String name, double price, int... nums) { }
+```
+
+---
+
+### 3. 底层原理：揭开语法糖的面具
+
+可变参数的本质就是**数组**。
+
+当编译器看到 `int... numbers` 时，它会自动将其编译为 `int[] numbers`。而当你调用 `sum(1, 2, 3)` 时，编译器会默默地帮你写成 `sum(new int[]{1, 2, 3})`。
+
+---
+
+### 4. 常见应用场景
+
+你在 Java 开发中其实经常见到它：
+
+- **`printf` 方法**：`System.out.printf("%s score is %d", "Tom", 95);` 后面可以跟无数个对应占位符的参数。
+    
+- **工具类方法**：比如 `List.of(1, 2, 3, 4)` 或 `Arrays.asList(T... a)`，让你能快速创建集合。
+    
+- **日志记录**：`logger.info("User {} added to group {}", userId, groupId);`
+    
+
+---
+
+### 5. 可变参数 vs 数组参数
+
+|**特性**|**可变参数 (int...)**|**数组参数 (int[])**|
+|---|---|---|
+|**调用简便性**|直接传元素，极其优雅|必须手动 `new int[]{...}`|
+|**空参数处理**|可以不传参数，自动生成空数组|必须传数组名或 `null`|
+|**位置限制**|只能放在最后|可以在任何位置|
+|**数量限制**|只能有一个|可以定义多个数组参数|
+
+---
+---
+
+## Collections
+
+
+`Collection` 是集合界的“大当家”（接口），而 **`Collections`**（复数）则是集合界的“瑞士军刀”——它是一个**工具类**，专门用来对集合进行排序、搜索、修改和保护。
+
+---
+
+### 1. 核心功能分类
+
+`Collections` 提供的全部是**静态方法**，主要可以分为以下四大类：
+
+#### ① 排序与翻转 (Ordering)
+
+这是最常用的功能，省去了我们写复杂循环的麻烦。
+
+- **`reverse(List list)`**：反转集合中元素的顺序。
+    
+- **`shuffle(List list)`**：随机打乱集合顺序（洗牌算法）。
+    
+- **`sort(List list)`**：自然排序（升序）。
+    
+- **`sort(List list, Comparator c)`**：根据指定的比较器进行排序。
+    
+- **`swap(List list, int i, int j)`**：交换指定位置的两个元素。
+    
+
+#### ② 查找与替换 (Search & Modify)
+
+- **`max(Collection coll)` / `min(Collection coll)`**：根据自然顺序返回最大/最小元素。
+    
+- **`binarySearch(List list, T key)`**：二分查找（前提是 List 必须有序）。
+    
+- **`fill(List list, T obj)`**：用一个固定对象替换集合中的所有元素。
+    
+- **`replaceAll(List list, T oldVal, T newVal)`**：新瓶换旧酒，批量替换。
+    
+
+#### ③ 线程安全化 (Synchronization) —— 重点
+
+普通的 `ArrayList` 或 `HashMap` 是线程不安全的。`Collections` 提供了一系列装饰方法，可以将它们转为线程安全的容器：
+
+- **`synchronizedList(List list)`**
+    
+- **`synchronizedMap(Map map)`**
+    
+- **`synchronizedSet(Set set)`**
+    
+
+> **注意**：虽然这能保证安全，但在高并发场景下，性能不如 `java.util.concurrent` 包下的专用容器（如 `ConcurrentHashMap`）。
+
+#### ④ 不可变集合 (Unmodifiable)
+
+如果你不希望别人修改你的集合（比如某些配置信息），可以用这些方法进行“只读”封装：
+
+- **`unmodifiableList(List list)`**
+    
+- **`unmodifiableMap(Map map)`**
+    
+
+> 一旦尝试调用 `add()` 或 `remove()`，程序会直接抛出 `UnsupportedOperationException`。
+
+---
+
+### 2. 代码示例：可变参数与 Collections 的联动
+
+还记得你刚才问的**可变参数**吗？`Collections` 里的 `addAll` 完美利用了这一特性。
+
+```java
+ArrayList<String> list = new ArrayList<>();
+
+// 使用 Collections 一次性添加多个元素（这就是可变参数的应用）
+Collections.addAll(list, "Java", "Python", "C++", "Go");
+
+// 洗牌：打乱顺序
+Collections.shuffle(list);
+
+// 排序：升序
+Collections.sort(list);
+
+System.out.println(list);
+```
+
+---
+
+### 3. 常见坑点：Collection vs Collections
+
+|**区别**|**Collection (接口)**|**Collections (工具类)**|
+|---|---|---|
+|**本质**|集合框架的根接口（List, Set 的父接口）|操作集合的辅助类（不可实例化）|
+|**作用**|定义了集合的基本行为（add, remove 等）|提供排序、查找、线程安全转换等算法|
+|**位置**|`java.util.Collection`|`java.util.Collections`|
+
+---
+---
 
 
 
