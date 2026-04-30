@@ -6066,16 +6066,16 @@ graph TD
 
 ### Collection 常用 API 总结表
 
-| **方法名**                        | **说明**                    | **示例**                          |
-| ------------------------------ | ------------------------- | ------------------------------- |
-| `boolean add(E e)`             | **添加**：把给定的对象添加到当前集合中     | `coll.add("hello")`             |
-| `void clear()`                 | **清空**：清空集合中所有的元素         | `coll.clear()`                  |
-| `boolean remove(E e)`          | **删除**：把给定的对象在当前集合中删除     | `coll.remove("hello")`          |
-| `boolean contains(Object obj)` | **判断包含**：判断当前集合中是否包含给定的对象 | `coll.contains("hello")`        |
-| `boolean isEmpty()`            | **判断为空**：判断当前集合是否为空       | `coll.isEmpty()`                |
-| `int size()`                   | **获取长度**：返回集合中元素的个数       | `coll.size()`                   |
-| `Object[] toArray()`           | **转数组**：把集合中的元素全部存储到数组中   | `Object[] arr = coll.toArray()` |
-| `toArray (T [] a)`             | **转数组**：把集合中的元素全部存储到数组中   |                                 |
+| **方法名**                        | **说明**                       | **示例**                                           |
+| ------------------------------ | ---------------------------- | ------------------------------------------------ |
+| `boolean add(E e)`             | **添加**：把给定的对象添加到当前集合中        | `coll.add("hello")`                              |
+| `void clear()`                 | **清空**：清空集合中所有的元素            | `coll.clear()`                                   |
+| `boolean remove(E e)`          | **删除**：把给定的对象在当前集合中删除        | `coll.remove("hello")`                           |
+| `boolean contains(Object obj)` | **判断包含**：判断当前集合中是否包含给定的对象    | `coll.contains("hello")`                         |
+| `boolean isEmpty()`            | **判断为空**：判断当前集合是否为空          | `coll.isEmpty()`                                 |
+| `int size()`                   | **获取长度**：返回集合中元素的个数          | `coll.size()`                                    |
+| `Object[] toArray()`           | **转数组**：无参，把集合中的元素全部存储到数组中   | `Object[] arr = coll.toArray()`                  |
+| `T[] toArray(T[] a)`           | **转数组**：有参泛型，把集合中的元素全部存储到数组中 | `String[] strArr = list.toArray(new String[0]);` |
 
 ---
 
