@@ -8717,7 +8717,42 @@ Stream 是对集合（Collection）功能的增强。它不是一种数据结构
 
 ---
 
-## 获取 Stream 流的 5 种常见方法
+## Stream 流的核心三部曲
+
+理解 Stream 的操作流程，只需要记住这个公式：
+
+**数据源 $\rightarrow$ 中间操作 (Intermediate) $\rightarrow$ 终端操作 (Terminal)**
+
+|**阶段**|**常用方法**|**特点**|
+|---|---|---|
+|**数据源**|`list.stream()` / `Arrays.stream()`|开启流|
+|**中间操作**|`filter` (过滤), `map` (映射), `sorted` (排序), `limit` (截断)|返回的是**新流**，可以链式调用|
+|**终端操作**|`forEach` (遍历), `collect` (转集合), `count` (计数), `reduce` (归约)|流被**消耗**，之后不能再使用|
+
+---
+
+### 快速上手示例
+
+假设我们要从一组姓名中，找出长度大于 3 的名字，并转为大写存入新列表：
+
+```java
+List<String> names = List.of("Tom", "Jerry", "Spike", "Tyke");
+
+List<String> result = names.stream()            // 1. 获取流
+    .filter(s -> s.length() > 3)                // 2. 过滤长度
+    .map(String::toUpperCase)                   // 3. 转换大写
+    .collect(Collectors.toList());              // 4. 收集结果
+
+System.out.println(result); // [JERRY, SPIKE, TYKE]
+```
+
+Stream 让代码从“怎么做”（命令式）变成了“做什么”（声明式），可读性瞬间拉满。
+
+---
+---
+
+
+## 获取 Stream 流的常见方法
 
 要开启流水线，首先需要获取这股“水流”。
 
@@ -8780,42 +8815,106 @@ IntStream intStream = IntStream.rangeClosed(1, 100);
 ```
 
 ---
+---
 
-## Stream 流的核心三部曲
 
-理解 Stream 的操作流程，只需要记住这个公式：
 
-**数据源 $\rightarrow$ 中间操作 (Intermediate) $\rightarrow$ 终端操作 (Terminal)**
+## Stream流的中间方法
 
-|**阶段**|**常用方法**|**特点**|
-|---|---|---|
-|**数据源**|`list.stream()` / `Arrays.stream()`|开启流|
-|**中间操作**|`filter` (过滤), `map` (映射), `sorted` (排序), `limit` (截断)|返回的是**新流**，可以链式调用|
-|**终端操作**|`forEach` (遍历), `collect` (转集合), `count` (计数), `reduce` (归约)|流被**消耗**，之后不能再使用|
+
+这些方法就像流水线上的加工机器，**返回的永远是一个新的 Stream 流**。
+
+### 1. `filter(Predicate predicate)`：滤网
+
+- **功能**：根据条件过滤元素。
+    
+- **规则**：接收一个返回 `boolean` 的表达式。只有结果为 `true` 的元素才能流向下一个工位。
+    
+- **示例**：`s -> s.startsWith("张")` 只保留姓张的人。
+    
+
+### 2. `limit(long maxSize)`：截断
+
+- **功能**：获取流中的前 $n$ 个元素。
+    
+- **应用场景**：比如你只需要排名前三的成绩，后面的一概不要。
+    
+
+### 3. `skip(long n)`：跳过
+
+- **功能**：跳过前 $n$ 个元素。
+    
+- **联动**：`skip` 和 `limit` 组合起来就是“分页查询”神器。
+    
+    - _例子_：跳过 10 个再拿 5 个，就是查第 11-15 名的数据。
+        
+
+### 4. `distinct()`：去重
+
+- **功能**：让流中的元素变得独一无二。
+    
+- **底层**：它依赖元素的 **`hashCode` 和 `equals`** 方法。如果是自定义对象（如 Student 类），记得一定要重写这两个方法，否则去重会失效。
+    
+
+### 5. `concat(Stream a, Stream b)`：合并
+
+- **功能**：把两股水流汇聚成一股。
+    
+- **注意**：尽量保证两个流的**类型一致**（比如都是 `Stream<String>`），否则合并后的流会自动提升为它们的公共父类（比如 `Stream<Object>`），增加后续处理难度。
+    
+
+### 6. `map(Function mapper)`：转换/映射
+
+- **功能**：把流里的数据从“类型 A”变成“类型 B”。
+    
+- **示例**：把 `Stream<Student>` 映射为 `Stream<String>`（只提取姓名），或者把 `Stream<String>` 转换成 `Stream<Integer>`（计算长度）。
+    
 
 ---
 
-### 快速上手示例
+### 两个重要的“注意”
 
-假设我们要从一组姓名中，找出长度大于 3 的名字，并转为大写存入新列表：
 
-```java
-List<String> names = List.of("Tom", "Jerry", "Spike", "Tyke");
+1. **链式编程 (Chaining)**：
+    
+    因为每个中间方法都返回新流，所以你可以一直 `.filter().map().distinct()` 下去。**原来的流一旦调用了中间方法，就“报废”了**，不能再被二次使用。
+    
+2. **源数据安全**：
+    
+    Stream 处理的是流里的“投影”，**绝对不会改变原集合或数组里的数据**。你可以放心大胆地过滤、排序，原 List 依然是那个原 List。
+    
 
-List<String> result = names.stream()            // 1. 获取流
-    .filter(s -> s.length() > 3)                // 2. 过滤长度
-    .map(String::toUpperCase)                   // 3. 转换大写
-    .collect(Collectors.toList());              // 4. 收集结果
+---
 
-System.out.println(result); // [JERRY, SPIKE, TYKE]
-```
+### 进阶：有状态 vs 无状态
 
-Stream 让代码从“怎么做”（命令式）变成了“做什么”（声明式），可读性瞬间拉满。
+在实际性能优化中，这几个方法可以分为两类：
+
+- **无状态 (Stateless)**：比如 `filter`、`map`。
+    
+    它们处理元素时“各扫门前雪”，不关心其他元素。速度极快，甚至可以并行处理。
+    
+- **有状态 (Stateful)**：比如 `distinct`、`sorted`。
+    
+    它们必须等流里的所有数据都到齐了，存在内存里比对完才能出结果（不看完全部数据，你怎么知道谁是重复的？）。处理大数据集时，这类方法会比较**吃内存**。
+    
+
+---
+---
+
+
+## Stream流的终结方法
+
+
+
+
+
 
 
 
 ---
 ---
+
 
 # 易错点
 
