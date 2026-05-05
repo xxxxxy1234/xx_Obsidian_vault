@@ -8819,7 +8819,7 @@ IntStream intStream = IntStream.rangeClosed(1, 100);
 
 
 
-## Stream流的中间方法
+## Stream流的常见中间方法
 
 
 这些方法就像流水线上的加工机器，**返回的永远是一个新的 Stream 流**。
@@ -8903,7 +8903,7 @@ IntStream intStream = IntStream.rangeClosed(1, 100);
 ---
 
 
-## Stream流的终结方法
+## Stream流的常见终结方法
 
 
 
