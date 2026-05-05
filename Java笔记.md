@@ -8695,12 +8695,122 @@ List<String> immutableList = List.copyOf(mutableList);
 ---
 
 
+
+
 # Stream流
 
 
+在 Java 8 引入的所有特性中，**Stream 流**无疑是最具革命性的。如果说之前的集合操作是“搬砖”（一步步手动处理），那么 Stream 就是一套“自动化流水线”。
+
+---
+
+## 什么是 Stream 流？
+
+Stream 是对集合（Collection）功能的增强。它不是一种数据结构，不负责存储数据，而是负责**对数据进行计算和转换**。
+
+- **流水线设计**：数据像水流一样经过一系列“中间操作”（如过滤、映射），最后通过“终端操作”（如收集、打印）得出结果。
+    
+- **不改变源数据**：Stream 操作会产生一个新的结果，而不会修改原始集合。
+    
+- **延迟执行**：只有当执行“终端操作”时，前面的中间操作才会真正运行，这极大地优化了性能。
+    
+
+---
+
+## 获取 Stream 流的 5 种常见方法
+
+要开启流水线，首先需要获取这股“水流”。
+
+### 1. 从单列集合获取 (最常用)
+
+`Collection` 接口提供了 `stream()` 方法，因此所有的 `List` 和 `Set` 都可以直接调用。
+
+- **串行流**：`list.stream()`
+    
+- **并行流**：`list.parallelStream()`（利用多核 CPU 提高处理速度）
+    
+
+### 2. 从数组获取
+
+使用 `Arrays.stream(T[] array)` 工具方法。
+
+
+```java
+String[] arr = {"Java", "Stream", "API"};
+Stream<String> stream = Arrays.stream(arr);
+```
+
+### 3. 从双列集合获取
+
+双列集合本身没有 `stream()` 方法，需要先转换成 Set 视图。
+
+- **获取 Key 流**：`map.keySet().stream()`
+    
+- **获取 Value 流**：`map.values().stream()`
+    
+- **获取键值对流**：`map.entrySet().stream()`
+    
+
+### 4. 使用 `Stream.of()`
+
+直接将零散的数据打包成流。
+
+```java
+Stream<Integer> stream = Stream.of(1, 2, 3, 4, 5);
+```
+
+>[!attention]
+>*假如传递的不是零散数据是数组*
+>- **引用类型数组**：如果你传入 `String[]` 或 `Integer[]`，`Stream.of()` 会把数组拆开，流中的每一个元素就是数组里的成员。
+>- **基本类型数组**：如果你传入 `int[]`、`double[]` 或 `long[]`，`Stream.of()` 会把**整个数组当成一个对象**放入流中。
+>
+>*它是“只读”且“一次性”的*
+>- **不可修改源**：虽然 `Stream.of(1, 2, 3)` 看起来像是在操作这些数字，但它并没有背后的容器。你不能像 List 那样去增删它
+>- **不能重复消费**：所有的 Stream（包括 `Stream.of` 创建的）一旦执行了“终端操作”（如 `collect`, `forEach`），这个流就被关闭了。再次使用会抛出 `IllegalStateException`。
 
 
 
+### 5. 从数值范围获取 (数值流)
+
+处理基本类型时，为了避免装箱/拆箱的性能开销，Java 提供了 `IntStream`, `LongStream`, `DoubleStream`。
+
+```java
+// 生成 1 到 100 的整数流（含头含尾）
+IntStream intStream = IntStream.rangeClosed(1, 100);
+```
+
+---
+
+## Stream 流的核心三部曲
+
+理解 Stream 的操作流程，只需要记住这个公式：
+
+**数据源 $\rightarrow$ 中间操作 (Intermediate) $\rightarrow$ 终端操作 (Terminal)**
+
+|**阶段**|**常用方法**|**特点**|
+|---|---|---|
+|**数据源**|`list.stream()` / `Arrays.stream()`|开启流|
+|**中间操作**|`filter` (过滤), `map` (映射), `sorted` (排序), `limit` (截断)|返回的是**新流**，可以链式调用|
+|**终端操作**|`forEach` (遍历), `collect` (转集合), `count` (计数), `reduce` (归约)|流被**消耗**，之后不能再使用|
+
+---
+
+### 快速上手示例
+
+假设我们要从一组姓名中，找出长度大于 3 的名字，并转为大写存入新列表：
+
+```java
+List<String> names = List.of("Tom", "Jerry", "Spike", "Tyke");
+
+List<String> result = names.stream()            // 1. 获取流
+    .filter(s -> s.length() > 3)                // 2. 过滤长度
+    .map(String::toUpperCase)                   // 3. 转换大写
+    .collect(Collectors.toList());              // 4. 收集结果
+
+System.out.println(result); // [JERRY, SPIKE, TYKE]
+```
+
+Stream 让代码从“怎么做”（命令式）变成了“做什么”（声明式），可读性瞬间拉满。
 
 
 
