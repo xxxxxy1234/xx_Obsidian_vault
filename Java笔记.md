@@ -8550,10 +8550,160 @@ System.out.println(list);
 ---
 ---
 
+## 不可变集合
+
+说到不可变集合（Immutable Collections），这就是给集合加了一层“只读锁”。在 Java 中，这主要意味着该集合一旦创建，其内部的元素、顺序和大小就再也无法更改了。
+
+我们可以从 **“老派做法”**、**“现代做法”** 以及 **“为什么要这么做”** 三个层面来拆解。
+
+---
+
+### 1. 老派做法：`Collections.unmodifiableXXX`
+
+在 Java 9 之前，我们通常使用 `Collections` 工具类将一个普通集合包装成不可变集合。
+
+```java
+List<String> list = new ArrayList<>();
+list.add("Java");
+// 包装成不可变列表
+List<String> unmodifiableList = Collections.unmodifiableList(list);
+```
+
+- **本质**：这是一种**视图（View）**。它只是在原集合外面套了一个“禁止修改”的壳。
+    
+- **后门风险**：如果你修改了原集合 `list`，那么 `unmodifiableList` 的内容也会跟着变。
+    
+
+---
+
+### 2. 现代做法：`List.of()` 系列 (Java 9+)
+
+在现代 Java 开发中（Java 9 及更高版本），创建不可变集合的“现代做法”主要是指使用接口内置的 **静态工厂方法**。这些方法彻底告别了过去复杂的包装逻辑，提供了更简洁的语法和更高的内存效率。
+
+---
+
+#### 1. 核心方法：`of()` 系列
+
+自 Java 9 起，`List`、`Set` 和 `Map` 接口都增加了 `of()` 静态方法。
+
+- **List**: `List<String> list = List.of("A", "B", "C");`
+    
+- **Set**: `Set<Integer> set = Set.of(1, 2, 3);`
+    
+- **Map**:
+    
+    - 少量键值对（最多 10 个）：`Map<String, Integer> map = Map.of("Key1", 1, "Key2", 2);`
+        
+    - 大量键值对：使用 `Map.ofEntries()` 结合 `Map.entry()`。
+        
+
+---
+
+#### 2. 现代做法的四大硬性规则
+
+这些由 `of()` 方法创建的集合与我们平时用的 `ArrayList` 或 `HashMap` 有本质区别：
+
+- **绝对不可变**：尝试调用 `add()`、`remove()`、`set()` 或 `clear()` 会直接抛出 `UnsupportedOperationException`。
+    
+- **禁止 Null 元素**：如果你尝试向 `List.of()` 或 `Set.of()` 中传入 `null`，或者向 `Map.of()` 传入 `null` 键或值，会立即抛出 `NullPointerException`。
+    
+- **Set/Map 的去重校验**：
+    
+    - 在 `Set.of(1, 1)` 中传入重复元素，会在创建时直接报错。
+        
+    - 在 `Map.of("K1", 1, "K1", 2)` 中传入重复键，同样会报错。
+        
+- **元素顺序不确定**：`Set.of()` 和 `Map.of()` 的迭代顺序是随机的，每次运行程序甚至可能不同，这是为了防止程序员依赖特定的内部排序。
+    
+
+---
+
+#### 3. 进阶写法：`copyOf()` 方法 (Java 10+)
+
+如果你已经有一个现成的可变集合，想把它变成不可变的，Java 10 引入了更安全的方法：
+
+```java
+List<String> mutableList = new ArrayList<>();
+mutableList.add("Java");
+
+// 创建一个快照，与原集合彻底断绝关系
+List<String> immutableList = List.copyOf(mutableList);
+```
+
+- **区别于 `Collections.unmodifiableList`**：`copyOf` 会创建一个新的集合副本。如果原来的 `mutableList` 改变了，`immutableList` **不会**跟着变。这才是真正的防御性编程。
+    
+
+---
+
+#### 4. 为什么现代做法更优？（底层优势）
+
+##### ① 极简的内存占用
+
+普通的 `ArrayList` 需要维护一个数组、一个 `size` 变量和一个 `modCount` 变量。
+
+而 `List.of()` 返回的是专门优化的内部类（如 `List12` 处理 1-2 个元素，`ListN` 处理更多），它们没有多余的扩容逻辑，占用的内存极小。
+
+##### ② 线程安全无锁化
+
+由于集合状态永远不会改变，多个线程可以同时读取而不需要加锁（Lock-Free），极大地提升了高并发下的性能。
+
+---
+
+#### 5. 什么时候该用现代做法？
+
+- **定义常量**：比如 `private static final Set<String> ALLOWED_EXTS = Set.of("jpg", "png", "gif");`
+    
+- **返回方法结果**：如果你不希望调用者修改你返回的数据，直接返回 `List.of(...)`。
+    
+- **单元测试**：快速构造测试数据。
+    
+
+
+---
+
+### 3. 为什么需要不可变集合？
+
+|**优势**|**说明**|
+|---|---|
+|**线程安全**|既然不能改，多个线程同时读就永远不会出问题，不需要加锁。|
+|**防御性编程**|比如你写一个接口返回配置信息，用不可变集合可以防止调用者偷偷改掉你的配置。|
+|**作为 Key 的稳定性**|在 `HashMap` 中，如果 Key 所在的集合变了，哈希值就找不到了。不可变集合是做 Key 的绝佳选择。|
+|**性能**|减少了维护扩容逻辑、并发锁的开销，垃圾回收（GC）也更友好。|
+
+---
+
+### 4. 深度总结：不可变集合的“不可变”到底指什么？
+
+这是一个常见的误区，一定要分清：**集合的不可变 $\neq$ 元素的不可变**。
+
+- **集合不可变**：你不能 `add()`、`remove()` 或 `clear()`。
+    
+- **元素可能变**：如果集合里存的是一个普通的 `User` 对象，你虽然不能把这个对象从集合里踢走，但你依然可以通过 `list.get(0).setName("New Name")` 修改这个对象内部的属性。
+    
+
+---
+
+### 小贴士
+
+如果你正在使用 **Guava** 等第三方库，它们提供的 `ImmutableList`、`ImmutableSet` 功能更强大（比如支持 `copyOf` 等操作）。但在现代 Java 开发中，自带的 `List.of()` 已经能解决 90% 的问题了。
 
 
 ---
 ---
+
+
+# Stream流
+
+
+
+
+
+
+
+
+---
+---
+
 # 易错点
 
 ## 1
