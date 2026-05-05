@@ -8906,8 +8906,94 @@ IntStream intStream = IntStream.rangeClosed(1, 100);
 ## Stream流的常见终结方法
 
 
+既然中间方法是流水线的“加工工位”，那么终结方法（Terminal Operations）就是流水线的“打包出口”。
+
+终结方法最重要的特征是：**它们不返回 Stream**。一旦调用了终结方法，整条流水线就会关闭，流里的数据也会被消耗掉。如果没有终结方法，前面的所有中间方法（filter, map 等）都**不会执行**。
 
 
+---
+
+
+### 1. `forEach(Consumer action)`：遍历
+
+- **功能**：对流中的每个元素执行操作（如打印、存入数据库）。
+    
+- **注意**：它不保证并行流下的顺序。
+    
+
+### 2. `count()`：统计
+
+- **功能**：返回流中元素的总个数。返回类型为 `long`。
+    
+
+### 3. `toArray()`：转为数组
+
+- **用法**：
+    
+    - 无参版：返回 `Object[]`。
+        
+    - 进阶版（推荐）：`toArray(String[]::new)` 返回指定类型的数组。
+        
+
+### 4. `collect(Collector collector)`：收集（最强大）
+
+- **功能**：将流中的元素收集到集合（List, Set, Map）或其他容器中。
+    
+- **常用工具类 `Collectors`**：
+    
+    - `toList()`: 收集到 ArrayList。
+        
+    - `toSet()`: 收集到 HashSet（自动去重）。
+        
+    - `toMap(keyMapper, valueMapper)`: 收集到 HashMap。
+        
+
+
+### 5. 查找与匹配 (Matching)
+
+这组方法返回 `boolean`，常用于逻辑判断。
+
+- **`anyMatch(Predicate p)`**：流中是否**至少有一个**元素满足条件？（只要有一个真的，就返回 true）
+    
+- **`allMatch(Predicate p)`**：流中是否**所有**元素都满足条件？
+    
+- **`noneMatch(Predicate p)`**：流中是否**没有**元素满足条件？
+    
+
+### 6. 获取元素 (Finding)
+
+- **`findFirst()`**：返回流中的第一个元素。
+    
+- **`findAny()`**：返回流中的任意一个元素（并行流下效率更高）。
+    
+- _注意_：由于流可能为空，它们返回的是 `Optional<T>` 对象，防止空指针。
+    
+
+### 7. 归约 (Reduction)
+
+- **`reduce(BinaryOperator accumulator)`**：
+    
+    - **功能**：把流里的元素“压扁”成一个值。
+        
+    - **例子**：计算累加和、求乘积。`Stream.of(1,2,3).reduce(0, (a, b) -> a + b)` 结果为 6。
+        
+
+### 8. 最值 (Max/Min)
+
+- **`max(Comparator c)`** / **`min(Comparator c)`**：
+    
+    - **功能**：根据比较器返回最大或最小的元素。同样返回 `Optional`。
+        
+
+---
+
+### 总结与建议
+
+- **流是“一次性”的**：一旦你调用了 `collect` 或 `count`，你就不能再对这个流进行任何操作了。如果需要再次处理，必须重新获取流。
+    
+- **惰性求值**：如果你写了一万个 `filter` 但最后没写终结方法，Java 连一个元素都不会去过滤。只有看到终结方法，它才会开启“倍速模式”处理数据。
+    
+- **收集到 Map 的坑**：使用 `Collectors.toMap` 时，如果 Key 重复，会抛出 `IllegalStateException`。记得处理冲突：`toMap(k, v, (existing, replacement) -> existing)`。
 
 
 
