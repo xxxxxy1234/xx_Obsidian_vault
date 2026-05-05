@@ -5755,7 +5755,7 @@ long days = ChronoUnit.DAYS.between(start, end);
 | `static Integer` | **`valueOf(int i)`**        | 将基本类型 `int` 转换为包装类对象     | `Integer.valueOf(100)`            |
 | `static Integer` | **`valueOf(String s)`**     | 将字符串转换为包装类对象             | `Integer.valueOf("123")`          |
 | `static String`  | **`toBinaryString(int i)`** | 将整数转为二进制字符串形式            | `Integer.toBinaryString(10)`      |
-| `static String`  | `toOctaString(int i)        | 将整数转为八进制字符串形式            | `Integer.toHexString(255)`        |
+| `static String`  | `toOctaString(int i)`       | 将整数转为八进制字符串形式            | `Integer.toHexString(255)`        |
 | `static String`  | **`toHexString(int i)`**    | 将整数转为十六进制字符串形式           | `Integer.toHexString(255)`        |
 | `static int`     | **`parseInt(String s)`**    | **最常用**：将字符串转成基本类型 `int` | `int i = Integer.parseInt("123")` |
 
