@@ -9212,37 +9212,26 @@ list.stream().filter(checker::check);
 
 ```java
 public class ClassMethodRefDemo {
-    
-    // 1. 定义函数式接口
-    @FunctionalInterface
-    interface MyCharGetter {
-        // 第一个参数 s：被引用方法的调用者 (String 类型)
-        // 第二个参数 index：被引用方法的形参 (int 类型)
-        char get(String s, int index);
-    }
-
     public static void main(String[] args) {
         List<String> list = new ArrayList<>();
-        Collections.addAll(list, "Java", "Stream", "Method");
+        Collections.addAll(list, "apple", "banana", "orange");
 
-        // 2. 核心体现：类名引用成员方法
+        // 需求：把流中的每一个字符串都变成大写
         
-        // - 第一个参数是 String，决定了可以引用 String 类的方法
-        // - 第二个参数是 int，跟 charAt(int index) 的形参一致
-        MyCharGetter mcg = String::charAt;
-
-        // 3. 运行逻辑展示
-        for (String str : list) {
-            // 这里 mcg.get(str, 0) 实际上等同于执行 str.charAt(0)
-            char result = mcg.get(str, 0); 
-            System.out.println("字符串 " + str + " 的首字母是: " + result);
-        }
-        
-        System.out.println("--------- 在 Stream 中简单应用 ---------");
-        
-        // 常见的简单用法：无后续参数的情况 (如 String::length)
+        // 1. Lambda 写法
+        // s 是流里的每一个字符串，s 既是参数，也是调用者
         list.stream()
-            .map(String::length) // 相当于 s -> s.length()，s 是调用者，无后续参数
+            .map(s -> s.toUpperCase()) 
+            .forEach(System.out::println);
+
+        System.out.println("--------- 分割线 ---------");
+
+        // 2. 方法引用写法 (类名::成员方法)
+        // 规则对照：
+        // 第一个参数 (流里的数据) 自动作为 toUpperCase() 的调用者
+        // 因为 toUpperCase 是无参方法，所以不需要额外的参数对齐
+        list.stream()
+            .map(String::toUpperCase) 
             .forEach(System.out::println);
     }
 }
