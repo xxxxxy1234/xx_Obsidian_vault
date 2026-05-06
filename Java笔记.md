@@ -9209,30 +9209,48 @@ list.stream().filter(checker::check);
  >	- 假设流里面的数据是字符串，那么使用这种方式进行方法引用，只能引用 String 这个类中的方法
  >- **第二个参数到最后一个参数**：跟被引用方法的形参保持一致，如果没有第二个参数，说明被引用的方法需要是无参的成员方法
 
-**示例对照：**
-
-我们最常用的 `String::toUpperCase` 就属于这一类。
-
-- **Lambda 写法**：`(String s) -> s.toUpperCase()`
-    
-    - 这里 `s` 是第一个参数，也是调用者。
-        
-- **引用写法**：`String::toUpperCase`
-    
-
-**复杂参数示例：**
 
 ```java
-// 比较两个字符串
-// Lambda 写法：(s1, s2) -> s1.compareTo(s2)
-// s1 是调用者，s2 是参数
-List<String> list = Arrays.asList("apple", "banana", "cherry");
-list.sort(String::compareTo); 
+public class ClassMethodRefDemo {
+    
+    // 1. 定义函数式接口
+    @FunctionalInterface
+    interface MyCharGetter {
+        // 第一个参数 s：被引用方法的调用者 (String 类型)
+        // 第二个参数 index：被引用方法的形参 (int 类型)
+        char get(String s, int index);
+    }
+
+    public static void main(String[] args) {
+        List<String> list = new ArrayList<>();
+        Collections.addAll(list, "Java", "Stream", "Method");
+
+        // 2. 核心体现：类名引用成员方法
+        
+        // - 第一个参数是 String，决定了可以引用 String 类的方法
+        // - 第二个参数是 int，跟 charAt(int index) 的形参一致
+        MyCharGetter mcg = String::charAt;
+
+        // 3. 运行逻辑展示
+        for (String str : list) {
+            // 这里 mcg.get(str, 0) 实际上等同于执行 str.charAt(0)
+            char result = mcg.get(str, 0); 
+            System.out.println("字符串 " + str + " 的首字母是: " + result);
+        }
+        
+        System.out.println("--------- 在 Stream 中简单应用 ---------");
+        
+        // 常见的简单用法：无后续参数的情况 (如 String::length)
+        list.stream()
+            .map(String::length) // 相当于 s -> s.length()，s 是调用者，无后续参数
+            .forEach(System.out::println);
+    }
+}
 ```
 
 ---
 
-### 3. 引用本类或父类的成员方法
+### 3. 引用本类或父类的成员方法 **（静态方法中无法使用）**
 
 在类的内部编写代码时，你可能想引用当前类或父类的方法。
 
@@ -9267,7 +9285,7 @@ list.sort(String::compareTo);
 
 ### 详细规则说明
 
-1. **基本语法**：`类名 :: new`。
+1. **类构造引用**：`类名 :: new`。
     
 2. **函数式接口配合**：
     
@@ -9284,22 +9302,67 @@ list.sort(String::compareTo);
 
 ### 代码示例
 
+- **类构造引用**:
 
 ```java
-List<String> names = List.of("张三", "李四");
+public class ConstructorDemo {
+    public static void main(String[] args) {
+        List<String> list = new ArrayList<>();
+        Collections.addAll(list, "张三", "李四", "王五");
 
-// 1. 引用类构造方法：Student::new
-// 规则：形参需要跟抽象方法保持一致，功能满足需求
-List<Student> students = names.stream()
-    .map(Student::new) // 自动匹配 Student(String name) 构造器
-    .toList();
+        // 场景：将姓名字符串集合 转换为 Student对象集合
+        
+        // 【方式一：Lambda写法】
+        // s 是流中的每一个字符串，作为参数传递给 Student 的构造器
+        List<Student> list1 = list.stream()
+                .map(s -> new Student(s))
+                .collect(Collectors.toList());
 
-// 2. 引用数组构造方法：Student[]::new
-// 规则：抽象方法的形参（长度）需要跟数组构造保持一致
-Student[] array = students.stream()
-    .toArray(Student[]::new); // 引用数组构造
+        // 【方式二：方法引用写法】
+        // 规则对照：被引用方法的形参（String name）需要跟抽象方法的形参保持一致
+        // 这里的 Student::new 会自动匹配 Student(String name) 这个构造方法
+        List<Student> list2 = list.stream()
+                .map(Student::new) 
+                .collect(Collectors.toList());
+
+        list2.forEach(System.out::println);
+    }
+}
+
+class Student {
+    private String name;
+    // 被引用的方法必须已经存在
+    public Student(String name) {
+        this.name = name;
+    }
+    @Override
+    public String toString() { return "Student{name='" + name + "'}"; }
+}
 ```
 
+- **数组构造引用**:
+
+```java
+public class ArrayConstructorDemo {
+    public static void main(String[] args) {
+        List<Integer> list = new ArrayList<>();
+        Collections.addAll(list, 10, 20, 30);
+
+        // 场景：将流中的数据收集到 Integer 数组中
+        
+        // 【方式一：Lambda写法】
+        // value 代表流中元素的总个数（数组长度）
+        Integer[] arr1 = list.stream().toArray(value -> new Integer[value]);
+
+        // 【方式二：方法引用写法】
+        // 语法格式：数据类型[]::new
+        // 规则对照：被引用方法的功能（创建数组）需要满足当前需求
+        Integer[] arr2 = list.stream().toArray(Integer[]::new);
+
+        System.out.println("数组长度：" + arr2.length);
+    }
+}
+```
 
 ---
 ---
