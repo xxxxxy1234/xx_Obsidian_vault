@@ -9258,7 +9258,47 @@ list.sort(String::compareTo);
 ---
 
 
+## 引用构造方法
 
+
+引用构造方法是方法引用的最后一种形式，主要用于创建对象。其核心思想是利用已有的构造器来实例化对象，代替手动编写 `new` 关键字的 Lambda 表达式。
+
+---
+
+### 详细规则说明
+
+1. **基本语法**：`类名 :: new`。
+    
+2. **函数式接口配合**：
+    
+    - 如果接口方法无参（如 `Supplier`），则引用**无参构造器**。
+        
+    - 如果接口方法有参数（如 `Function<String, User>`），则引用**带参构造器**，且参数列表必须完全对应。
+        
+3. **数组构造引用**：
+    
+    - 语法为 `数据类型[] :: new`。
+        
+    - 最典型的用法是在 Stream 的终结方法 `toArray` 中，例如 `toArray(String[]::new)`。
+        
+
+### 代码示例
+
+
+```java
+List<String> names = List.of("张三", "李四");
+
+// 1. 引用类构造方法：Student::new
+// 规则：形参需要跟抽象方法保持一致，功能满足需求
+List<Student> students = names.stream()
+    .map(Student::new) // 自动匹配 Student(String name) 构造器
+    .toList();
+
+// 2. 引用数组构造方法：Student[]::new
+// 规则：抽象方法的形参（长度）需要跟数组构造保持一致
+Student[] array = students.stream()
+    .toArray(Student[]::new); // 引用数组构造
+```
 
 
 ---
