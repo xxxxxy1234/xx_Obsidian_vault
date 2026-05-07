@@ -9877,6 +9877,77 @@ if (age < 0) {
 ---
 
 
+## 异常的常见方法
+
+
+当我们在 `catch` 块中捕获到异常对象（通常记作 `e`）时，可以通过调用它的成员方法来获取错误信息。
+
+---
+
+### Throwable的成员方法
+
+这三个方法都继承自 `Throwable` 类，是排查问题的“三剑客”。
+
+|**方法名**|**说明**|**打印效果 / 作用**|
+|---|---|---|
+|**`getMessage()`**|返回异常的**简短原因**字符串。|`String`: 提示错误的原因（如 "/ by zero"）。|
+|**`toString()`**|返回异常的**类名 + 简短原因**。|`String`: 包含异常的完整名称。|
+|**`printStackTrace()`**|**最常用**。打印完整的堆栈信息。|**无返回值**。将红字直接输出在控制台，包含具体行号。|
+
+---
+
+### 代码实操演示
+
+
+```java
+public class ExceptionMethodDemo {
+    public static void main(String[] args) {
+        try {
+            int[] arr = {1, 2, 3};
+            System.out.println(arr[10]); // 这里会产生越界异常
+        } catch (ArrayIndexOutOfBoundsException e) {
+            
+            // 1. getMessage()：只拿简短原因
+            System.out.println("原因：" + e.getMessage()); 
+            // 输出：Index 10 out of bounds for length 3
+
+            // 2. toString()：拿类名和原因
+            System.out.println("描述：" + e.toString()); 
+            // 输出：java.lang.ArrayIndexOutOfBoundsException: Index 10 out of bounds for length 3
+
+            System.out.println("---------------------------");
+
+            // 3. printStackTrace()：打印最全的信息（红字展示）
+            // 注意：它底层其实是利用 System.err 输出的，所以打印顺序可能和普通打印稍微错开
+            e.printStackTrace(); 
+            /* 输出：
+               java.lang.ArrayIndexOutOfBoundsException: Index 10 out of bounds for length 3
+                  at com.example.Demo.main(Demo.java:6)
+            */
+        }
+        System.out.println("程序依然在运行...");
+    }
+}
+```
+
+---
+
+### 深度细节：为什么 `printStackTrace()` 最重要？
+
+当你看到控制台的一堆红字时，不要慌。它提供了两个极其关键的信息：
+
+1. **发生了什么**：第一行会告诉你异常的类型（如 `NullPointerException`）。
+    
+2. **在哪里发生的**：它会按照调用顺序（栈顶是最新发生的），列出文件名和具体的**行号**。
+    
+
+### 避坑指南
+
+- 在开发阶段，一定要写 `e.printStackTrace()`，否则报错了你都不知道在哪一行。
+    
+- 在正式上线（生产环境）后，通常会结合日志框架（如 Log4j 或 SLF4J）将这些信息记录到本地文件中，而不是仅仅打印在控制台。
+---
+---
 
 
 
