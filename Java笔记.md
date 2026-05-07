@@ -9860,7 +9860,56 @@ if (age < 0) {
 - **优点**：保持了方法职责的单一。底层只负责发现问题并“甩锅”，由更高层的业务逻辑决定如何显示错误提示。
     
 - **后果**：如果一直抛到 `main` 方法都没有人处理，最终还是会交给 **JVM 默认处理**（程序崩溃）。
-    
+
+
+>[!tip] 
+>并不是写了 `throw` 就一定要写 `throws`，这取决于你抛出的是什么异常：
+>- **如果是“运行时异常”（RuntimeException）**：
+>	- 你可以只写 `throw`，**不需要**在方法名后写 `throws`。
+>	- 因为这种异常是程序员的逻辑失误（如年龄为负数），Java 不强制你声明。
+>- **如果是“编译时异常”（Checked Exception）**：
+>	- 你写了 `throw`，就**必须**配合 `throws`（或者 `try...catch`）。
+>	- 这就好比你引爆了一个定时炸弹（throw），你必须在门口贴个告示（throws）告诉别人这屋子危险。
+>
+
+
+#### 3. 代码示例：模拟银行取款
+
+```java
+public class BankSystem {
+    public static void main(String[] args) {
+        try {
+            // 调用者尝试取钱
+            withdraw(100, 500); 
+        } catch (Exception e) {
+            // 3. 调用者接到“锅”，进行最终处理
+            System.out.println("取款失败，原因：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 取款方法
+     * @param balance 余额
+     * @param money 取款金额
+     * @throws Exception 声明：这个方法可能会出异常，调用者你得接住
+     */
+    public static void withdraw(double balance, double money) throws Exception {
+        // 逻辑校验
+        if (money < 0) {
+            // 情况 A：运行时异常，其实可以不写 throws
+            throw new RuntimeException("取款金额不能为负数！");
+        }
+        
+        if (money > balance) {
+            // 情况 B：编译时异常（假设我们想强制调用者处理）
+            // 1. throw 是【动作】：在此处引爆异常，方法立即停止
+            throw new Exception("余额不足！当前余额：" + balance); 
+        }
+
+        System.out.println("取款成功！剩余金额：" + (balance - money));
+    }
+}
+```
 
 ---
 
