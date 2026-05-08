@@ -10000,6 +10000,109 @@ public class ExceptionMethodDemo {
 ---
 
 
+## 自定义异常
+
+
+当 Java 提供的内置异常（如 `NullPointerException`、`RuntimeException` 等）无法精准描述你的业务问题时，你就需要**自定义异常**。
+
+这样做最大的好处是：**见名知意**。看到异常名字就知道是业务哪里出错了。
+
+---
+
+### 自定义异常的步骤
+
+1. **定义类**：创建一个类，类名要以 `Exception` 结尾。
+    
+2. **继承父类**：
+    
+    - 继承 `RuntimeException`：定义为一个**运行时异常**（最常用，开发方便）。
+        
+    - 继承 `Exception`：定义为一个**编译时异常**（强制要求调用者处理）。
+        
+3. **生成构造方法**：通常提供一个空参构造和一个带字符串消息（`message`）的构造方法。
+    
+
+---
+
+### 代码示例：模拟学生成绩录入
+
+假设我们要写一个成绩录入系统，如果分数不在 0-100 之间，就抛出一个自定义的 `ScoreException`。
+
+#### 第一步：创建自定义异常类
+
+```java
+// 1. 继承 RuntimeException 
+public class ScoreException extends RuntimeException {
+    
+    // 2. 空参构造
+    public ScoreException() {
+        super();
+    }
+
+    // 3. 带参构造：接收错误原因并交给父类处理
+    public ScoreException(String message) {
+        super(message);
+    }
+}
+```
+
+#### 第二步：在业务逻辑中使用 throw/throws
+
+
+```java
+public class StudentService {
+    public void setScore(int score) {
+        if (score < 0 || score > 100) {
+            // 使用自定义异常，一眼就能看出是分数逻辑出错了
+            throw new ScoreException("分数必须在 0-100 之间，你输入的是：" + score);
+        }
+        System.out.println("分数录入成功：" + score);
+    }
+}
+```
+
+#### 第三步：测试与处理
+
+```java
+public class Test {
+    public static void main(String[] args) {
+        StudentService service = new StudentService();
+        
+        try {
+            service.setScore(150); // 触发异常
+        } catch (ScoreException e) {
+            // 使用异常对象的方法打印错误
+            System.err.println("错误类型：" + e.getClass().getName());
+            System.err.println("错误原因：" + e.getMessage());
+            // e.printStackTrace(); // 查看具体行号
+        }
+    }
+}
+```
+
+---
+
+### 深度解析：为什么要这么费劲？
+
+1. **业务驱动**：内置异常太通用。比如 `IllegalArgumentException` 虽然也能用，但不如 `ScoreException` 或 `MoneyNotEnoughException` 直观。
+    
+2. **统一处理**：在大型项目中，我们可以针对自定义异常做“全局拦截”。比如：一旦抓到 `TokenExpiredException`，就自动让用户跳转到登录页面。
+    
+3. **解耦**：底层只管抛出业务异常，不需要关心前端怎么显示，符合“保持方法职责单一”的优点。
+    
+
+---
+
+### 总结对照表
+
+|**维度**|**自定义运行时异常**|**自定义编译时异常**|
+|---|---|---|
+|**继承对象**|`RuntimeException`|`Exception`|
+|**使用频率**|**极高**，不影响代码整洁|较低，仅用于极其严重的外部错误|
+|**处理要求**|不强制处理|**必须**配合 `throws` 或 `try...catch`|
+|**目的**|提醒程序员逻辑错误|强制要求考虑“万一”的情况|
+
+**开发建议**：90% 的场景建议继承 `RuntimeException`。因为业务异常通常意味着数据不合法，应该由前端校验或逻辑优化来解决，而不是满大街写 `try...catch`。
 
 
 ---
