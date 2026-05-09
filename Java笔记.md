@@ -10205,8 +10205,147 @@ public class Test {
     *   **相对路径**：相对于当前模块或项目的根目录。在 IDEA 中编写代码时，相对路径通常是从**项目根目录**开始算的。
 
 
+---
+---
 
 
+## File的成员方法（判断、获取）
+
+
+### 1. 判断功能
+
+这类方法返回布尔值（`true` / `false`），用于确认路径的状态。
+
+- **`public boolean isDirectory()`**：判断此 `File` 对象表示的是否为**文件夹**。
+    
+- **`public boolean isFile()`**：判断此 `File` 对象表示的是否为**文件**。
+    
+- **`public boolean exists()`**：判断此路径名表示的 `File` 是否**真实存在**。
+    
+
+### 2. 获取功能
+
+这类方法用于提取文件或目录的相关属性信息。
+
+- **`public long length()`**：返回文件的**大小**，单位是**字节（Byte）**。
+    
+    - _注意：如果 File 表示的是文件夹，该方法返回值通常不确定或为 0，获取文件夹大小需要递归累加。_
+        
+- **`public String getAbsolutePath()`**：返回文件的**绝对路径**（从盘符开始的完整路径）。
+    
+- **`public String getPath()`**：返回创建 `File` 对象时**定义的路径**字符串。
+    
+- **`public String getName()`**：返回文件或文件夹的**名称**（包含后缀名）。
+    
+- **`public long lastModified()`**：返回文件的**最后修改时间**，是一个毫秒值的 `long` 类型。
+    
+
+---
+
+### 代码实操示例
+
+```java
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class FileMethodDemo {
+    public static void main(String[] args) {
+        // 假设项目中有一个 a.txt 文件
+        File f = new File("myDir/a.txt");
+
+        // --- 判断功能 ---
+        System.out.println("是否存在：" + f.exists());      // true
+        System.out.println("是否为文件：" + f.isFile());    // true
+        System.out.println("是否为文件夹：" + f.isDirectory()); // false
+
+        // --- 获取功能 ---
+        System.out.println("文件长度(字节)：" + f.length()); 
+        System.out.println("绝对路径：" + f.getAbsolutePath());
+        System.out.println("定义时的路径：" + f.getPath());
+        System.out.println("文件名：" + f.getName());
+
+        // 时间格式化处理
+        long time = f.lastModified();
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        System.out.println("最后修改时间：" + sdf.format(new Date(time)));
+    }
+}
+```
+
+---
+
+### 深度避坑指南
+
+1. **关于 `length()`**：
+    
+    - 它只能获取**文件**的大小。
+        
+    - 如果你想获取一个**文件夹**的总大小，`length()` 没法直接办到，你需要遍历该文件夹下所有的文件并累加它们的大小。
+        
+2. **绝对路径 vs 定义路径**：
+    
+    - 如果你在创建对象时写的是相对路径 `new File("a.txt")`，那么 `getPath()` 拿到的就是 `"a.txt"`，而 `getAbsolutePath()` 会拿到类似 `"D:\Project\a.txt"` 的完整路径。
+        
+3. **不存在的路径**：
+    
+    - 如果路径不存在（`exists()` 为 `false`），调用 `isFile()` 和 `isDirectory()` 都会返回 `false`。
+        
+---
+---
+
+
+## File的成员方法（创建、删除）
+
+
+### 一、创建相关方法
+
+|**方法名称**|**说明**|
+|---|---|
+|`public boolean createNewFile()`|**创建一个新的空文件。**|
+|`public boolean mkdir()`|**创建单级文件夹。**|
+|`public boolean mkdirs()`|**创建多级文件夹。**|
+
+#### 1. createNewFile() 的细节
+
+- **返回值**：如果文件不存在并成功创建，返回 `true`；如果文件已存在，则不创建并返回 `false`。
+    
+- **注意**：该方法只能创建**文件**，不能创建文件夹。如果路径中的父级目录不存在，会抛出 `IOException`。
+    
+
+#### 2. mkdir() vs mkdirs()
+
+- **mkdir()**：只能创建**最后一级**目录。如果父级路径不存在，创建会失败并返回 `false`。
+    
+- **mkdirs()**：最常用的创建目录方法。如果父级路径不存在，它会**连同父目录一起创建**。
+    
+
+---
+
+### 二、 删除相关方法
+
+|**方法名称**|**说明**|
+|---|---|
+|`public boolean delete()`|**删除文件、空文件夹。**|
+
+#### 1. delete() 的重要特性
+
+- **即时性**：调用该方法后，文件会立即从硬盘删除，不经过“回收站”。
+    
+- **空文件夹限制**：如果删除的是文件夹，该文件夹必须是**空的**（内部没有文件或子目录）才能删除成功。
+    
+- **返回值**：删除成功返回 `true`，失败（如文件不存在或文件夹非空）返回 `false`。
+    
+
+---
+
+### 三、 核心注意事项总结
+
+1. **区分文件与文件夹**：`createNewFile()` 永远只产生文件，`mkdir(s)` 永远只产生文件夹。
+    
+2. **布尔值反馈**：这些方法主要通过返回 `boolean` 来告知操作是否成功，而不是直接抛出异常（除非发生严重的 I/O 错误），因此在编写代码时建议对返回值进行判断。
+    
+3. **删除非空目录**：如果需要删除一个含有内容的文件夹，必须使用递归算法手动删除其内部所有内容后，才能调用 `delete()` 删除该文件夹本身。
 
 
 ---
