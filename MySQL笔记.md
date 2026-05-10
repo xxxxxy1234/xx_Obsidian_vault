@@ -4651,103 +4651,6 @@ SELECT count(*) INTO user_count FROM tb_user;
 
 
 
-## if 判断
-
-
-在存储过程中，`IF` 语句是实现**逻辑分支**的核心。它的语法结构与 Java 或 Python 非常相似，但要注意它必须以 `END IF;` 结尾。
-
----
-
-### 1. IF 判断的基本语法
-
-```sql
-IF 条件1 THEN
-    -- 当条件1成立时执行的语句
-[ELSEIF 条件2 THEN]
-    -- 当条件2成立时执行的语句
-[ELSE]
-    -- 当以上条件都不成立时执行的语句
-END IF;
-```
-
-#### 关键点：
-
-- **THEN**：条件后面必须跟 `THEN`。
-    
-- **ELSEIF**：注意连着写，中间没有空格（不是 `ELSE IF`）。
-    
-- **END IF**：必须显式结束，且带分号。
-
-
-
-#### 代码示例
-
-```sql
-DELIMITER $$
-
-CREATE PROCEDURE check_score(IN score INT)
-BEGIN
-    DECLARE result VARCHAR(20);
-
-    IF score >= 60 THEN
-        SET result = '及格';
-    ELSE
-        SET result = '不及格';
-    END IF;
-
-    SELECT concat('您的分数是：', score, '，判定结果：', result) AS info;
-END$$
-
-DELIMITER ;
-
--- 测试及格情况
-CALL check_score(85);
-
--- 测试不及格情况
-CALL check_score(45);
-
-```
-
-
----
-
-### 2. IF 语句 vs IF() 函数
-
-在 MySQL 中，初学者经常把这两者搞混。请做好区分：
-
-|**特性**|**IF 语句 (Stored Procedure)**|**IF() 函数 (SQL Function)**|
-|---|---|---|
-|**用法**|用于存储过程/触发器的逻辑控制|用于 `SELECT` 语句中的字段处理|
-|**结构**|`IF ... THEN ... END IF;`|`IF(expr1, expr2, expr3)`|
-|**示例**|上文的等级判定|`SELECT IF(score >= 60, '及格', '不及格')`|
-
----
-
-### 3. 常见逻辑运算符
-
-在 `IF` 的条件判断中，你经常会用到这些：
-
-- **AND / OR**：多条件组合。
-    
-- **IS NULL / IS NOT NULL**：判断空值。
-    
-- **BETWEEN ... AND ...**：区间判断。
-    
-
----
-
-### 存储过程逻辑优化建议
-
-1. **避免嵌套过深**：如果 `IF` 里面嵌套了太多的 `IF`，代码会非常难读。这时候可以考虑使用 **`CASE`** 语句（它更适合多分支等值判断）。
-    
-2. **变量初始化**：在 `IF` 之前，确保你的判断变量已经通过 `DECLARE` 或 `SELECT...INTO` 赋值，否则 `NULL` 值判断可能会导致非预期的结果。
-    
-
-
----
----
-
-
 ## 参数
 
 在 MySQL 存储过程中，参数是实现外部应用（如 Java）与数据库逻辑交互的桥梁。存储过程支持三种类型的参数模式：`IN`、`OUT` 和 `INOUT`。
@@ -4849,6 +4752,105 @@ SELECT @v2, @v3;
 ---
 
 
+
+## if 
+
+
+在存储过程中，`IF` 语句是实现**逻辑分支**的核心。它的语法结构与 Java 或 Python 非常相似，但要注意它必须以 `END IF;` 结尾。
+
+---
+
+### 1. IF 判断的基本语法
+
+```sql
+IF 条件1 THEN
+    -- 当条件1成立时执行的语句
+[ELSEIF 条件2 THEN]
+    -- 当条件2成立时执行的语句
+[ELSE]
+    -- 当以上条件都不成立时执行的语句
+END IF;
+```
+
+#### 关键点：
+
+- **THEN**：条件后面必须跟 `THEN`。
+    
+- **ELSEIF**：注意连着写，中间没有空格（不是 `ELSE IF`）。
+    
+- **END IF**：必须显式结束，且带分号。
+
+
+
+#### 代码示例
+
+```sql
+DELIMITER $$
+
+CREATE PROCEDURE check_score(IN score INT)
+BEGIN
+    DECLARE result VARCHAR(20);
+
+    IF score >= 60 THEN
+        SET result = '及格';
+    ELSE
+        SET result = '不及格';
+    END IF;
+
+    SELECT concat('您的分数是：', score, '，判定结果：', result) AS info;
+END$$
+
+DELIMITER ;
+
+-- 测试及格情况
+CALL check_score(85);
+
+-- 测试不及格情况
+CALL check_score(45);
+
+```
+
+
+---
+
+### 2. IF 语句 vs IF() 函数
+
+在 MySQL 中，初学者经常把这两者搞混。请做好区分：
+
+|**特性**|**IF 语句 (Stored Procedure)**|**IF() 函数 (SQL Function)**|
+|---|---|---|
+|**用法**|用于存储过程/触发器的逻辑控制|用于 `SELECT` 语句中的字段处理|
+|**结构**|`IF ... THEN ... END IF;`|`IF(expr1, expr2, expr3)`|
+|**示例**|上文的等级判定|`SELECT IF(score >= 60, '及格', '不及格')`|
+
+---
+
+### 3. 常见逻辑运算符
+
+在 `IF` 的条件判断中，你经常会用到这些：
+
+- **AND / OR**：多条件组合。
+    
+- **IS NULL / IS NOT NULL**：判断空值。
+    
+- **BETWEEN ... AND ...**：区间判断。
+    
+
+---
+
+### 存储过程逻辑优化建议
+
+1. **避免嵌套过深**：如果 `IF` 里面嵌套了太多的 `IF`，代码会非常难读。这时候可以考虑使用 **`CASE`** 语句（它更适合多分支等值判断）。
+    
+2. **变量初始化**：在 `IF` 之前，确保你的判断变量已经通过 `DECLARE` 或 `SELECT...INTO` 赋值，否则 `NULL` 值判断可能会导致非预期的结果。
+    
+
+
+---
+---
+
+
+
 ## case
 
 
@@ -4944,3 +4946,150 @@ END;
     
 - **防御性编程**：尽量带上 `ELSE` 分支。如果所有的 `WHEN` 条件都不匹配且没有 `ELSE`，MySQL 会抛出一个错误：`Case not found for CASE statement`。
     
+
+
+---
+---
+
+
+
+## while、repeat、loop
+
+
+
+在 MySQL 存储过程中，循环结构允许你重复执行某段 SQL 逻辑，直到满足特定条件为止。MySQL 提供了三种主要的循环方式：**WHILE**、**REPEAT** 和 **LOOP**。
+
+---
+
+### 1. WHILE 循环（先判断，后执行）
+
+这是最常用的循环。它在每次循环开始前先检查条件，如果条件为真（TRUE）则执行循环体。
+
+**语法结构：**
+
+```sql
+WHILE 循环条件 DO
+    -- 循环体内容
+END WHILE;
+```
+
+**简单例子：从 1 累加到 n**
+
+```sql
+CREATE PROCEDURE p_while(IN n INT)
+BEGIN
+    DECLARE total INT DEFAULT 0;
+    WHILE n > 0 DO
+        SET total = total + n;
+        SET n = n - 1;
+    END WHILE;
+    SELECT total;
+END;
+```
+
+---
+
+### 2. REPEAT 循环（先执行，后判断）
+
+类似于 Java 中的 `do...while`。它会先执行一次循环体，然后在末尾检查条件。如果条件为真，则**停止循环**。
+
+**注意：** 这里的逻辑是“满足条件就退出”。
+
+**语法结构：**
+
+```sql
+REPEAT
+    -- 循环体内容
+    UNTIL 结束条件
+END REPEAT;
+```
+
+**简单例子：**
+
+```sql
+CREATE PROCEDURE p_repeat(IN n INT)
+BEGIN
+    DECLARE total INT DEFAULT 0;
+    REPEAT
+        SET total = total + n;
+        SET n = n - 1;
+    UNTIL n <= 0
+    END REPEAT;
+    SELECT total;
+END;
+```
+
+---
+
+### 3. LOOP 循环（死循环，配合 LEAVE/ITERATE）
+
+`LOOP` 本身不带任何判断条件，如果不加处理，它就是个死循环。你必须配合两个跳转语句来控制它：
+
+- **LEAVE**：等同于 `break`，立即退出循环。
+    
+- **ITERATE**：等同于 `continue`，跳过本次循环剩余代码，进入下次循环。
+    
+
+**语法结构：**
+
+```sql
+[标签名]: LOOP
+    -- 循环体内容
+    IF 退出条件 THEN
+        LEAVE [标签名];
+    END IF;
+END LOOP [标签名];
+```
+
+**简单例子：计算 1 到 n 之间的偶数和**
+
+```sql
+CREATE PROCEDURE p_loop(IN n INT)
+BEGIN
+    DECLARE total INT DEFAULT 0;
+    sum_loop: LOOP
+        IF n <= 0 THEN
+            LEAVE sum_loop; -- 退出循环
+        END IF;
+        
+        IF n % 2 != 0 THEN
+            SET n = n - 1;
+            ITERATE sum_loop; -- 跳过奇数，继续下次循环
+        END IF;
+        
+        SET total = total + n;
+        SET n = n - 1;
+    END LOOP sum_loop;
+    SELECT total;
+END;
+```
+
+---
+
+### 4. 核心对比
+
+|**循环类型**|**判断时机**|**退出逻辑**|**适用场景**|
+|---|---|---|---|
+|**WHILE**|循环开始前|条件为 **FALSE** 时退出|最通用的标准循环|
+|**REPEAT**|循环结束后|条件为 **TRUE** 时退出|至少需要执行一次的场景|
+|**LOOP**|无（手动控制）|使用 **LEAVE** 强制退出|复杂的逻辑控制（含 continue/break）|
+
+---
+
+### 关键细节提醒
+
+1. **标签的使用**：在 `LOOP` 中标签是必须的（为了让 `LEAVE` 知道退出哪个循环），但在 `WHILE` 和 `REPEAT` 中标签是可选的。建议在嵌套循环中始终使用标签。
+    
+2. **避免死循环**：在编写循环时，务必确保循环变量（如上面例子中的 `n`）在循环体内有修改逻辑，否则会导致数据库进程挂起。
+    
+3. **性能考虑**：数据库擅长“集合运算”（一次处理一批数据），不擅长“行级循环”。如果能用一条 `UPDATE` 或 `INSERT INTO ... SELECT` 完成的操作，尽量不要使用存储过程里的循环，因为循环的性能通常远低于集合操作。
+
+
+---
+---
+
+
+
+## cursor
+
+
