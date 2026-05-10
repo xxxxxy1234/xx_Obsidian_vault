@@ -10311,14 +10311,51 @@ public class FileMethodDemo {
 - **返回值**：如果文件不存在并成功创建，返回 `true`；如果文件已存在，则不创建并返回 `false`。
     
 - **注意**：该方法只能创建**文件**，不能创建文件夹（会创建一个没有后缀的文件）。如果路径中的父级目录不存在，会抛出 `IOException`。
-    
+
+
+```java
+File file = new File("D:\\java_test\\readme.txt");
+
+try {
+    boolean result = file.createNewFile();
+    if (result) {
+        System.out.println("文件创建成功！");
+    } else {
+        System.out.println("文件已存在，创建失败。");
+    }
+} catch (IOException e) {
+    e.printStackTrace(); // 如果父文件夹 java_test 不存在，这里会报错
+}
+```
 
 #### 2. mkdir() vs mkdirs()
 
 - **mkdir()**：只能创建**最后一级**目录。如果父级路径不存在，创建会失败并返回 `false`。
     
 - **mkdirs()**：最常用的创建目录方法。如果父级路径不存在，它会**连同父目录一起创建**。*他的底层调用mkdir()，后续我们一般都直接用mkdirs()即可*
-    
+
+
+```java
+// 情况 A：父路径存在
+File dir1 = new File("D:\\java_test\\music");
+System.out.println(dir1.mkdir()); // 返回 true，成功创建 music 文件夹
+
+// 情况 B：父路径不存在
+File dir2 = new File("D:\\java_test\\a\\b");
+System.out.println(dir2.mkdir()); // 返回 false，因为 a 文件夹不存在，无法直接创建子目录 b
+```
+
+
+```java
+File dir3 = new File("D:\\java_test\\movies\\2024\\action");
+
+// 即使 movies 和 2024 这两层文件夹都不存在
+boolean result = dir3.mkdirs(); 
+
+if (result) {
+    System.out.println("所有层级的文件夹都创建好了！");
+}
+```
 
 ---
 
@@ -10335,7 +10372,36 @@ public class FileMethodDemo {
 - **空文件夹限制**：如果删除的是文件夹，该文件夹必须是**空的**（内部没有文件或子目录）才能删除成功。
     
 - **返回值**：删除成功返回 `true`，失败（如文件不存在或文件夹非空）返回 `false`。
-    
+
+```java
+File file = new File("D:\\java_test\\readme.txt");
+
+if (file.exists()) {
+    boolean result = file.delete();
+    System.out.println(result ? "文件删除成功！" : "文件删除失败。");
+} else {
+    System.out.println("文件不存在，无需删除。");
+}
+```
+
+
+```java
+File emptyDir = new File("D:\\java_test\\empty_folder");
+emptyDir.mkdir(); // 假设先建一个空的
+
+boolean res = emptyDir.delete(); 
+System.out.println("空文件夹删除结果：" + res); // 输出 true
+
+
+
+
+File srcDir = new File("D:\\java_test\\has_content");
+// 假设该文件夹里有一个 1.txt
+
+boolean res = srcDir.delete(); 
+System.out.println("非空文件夹删除结果：" + res); // 输出 false
+```
+
 
 ---
 
