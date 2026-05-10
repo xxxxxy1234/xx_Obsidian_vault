@@ -5090,6 +5090,134 @@ END;
 
 
 
-## cursor
+## cursor、handler
 
+
+**游标（Cursor）** 负责“找数据”，而 **条件处理程序（Handler）** 负责“处理突发状况”（比如数据找完了）。
+
+---
+
+### 1. 游标 (Cursor) —— 数据的“指针”
+
+游标的作用是把 `SELECT` 出来的结果集（一张表）变成可以逐行处理的序列。
+
+使用游标必须严格遵循这四个步骤，顺序不能乱：
+
+1. **声明游标 (`DECLARE`)**：定义游标要抓取的 SQL 结果集。
+    
+2. **打开游标 (`OPEN`)**：执行 SQL 语句，填充数据。
+    
+3. **获取数据 (`FETCH`)**：将游标当前指向的那一行数据读入变量中。
+    
+4. **关闭游标 (`CLOSE`)**：释放游标占用的系统资源。
+    
+
+> **注意：** 在 `BEGIN...END` 块中，变量声明必须在最前面，游标声明紧随其后，最后才是处理句柄（Handler）的声明。
+    
+
+**单纯游标的语法示例：**
+
+```sql
+DECLARE my_cursor CURSOR FOR SELECT name FROM users;
+OPEN my_cursor;
+FETCH my_cursor INTO v_name; -- 只读了一行
+CLOSE my_cursor;
+```
+
+---
+
+### 2. 条件处理程序 (Handler) —— 逻辑的“保镖”
+
+在执行 SQL 或存储过程时，可能会遇到错误（Error）、警告（Warning）或特定状态（如查无数据）。**Handler** 的作用是：当这些情况发生时，告诉数据库该怎么办。
+
+**语法结构：**
+
+```sql
+DECLARE 处理方式 HANDLER FOR 错误类型 具体的处理动作;
+```
+
+- **处理方式**：
+    
+    - `CONTINUE`：发生错误后，不理它，继续执行后面的语句。
+        
+    - `EXIT`：发生错误后，立刻终止当前的存储过程。
+        
+- **错误类型**：
+    
+    - `SQLSTATE '状态码'`：具体的错误代码，如02000。
+    
+    - `SQLWARNING`：所有以01开头的SQLSTATE代码的简写
+    
+    - `NOT FOUND`：所有以02开头的SQLSTATE代码的简写，**当游标读完了，或者 SELECT INTO 没查到数据时触发**。
+    
+    - `SQLEXCEPTION`：所有错误异常的通称。
+	
+
+**简单 Handler 示例：**
+
+
+```sql
+-- 如果遇到错误，就将变量 @error_flag 设为 1，然后继续运行
+DECLARE CONTINUE HANDLER FOR SQLEXCEPTION SET @error_flag = 1;
+```
+
+---
+
+### 3. 综合：用 Handler 控制游标循环
+
+游标最头疼的问题是：**它不知道什么时候读到了最后一行。** 如果你一直 `FETCH`，读完最后一行后再读，MySQL 就会抛出 `NOT FOUND` 错误。
+
+这时候，我们需要一个 **Handler** 守在那里。一旦捕捉到 `NOT FOUND`，就修改一个标志位，让循环停下来。
+
+**综合完整案例：**
+
+```sql
+DELIMITER $$
+
+CREATE PROCEDURE p_handle_users()
+BEGIN
+    -- 1. 定义局部变量
+    DECLARE v_name VARCHAR(50);
+    DECLARE has_data INT DEFAULT 1; -- 循环标志位，1表示有数据，0表示没数据
+
+    -- 2. 声明游标
+    DECLARE user_cursor CURSOR FOR SELECT name FROM users;
+
+    -- 3. 声明条件处理程序 (关键！)
+    -- 当游标 FETCH 不到数据时，会触发 NOT FOUND，此时将 has_data 设为 0
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET has_data = 0;
+
+    -- 4. 开启游标
+    OPEN user_cursor;
+
+    -- 5. 进入循环
+    loop_label: LOOP
+        FETCH user_cursor INTO v_name;
+        
+        -- 检查标志位，如果 Handler 已经把标志位改了，就退出循环
+        IF has_data = 0 THEN
+            LEAVE loop_label;
+        END IF;
+
+        -- 在这里处理业务逻辑，例如：
+        SELECT concat('处理中: ', v_name);
+        
+    END LOOP loop_label;
+
+    -- 6. 关闭游标
+    CLOSE user_cursor;
+END$$
+
+DELIMITER ;
+```
+
+### 核心总结 
+
+- **没有 Handler 的游标**：就像一个盲人走路，如果不告诉他什么时候是悬崖（`NOT FOUND`），他会一直走直到摔倒（报错）。
+    
+- **合体的逻辑**：游标负责遍历，Handler 负责监控“读完”那个瞬间，并给出停下的信号。
+    
+
+---
+---
 
