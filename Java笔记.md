@@ -10725,7 +10725,11 @@ graph LR
 
 ### 1. 核心子类：`FileOutputStream`
 
-这是最常用的字节输出流，专门用于往文件里写字节。
+这是最常用的字节输出流，专门用于往文件里写字节，步骤如下
+
+- 创建字节输出流对象
+- 写数据
+- 释放资源
 
 ---
 
@@ -10760,7 +10764,7 @@ fos.close();
 
 
 
-### FileOutputStream书写细节
+### FileOutputStream方法书写细节
 
 #### ① 创建字节输出流对象
 
@@ -10846,6 +10850,70 @@ fos.close();
     fos.write(bytes, 1, 3); // 最终写入文件的是 'bcd'
     ```
     
+---
+---
+
+
+
+### 小细节：换行和续写
+
+
+在 Java 的字节输出流（`FileOutputStream`）中，想要实现“换行”和“续写”这两个功能，需要掌握两个非常实用的技巧。
+
+#### 1. 续写（Append）
+
+默认情况下，每次创建 `FileOutputStream` 对象时，Java 会自动清空目标文件中的所有内容。如果你希望在文件的末尾接着写，而不是覆盖，就需要用到带两个参数的构造方法。
+
+- **构造方法：** `public FileOutputStream(String name, boolean append)`
+    
+- **关键参数：** 将第二个参数 `append` 设置为 **`true`**。
+    
+
+**代码示例：**
+
+```java
+// 第二个参数为 true，表示开启续写模式
+FileOutputStream fos = new FileOutputStream("a.txt", true);
+
+fos.write("第二次写入的内容".getBytes());
+
+fos.close();
+```
+
+
+#### 2. 换行（New Line）
+
+换行其实就是向文件中写入一个特定的“换行符”。不同操作系统的换行符是不一样的，这是很多初学者容易忽略的细节。
+
+- **Windows:** `\r\n` (回车 + 换行)
+    
+- **Linux/Unix:** `\n`
+    
+- **Mac (旧版本):** `\r`
+    
+
+**通用写法（细节）：**
+
+虽然现在的 Windows 记事本已经能识别单 `\n` 了，但为了极致的兼容性，建议使用 `\r\n`。
+
+**代码示例：**
+
+```java
+FileOutputStream fos = new FileOutputStream("a.txt", true);
+
+// 第一步：写入第一行内容
+fos.write("第一行数据".getBytes());
+
+// 第二步：写入换行符
+// 在字符串中写好 \r\n，然后转成字节数组写入
+fos.write("\r\n".getBytes());
+
+// 第三步：写入第二行内容
+fos.write("第二行数据".getBytes());
+
+fos.close();
+```
+
 
 
 ---
@@ -10860,7 +10928,13 @@ fos.close();
 
 ### 1. 核心子类：`FileInputStream`
 
-专门用于从文件中读取字节数据。
+专门用于从文件中读取字节数据，步骤如下
+
+
+- 创建字节输入流对象
+- 读数据
+- 释放资源
+
 
 ---
 
