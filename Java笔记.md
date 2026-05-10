@@ -10787,7 +10787,7 @@ fos.close();
 
 ---
 
-### FileOutputStream写出数据的三种方式
+### FileOutputStream写出数据的方式
 
 
 #### 1. `public void write(int b)`
@@ -10850,7 +10850,7 @@ fos.close();
     fos.write(bytes, 1, 3); // 最终写入文件的是 'bcd'
     ```
     
----
+
 ---
 
 
@@ -10940,7 +10940,7 @@ fos.close();
 
 ### 2. 常用方法
 
-- `read()`：一次读取**一个**字节，返回该字节的数值。如果读到了文件末尾，返回 **-1**。
+- `read()`：一次读取**一个**字节，返回该字节的数值，**并移动指针到下一个字节**。如果读到了文件末尾，返回 -1。
     
 - `read(byte[] b)`：一次读取**一组**字节，返回实际读取到的字节个数。
     
@@ -10968,20 +10968,171 @@ fis.close();
 ---
 
 
+### FileInputStream方法书写细节
+
+
+#### ① 创建字节输入流对象
+
+- **细节1**：如果文件不存在，就直接报错。
+    
+
+#### ② 读取数据
+
+- **细节1**：一次读一个字节，读出来的是数据在 ASCII 上对应的数字。
+    
+- **细节2**：读到文件末尾了，`read` 方法返回 `-1`。
+    
+
+#### ③ 释放资源
+
+- **细节1**：每次使用完流必须要释放资源。
+
+
+---
+
+
+### FileInputStream读入数据的方式
+
+
+#### 1. 一次读一个字节：`read()`
+
+- **方法原型**：`public int read()`
+    
+- **原理**：每次调用都会从文件中读取一个字节的内容并返回。
+    
+- **返回值**：
+    
+    - 返回读取到的 **字节对应的 ASCII 码值**（`int` 类型）。
+        
+    - 如果**读到了文件末尾**，则返回 **`-1`**。
+        
+- **优缺点**：操作简单，但频繁读取硬盘，效率极低。
+    
+- **示例**：
+
+```java
+FileInputStream fis = new FileInputStream("a.txt");
+int b;
+// 习惯写法：循环读取，直到返回 -1 停止
+while ((b = fis.read()) != -1) {
+    System.out.print((char)b);
+}
+fis.close();
+```
+
+
+
+#### 2. 一次读一个字节数组：`read(byte[] b)`
+
+- **方法原型**：`public int read(byte[] b)`
+    
+- **原理**：尝试将数据填满整个数组。
+    
+- **返回值**：
+    
+    - 返回的是**本次实际读取到的字节个数**。
+        
+    - 如果读到了文件末尾，同样返回 **`-1`**。
+        
+- **优缺点**：大大减少了读取硬盘的次数，是**文件拷贝时的标准用法**。
+    
+- **示例**：
+
+
+```java
+FileInputStream fis = new FileInputStream("a.txt");
+// 通常定义一个 1024 的整数倍作为缓冲区（1KB - 8KB）
+byte[] bytes = new byte[1024 * 5]; 
+int len; // 记录每次读取的有效字节个数
+
+while ((len = fis.read(bytes)) != -1) {
+    // 关键点：读到多少写多少，转字符串时只转有效部分
+    System.out.print(new String(bytes, 0, len));
+}
+fis.close();
+```
 
 
 
 
+#### 3. 一次读一个字节数组的部分内容：`read(byte[] b, int off, int len)`
+
+- **方法原型**：`public int read(byte[] b, int off, int len)`
+    
+- **功能**：从输入流中读取数据，并将其存入数组 `b` 中，从索引 `off` 开始存放，最多读取 `len` 个字节。
+    
+- **返回值**：实际读入数组的字节个数。
+    
+- **示例：**
+
+```java
+FileInputStream fis = new FileInputStream("a.txt");
+byte[] bytes = new byte[10];
+// 从数组索引 2 的位置开始存，只读 5 个字节进来
+int count = fis.read(bytes, 2, 5); 
+fis.close();
+```
 
 
 
+#### 4. 利用循环读入数据
+
+
+我们分两种场景来看这个“循环读取”：
+
+##### 1. 循环读取单个字节（低效但逻辑清晰）
+
+这种方式适合理解 `read()` 的返回值逻辑。
+
+```java
+FileInputStream fis = new FileInputStream("a.txt");
+int b; // 变量 b 用来临时接收读取到的字节
+
+// 1. fis.read() 读取一个字节
+// 2. 将结果赋值给 b
+// 3. 判断 b 是否不等于 -1 (是否没读到末尾)
+while ((b = fis.read()) != -1) {
+    System.out.print((char)b);
+}
+
+fis.close();
+```
+
+##### 2. 循环读取字节数组（最高效，实战标配）
+
+这是文件拷贝的核心逻辑，通过缓冲区减少 IO 次数。
+
+```java
+FileInputStream fis = new FileInputStream("a.txt");
+byte[] buffer = new byte[1024]; // 定义 1KB 的缓冲区
+int len; // 记录每次“接住了”多少个有效字节
+
+// 1. fis.read(buffer) 尝试填满 buffer
+// 2. 将读取到的个数赋值给 len
+// 3. 判断 len 是否不等于 -1
+while ((len = fis.read(buffer)) != -1) {
+    // 关键点：处理读取到的 len 个有效数据
+    // 比如打印输出，或者写入另一个输出流
+    System.out.write(buffer, 0, len); 
+}
+
+fis.close();
+```
 
 
 
+##### 为什么 `while` 循环里一定要有赋值操作？
 
+这是初学者最容易写错的地方：
 
+- **错误写法**：`while (fis.read() != -1) { System.out.println(fis.read()); }`
+    
+    - **后果**：你在判断时读了一次，在循环体里又读了一次，会导致**跳过一半的数据**。
+        
+- **正确写法**：用一个中间变量 `b` 或 `len` **先把读到的结果存起来**，然后再拿去判断和使用。
 
-
+---
+---
 
 
 
