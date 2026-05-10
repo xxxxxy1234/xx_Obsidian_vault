@@ -10654,6 +10654,43 @@ Java 根据处理数据的**单位**和**流向**，将 IO 流分为四大分类
 |**抽象基类**|`InputStream`|`OutputStream`|`Reader`|`Writer`|
 |**常用实现类**|`FileInputStream`|`FileOutputStream`|`FileReader`|`FileWriter`|
 
+```mermaid
+graph LR
+    %% 全局样式
+    classDef base fill:#f96,stroke:#333,stroke-width:2px;
+    classDef byte fill:#bbf,stroke:#333,stroke-width:1px;
+    classDef char fill:#dfd,stroke:#333,stroke-width:1px;
+
+    Root((Java IO))
+
+    %% 字节流分支
+    subgraph Byte_Streams [字节流 Byte Streams]
+        direction TB
+        IS[InputStream 抽象基类]:::base --> FIS[FileInputStream 文件流]:::byte
+        IS --> BIS[BufferedInputStream 缓冲流]:::byte
+        IS --> OIS[ObjectInputStream 对象流]:::byte
+
+        OS[OutputStream 抽象基类]:::base --> FOS[FileOutputStream 文件流]:::byte
+        OS --> BOS[BufferedOutputStream 缓冲流]:::byte
+        OS --> OOS[ObjectOutputStream 对象流]:::byte
+    end
+
+    %% 字符流分支
+    subgraph Char_Streams [字符流 Character Streams]
+        direction TB
+        R[Reader 抽象基类]:::base --> FR[FileReader 文件流]:::char
+        R --> BR[BufferedReader 缓冲流]:::char
+        R --> ISR[InputStreamReader 转换流]:::char
+
+        W[Writer 抽象基类]:::base --> FW[FileWriter 文件流]:::char
+        W --> BW[BufferedWriter 缓冲流]:::char
+        W --> OSW[OutputStreamWriter 转换流]:::char
+    end
+
+    Root --- Byte_Streams
+    Root --- Char_Streams
+```
+
 ---
 
 ### 四、 IO流的操作一般步骤
