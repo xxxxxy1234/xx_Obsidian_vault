@@ -4849,3 +4849,98 @@ SELECT @v2, @v3;
 ---
 
 
+## case
+
+
+在存储过程中，`CASE` 语句与 `IF` 类似，都用于流程控制。但 `CASE` 的优势在于处理**多路分支**，尤其是当你有多个等值判断或复杂的区间判断时，它的代码结构比嵌套的 `IF...ELSEIF` 更加清晰。
+
+MySQL 的 `CASE` 语法分为两种：**简单 CASE**（等值语法）和 **搜索 CASE**（表达式语法）。
+
+---
+
+### 1. 简单 CASE (Simple CASE)
+
+这种模式主要用于**单个变量的等值判断**。它会将变量与一系列常量进行比较。
+
+#### 语法结构
+
+```sql
+CASE case_value
+    WHEN when_value1 THEN statement_list1
+    [WHEN when_value2 THEN statement_list2] ...
+    [ELSE statement_list]
+END CASE;
+```
+
+#### 简单例子：根据月份返回季度
+
+
+```sql
+CREATE PROCEDURE get_quarter(IN month_num INT)
+BEGIN
+    DECLARE result VARCHAR(10);
+    CASE month_num
+        WHEN 1 THEN SET result = '第一季度';
+        WHEN 2 THEN SET result = '第一季度';
+        WHEN 3 THEN SET result = '第一季度';
+        -- ...此处省略其他月份
+        ELSE SET result = '其他';
+    END CASE;
+    SELECT result;
+END;
+```
+
+---
+
+### 2. 搜索 CASE (Searched CASE)
+
+这种模式最常用，也最强大。它不局限于等值判断，可以编写任意的**逻辑表达式**（类似于 `IF` 条件）。
+
+#### 语法结构
+
+```sql
+CASE
+    WHEN search_condition1 THEN statement_list1
+    [WHEN search_condition2 THEN statement_list2] ...
+    [ELSE statement_list]
+END CASE;
+```
+
+#### 简单例子：判定分数等级
+
+```sql
+CREATE PROCEDURE get_level(IN score INT)
+BEGIN
+    DECLARE grade VARCHAR(10);
+    CASE
+        WHEN score >= 90 THEN SET grade = '优秀';
+        WHEN score >= 80 THEN SET grade = '良好';
+        WHEN score >= 60 THEN SET grade = '及格';
+        ELSE SET grade = '不及格';
+    END CASE;
+    SELECT grade;
+END;
+```
+
+---
+
+### 3. CASE 语句 vs CASE 函数
+
+
+|**特性**|**CASE 语句 (本文内容)**|**CASE 函数 (普通 SQL)**|
+|---|---|---|
+|**应用位置**|只能写在存储过程/触发器的 `BEGIN...END` 中|可以写在普通的 `SELECT` 字段中|
+|**结束符**|必须以 **`END CASE;`** 结尾|以 **`END`** 结尾|
+|**执行内容**|`THEN` 后面跟的是**执行语句** (如 `SET ...`)|`THEN` 后面跟的是**返回数值**|
+|**示例**|`WHEN ... THEN SET v = 1;`|`SELECT (CASE WHEN ... THEN 1 END) FROM ...`|
+
+---
+
+### 4. 使用建议
+
+- **等值匹配**：如果只是判断一个变量等于 A、B 还是 C，用“简单 CASE”，代码最简洁。
+    
+- **区间/复合判断**：如果涉及 `>`、`<` 或 `AND/OR` 逻辑，必须用“搜索 CASE”。
+    
+- **防御性编程**：尽量带上 `ELSE` 分支。如果所有的 `WHEN` 条件都不匹配且没有 `ELSE`，MySQL 会抛出一个错误：`Case not found for CASE statement`。
+    
