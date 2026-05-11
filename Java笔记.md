@@ -11154,7 +11154,7 @@ fis.close();
 ---
 
 
-## 文件拷贝
+## 文件拷贝写法
 
 
 实现文件拷贝（File Copy）的核心逻辑是：**利用字节输入流读取源文件数据，利用字节输出流将读到的数据写入目标文件。**
@@ -11162,37 +11162,51 @@ fis.close();
 为了保证效率和防止数据损坏，最标准的做法是使用 **“字节数组缓冲区”** 配合 **`while` 循环**。
 
 ---
-### 1. 标准文件拷贝代码模板
 
-这是最经典、性能最均衡的写法（适用于任何类型的文件，如图片、视频、压缩包等）：
+### 1. 传统的“标准”写法（JDK7 之前）
+
+这种写法比较繁琐，被称为“嵌套地狱”，因为你需要处理 `close` 本身可能抛出的异常。
 
 ```java
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-
-public class FileCopyDemo {
+public class FileCopyOldWay {
     public static void main(String[] args) {
-        // 1. 创建输入流和输出流对象
-        // 注意：这里使用了 try-with-resources 语法，会自动关闭流
-        try (FileInputStream fis = new FileInputStream("C:\\source.jpg");
-             FileOutputStream fos = new FileOutputStream("D:\\dest_copy.jpg")) {
+	    // 1. 只定义并初始化，不创建对象
+	    // 不能写在try里面（变量的作用域），否则finally里不能用
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
 
-            // 2. 定义缓冲区（水桶）
+        try {
+            // 2. 创建输入流和输出流对象
+            // 写在初始化那边也行，只是这样必须抛出编译时异常
+            fis = new FileInputStream("C:\\source.jpg");
+            fos = new FileOutputStream("D:\\dest_copy.jpg");
+			
+			// 3. 定义缓冲区（水桶）
             // 一般定义为 1024 的整数倍，比如 8KB
             byte[] buffer = new byte[1024 * 8];
-            
-            // 3. 循环读写
-            int len; // 记录每次实际抓到了多少个字节
+            // 4. 循环读写
+            int len;
             while ((len = fis.read(buffer)) != -1) {
-                // 关键：读到多少(len)，就写出多少
+                // 读到多少(len)，就写出多少
                 fos.write(buffer, 0, len);
             }
-            
             System.out.println("拷贝完成！");
 
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            // 重点：一定要在 finally 里关闭，保证无论是否报错都会执行
+            // 且关闭前要判断是否为 null，防止创建流失败导致的空指针异常
+            try {
+                if (fos != null) fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                if (fis != null) fis.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
@@ -11235,7 +11249,97 @@ public class FileCopyDemo {
 ---
 
 
-### 4. 传统文件拷贝的弊端
+### 4. JDK 7 方案：try-with-resources（最推荐）
+
+这是目前开发中最标准、最常用的写法。直接在 `try` 后面的括号内创建流对象。只要代码执行完毕（无论正常还是异常），括号内的资源都会**按创建的相反顺序**自动关闭。
+
+```java
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+public class FileCopyJDK7 {
+    public static void main(String[] args) {
+        // 在 try() 中创建的对象必须实现 AutoCloseable 接口
+        try (FileInputStream fis = new FileInputStream("C:\\source.jpg");
+             FileOutputStream fos = new FileOutputStream("D:\\dest_copy.jpg")) {
+            
+            byte[] buffer = new byte[1024 * 8];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                fos.write(buffer, 0, len);
+            }
+            System.out.println("拷贝完成！");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // 代码执行到这里，fis 和 fos 已经自动关闭了
+    }
+}
+```
+
+---
+
+### 5. JDK 9 方案：更简洁的变量引用
+
+JDK 9 对 `try-with-resources` 进行了优化。如果流对象已经在 `try` 之前定义好了，你不需要在括号里重新定义，直接把**变量名**放进去即可（要求变量必须是 `final` 或者事实上不可变的）。
+
+
+```java
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+public class FileCopyJDK9 {
+    public static void main(String[] args) throws IOException {
+        // 1. 在外面创建流对象
+        FileInputStream fis = new FileInputStream("C:\\source.jpg");
+        FileOutputStream fos = new FileOutputStream("D:\\dest_copy.jpg");
+
+        // 2. 直接在 try() 中引入变量名，多个用分号隔开
+        try (fis; fos) {
+            byte[] buffer = new byte[1024 * 8];
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                fos.write(buffer, 0, len);
+            }
+            System.out.println("拷贝完成！");
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // 同样会自动关闭资源
+    }
+}
+```
+
+---
+
+### 核心变化对比
+
+|**维度**|**传统写法 (JDK 7 之前)**|**JDK 7 方案**|**JDK 9 方案**|
+|---|---|---|---|
+|**释放方式**|`finally` 手动 `close()`|`try(...)` 自动释放|`try(变量名)` 自动释放|
+|**代码量**|极多（需判空、嵌套 try）|很少|很少|
+|**可读性**|差|极好|极好|
+|**适用场景**|维护极老旧项目|**日常开发首选**|对象已存在于 try 外部时|
+
+**总结：**
+
+- **JDK 7 方案**让代码逻辑和资源管理合二为一，是目前最稳健的选择。
+    
+- **JDK 9 方案**则是为了解决“对象已经定义好了，却必须在 try 里再声明一次”的尴尬。
+    
+
+---
+---
+
+
+## 文件拷贝的弊端和改进
+
+
+### 1. 传统文件拷贝的弊端
 
 1. **频繁的系统调用（System Call）**：
     
@@ -11252,7 +11356,7 @@ public class FileCopyDemo {
 
 ---
 
-### 5. 解决方案：缓冲流（Buffered Streams）
+### 2. 解决方案：缓冲流（Buffered Streams）
 
 这是最常用的改进方案。它在普通字节流的基础上，内部维护了一个 **8KB 的缓冲区**。
 
@@ -11277,7 +11381,7 @@ try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream("src.
 
 ---
 
-### 6. 终极方案：NIO 零拷贝（Zero-copy）
+### 3. 终极方案：NIO 零拷贝（Zero-copy）
 
 如果你追求极致的速度（比如拷贝几个 GB 的高清电影），应该使用 Java NIO（New IO）提供的 **`FileChannel`**。
 
