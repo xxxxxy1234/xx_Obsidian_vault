@@ -5471,3 +5471,115 @@ DROP FUNCTION IF EXISTS func_sum;
 
 ## 语法
 
+
+触发器的语法结构非常严谨，它通过定义**时机**、**事件**和**逻辑**来确保操作的自动化。以下是针对 MySQL 触发器的语法介绍及实操案例。
+
+---
+
+### 创建语法
+
+
+```sql
+CREATE TRIGGER 触发器名称
+{BEFORE | AFTER} {INSERT | UPDATE | DELETE}
+ON 表名 FOR EACH ROW 
+BEGIN
+    -- 具体的 SQL 逻辑
+END;
+```
+
+- **BEFORE / AFTER**：触发时机。是在数据变动**前**拦截（常用于校验），还是变动**后**处理（常用于同步）。
+    
+- **INSERT / UPDATE / DELETE**：触发事件。
+    
+- **FOR EACH ROW**：行级触发。对于受影响的每一行都会执行一次逻辑。*现在触发器只支持行级不支持语法级*
+    
+
+---
+
+### 查看与删除
+
+- **查看所有触发器**：`SHOW TRIGGERS;`
+    
+- **删除触发器**：`DROP TRIGGER [IF EXISTS] [数据库名.]触发器名;`
+    
+
+---
+
+
+为了清晰展示 `NEW` 和 `OLD` 的用法，我们准备了两个典型场景。
+
+### 案例 A：使用 INSERT 触发器（自动记录日志）
+
+**需求**：当向 `account`（账户表）插入一条新数据时，自动向 `account_log`（日志表）写入一条记录。
+
+
+```sql
+DELIMITER $$
+
+CREATE TRIGGER tr_account_insert
+AFTER INSERT ON account FOR EACH ROW
+BEGIN
+    -- NEW 代表刚插入的那行数据
+    INSERT INTO account_log(account_id, operation, op_time) 
+    VALUES (NEW.id, 'ADD_ACCOUNT', NOW());
+END$$
+
+DELIMITER ;
+```
+
+### 案例 B：使用 UPDATE 触发器（数据完整性校验）
+
+**需求**：在更新 `emp`（员工表）的薪资时，确保新薪资不能低于旧薪资。如果低了，则抛出错误阻止更新。
+
+
+```sql
+DELIMITER $$
+
+CREATE TRIGGER tr_emp_salary_check
+BEFORE UPDATE ON emp FOR EACH ROW
+BEGIN
+    -- 逻辑判断：如果新薪资 < 旧薪资
+    IF NEW.salary < OLD.salary THEN
+        -- 抛出异常，强制终止此次 SQL 操作
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = '薪资调整幅度非法：新薪资不能低于原薪资';
+    END IF;
+END$$
+
+DELIMITER ;
+```
+
+---
+
+### 语法注意事项 
+
+1. **分号问题**：在命令行中创建触发器，必须使用 `DELIMITER` 修改结束符，否则遇到 `BEGIN...END` 内部的分号会直接报错。
+    
+2. **事务性**：触发器与触发它的 SQL 语句属于同一个事务。如果触发器内部报错，原始的 `INSERT/UPDATE/DELETE` 操作也会执行**回滚**。
+    
+3. **表的限制**：
+    
+    - 触发器不能直接修改正在触发它的那张表（容易引发死循环）。
+        
+    - 不能在触发器中调用 `START TRANSACTION`、`COMMIT` 或 `ROLLBACK`。
+        
+4. **OLD 与 NEW 的只读性**：
+    
+    - `OLD` 中的列是只读的，不可修改。
+        
+    - `NEW` 中的列在 `BEFORE` 触发器中是可以被修改的（例如：在存入数据库前统一格式化字符串）。
+        
+
+---
+
+### 总结
+
+- **BEFORE 触发器**：适合做数据校验、默认值填充。
+    
+- **AFTER 触发器**：适合做级联更新、审计日志记录。
+    
+
+
+---
+---
