@@ -2475,15 +2475,15 @@ protected void Page_Load(object sender, EventArgs e)
  * **EntityDataSource**：配合 ADO.NET Entity Framework 使用。
  * **SiteMapDataSource**：专门用于配合导航控件（如 Menu）读取 .sitemap 文件。
 ### 二、 数据展示控件（Data Bound Controls）
-### 1. GridView（全能表格）
+#### 1. GridView（全能表格）
 最强大的控件，支持自动分页、排序、编辑和删除。
  * **优点**：开发极其快速，功能内置。
- * **缺点**：生成的 HTML 是 <table> 结构，比较臃肿，样式自定义较难。
- * **场景**：后台管理系统的列表页面。
-### 2. Repeater（纯净迭代器）
+ * **缺点**：生成的 HTML 是 </table> 结构，比较臃肿，样式自定义较难。
+ **场景**：后台管理系统的列表页面。
+#### 2. Repeater（纯净迭代器）
 **最灵活**的控件。它没有任何预设样式，完全靠你写 HTML 模板。
  * **核心模板**：<ItemTemplate>（循环体）、<HeaderTemplate>（表头）、<SeparatorTemplate>（分隔符）。
- * **优点**：生成的 HTML 非常干净，性能最高。
+ **优点**：生成的 HTML 非常干净，性能最高。
  * **场景**：需要精美 CSS 布局的前端展示页。
 ### 3. ListView（新一代展示王）
 结合了 GridView 的强大功能和 Repeater 的灵活性。它支持 LayoutTemplate，可以自由定义它是用 <div> 还是 <table> 布局。
