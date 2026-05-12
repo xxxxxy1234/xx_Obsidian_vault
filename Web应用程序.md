@@ -2455,3 +2455,100 @@ protected void Page_Load(object sender, EventArgs e)
 <asp:Label Text='<%# Eval("DetectTime", "{0:yyyy-MM-dd}") %>' runat="server" />
 
 ```
+
+
+
+---
+---
+
+
+
+## ASP.NET数据控件
+
+
+在 ASP.NET Web Forms 中，**数据控件（Data Controls）** 是数据绑定技术的具体实现载体。它们负责将数据源（如数据库、List 集合）以特定的 UI 形式渲染到浏览器上。
+我们可以将数据控件分为两大类：**数据源控件**（背后的搬运工）和**数据绑定控件**（前面的展示员）。
+### 一、 数据源控件（Data Source Controls）
+这类控件在页面上不可见，主要负责连接数据库并执行 SQL 语句。
+ * **SqlDataSource**：最常用。直接连接 SQL Server、MySQL 等数据库，支持 Select, Update, Insert, Delete 命令。
+ * **ObjectDataSource**：**最推荐用于企业级开发**。它不直接连数据库，而是连接你写的“业务逻辑类（BLL）”，符合三层架构思想。
+ * **EntityDataSource**：配合 ADO.NET Entity Framework 使用。
+ * **SiteMapDataSource**：专门用于配合导航控件（如 Menu）读取 .sitemap 文件。
+### 二、 数据展示控件（Data Bound Controls）
+### 1. GridView（全能表格）
+最强大的控件，支持自动分页、排序、编辑和删除。
+ * **优点**：开发极其快速，功能内置。
+ * **缺点**：生成的 HTML 是 <table> 结构，比较臃肿，样式自定义较难。
+ * **场景**：后台管理系统的列表页面。
+### 2. Repeater（纯净迭代器）
+**最灵活**的控件。它没有任何预设样式，完全靠你写 HTML 模板。
+ * **核心模板**：<ItemTemplate>（循环体）、<HeaderTemplate>（表头）、<SeparatorTemplate>（分隔符）。
+ * **优点**：生成的 HTML 非常干净，性能最高。
+ * **场景**：需要精美 CSS 布局的前端展示页。
+### 3. ListView（新一代展示王）
+结合了 GridView 的强大功能和 Repeater 的灵活性。它支持 LayoutTemplate，可以自由定义它是用 <div> 还是 <table> 布局。
+ * **场景**：既需要分页功能，又需要自定义布局的复杂页面。
+### 4. DetailsView / FormView（单条记录查看）
+用于显示或编辑**单条**数据。
+ * **DetailsView**：类似 GridView 的垂直版本。
+ * **FormView**：完全基于模板，适合做“添加新用户”或“查看详情”页面。
+## 三、 核心代码实战：Repeater 绑定路面病害数据
+假设你在“路面检测项目”中要展示一个损坏清单：
+**前端 (.aspx)**
+```html
+<asp:Repeater ID="rptDamage" runat="server">
+    <HeaderTemplate>
+        <ul class="damage-list">
+    </HeaderTemplate>
+    <ItemTemplate>
+        <li>
+            <strong>类型：</strong><%# Eval("DamageType") %> 
+            <strong>严重程度：</strong><%# Eval("Severity") %>
+            <small>检测时间：<%# Eval("CheckTime", "{0:yyyy-MM-dd}") %></small>
+        </li>
+    </ItemTemplate>
+    <FooterTemplate>
+        </ul>
+    </FooterTemplate>
+</asp:Repeater>
+
+```
+**后端 (.aspx.cs)**
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack)
+    {
+        BindData();
+    }
+}
+
+private void BindData()
+{
+    // 模拟数据源，实际开发中来自数据库
+    var data = new[] {
+        new { DamageType = "纵向裂缝", Severity = "中度", CheckTime = DateTime.Now },
+        new { DamageType = "坑洞", Severity = "重度", CheckTime = DateTime.Now.AddDays(-1) }
+    };
+    
+    rptDamage.DataSource = data;
+    rptDamage.DataBind();
+}
+
+```
+## 四、 开发者避坑指南
+ 1. **GridView 性能隐患**：
+   GridView 默认会将所有数据存入 **ViewState**。如果你的表格有几百行，页面体积会瞬间暴增。
+   * **优化**：如果数据只是展示，请设置 EnableViewState="false"。
+ 2. **ID 乱码问题**：
+   在 GridView 等控件内部的子控件，ID 会被 ASP.NET 重新命名（如 ctl00_gv_btnEdit）。
+   * **对策**：在 JavaScript 中使用 CommandArgument 传递参数，或者使用类名选择器。
+ 3. **DataBind() 调用时机**：
+   切记！只要修改了 DataSource，必须手动调用一次 DataBind()，否则页面不会更新。
+ 4. **Eval vs Bind**：
+   * Eval：单向。数据库 \rightarrow 页面（只读）。
+   * Bind：双向。数据库 \leftrightarrow 页面（用于编辑/新增）。
+### 💡 总结
+你已经把 ASP.NET 的核心控件（验证、导航、状态管理、母版、主题、数据控件）全部过了一遍。这基本涵盖了 Web Forms 开发的 **80%** 常用知识点。
+考虑到你之后想走 **Java 后端** 路线，这些数据绑定的思想（数据源 \rightarrow 视图模板）在 Java 的 **Thymeleaf** 或 **FreeMarker** 模板引擎中是完全一致的。
+这些控件里，你觉得哪一个在处理你的“路面病害图片”展示时最顺手？是自动化的 **GridView** 还是灵活的 **Repeater**？
