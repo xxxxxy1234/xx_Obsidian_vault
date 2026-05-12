@@ -2365,3 +2365,94 @@ protected void Page_PreInit(object sender, EventArgs e)
  * **状态管理**：存数据（记忆）。
  * **Response/Request**：搞通讯（感官）。
 
+
+
+---
+----
+
+
+# 数据绑定和数据控件
+
+
+
+
+在 ASP.NET Web Forms 中，**数据绑定（Data Binding）** 是将数据源（如数据库、XML、集合）中的信息与页面控件（如 GridView、DropDownList）自动关联的技术。它极大地减少了手动编写 HTML 代码来展示数据的繁琐过程。
+## ASP.NET 数据绑定核心体系
+> [!abstract] 核心逻辑
+> 数据绑定分为**单值绑定**和**多值（集合）绑定**。其操作流程通常是：指定数据源（DataSource） \rightarrow 关联字段（DataField） \rightarrow 执行绑定（DataBind）。
+> 
+### 1. 简单数据绑定表达式
+主要用于在 HTML 模板中直接输出变量。
+ * **<%# ... %> 语法**：这是数据绑定的专用语法。
+ * **常用方法**：
+   * Eval("FieldName")：**只读**绑定，性能略低但使用简单。
+   * Bind("FieldName")：**双向**绑定，支持读取和回写（常用于编辑状态）。
+**代码示例**：
+```html
+<span>当前用户：<%# UserName %></span>
+<asp:Label ID="lblPrice" runat="server" Text='<%# Eval("Price", "{0:C}") %>' />
+
+```
+### 2. 集合类控件绑定 (重点)
+这是你在开发“路面检测系统”展示列表时最常用的方式。
+#### A. 后端手动绑定 (C#)
+这种方式最灵活，适合逻辑复杂的场景。
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    if (!IsPostBack)
+    {
+        // 1. 获取数据源（模拟从数据库读取）
+        List<string> roadTypes = new List<string> { "裂缝", "坑洼", "车辙" };
+        
+        // 2. 指定数据源
+        ddlRoadType.DataSource = roadTypes;
+        
+        // 3. 执行绑定（必须调用此方法，否则不显示）
+        ddlRoadType.DataBind();
+    }
+}
+
+```
+#### B. 数据源控件绑定 (声明式)
+通过 SqlDataSource 或 ObjectDataSource 控件，可以实现**零代码**绑定。
+```html
+<asp:SqlDataSource ID="SqlData1" runat="server" 
+    ConnectionString="<%$ ConnectionStrings:MyDb %>"
+    SelectCommand="SELECT * FROM [RoadDamage]">
+</asp:SqlDataSource>
+
+<asp:GridView ID="gvDamage" runat="server" DataSourceID="SqlData1">
+</asp:GridView>
+
+```
+
+
+### 3. 常用数据绑定控件对比
+
+
+### 4. 数据绑定生命周期与 DataBind()
+
+​这是一个关键点：<%# %> 表达式在页面加载时**不会自动执行**。
+
+- ​如果是**页面级**绑定：必须在后端调用 Page.DataBind();。
+- ​如果是**控件级**绑定：必须调用 myControl.DataBind();。
+
+>​[!warning] 避坑指南：!IsPostBack
+> 
+> 务必将 DataBind() 放在 if (!IsPostBack) 中。否则，每次页面回发都会重新绑定数据，导致你无法获取用户在控件中新输入的值。
+
+  
+
+### ​5. 进阶：Eval 的格式化
+
+​在展示路面损坏程度或日期时，经常需要格式化输出：
+
+```html
+<%-- 格式化为百分比 --%>
+<asp:Label Text='<%# Eval("Severity", "{0:P}") %>' runat="server" />
+
+<%-- 格式化日期 --%>
+<asp:Label Text='<%# Eval("DetectTime", "{0:yyyy-MM-dd}") %>' runat="server" />
+
+```
