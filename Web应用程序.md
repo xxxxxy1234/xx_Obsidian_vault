@@ -2430,6 +2430,12 @@ protected void Page_Load(object sender, EventArgs e)
 
 ### 3. 常用数据绑定控件对比
 
+|**控件名称**|**灵活性**|**自动功能**|**渲染结果**|
+|---|---|---|---|
+|**GridView**|低|**极强**（自动分页、排序、编辑）|`<table>`|
+|**Repeater**|**极高**|无（需手动写 HTML 模板）|自定义（最干净）|
+|**DropDownList**|中|自动生成选项|`<select>`|
+|**ListView**|高|强（支持布局模板和分页）|自定义|
 
 ### 4. 数据绑定生命周期与 DataBind()
 
@@ -2482,17 +2488,17 @@ protected void Page_Load(object sender, EventArgs e)
  **场景**：后台管理系统的列表页面。
 #### 2. Repeater（纯净迭代器）
 **最灵活**的控件。它没有任何预设样式，完全靠你写 HTML 模板。
- * **核心模板**：<ItemTemplate>（循环体）、<HeaderTemplate>（表头）、<SeparatorTemplate>（分隔符）。
+ * **核心模板**：</ItemTemplate>（循环体）、</HeaderTemplate>（表头）、</SeparatorTemplate>（分隔符）。
  **优点**：生成的 HTML 非常干净，性能最高。
  * **场景**：需要精美 CSS 布局的前端展示页。
-### 3. ListView（新一代展示王）
-结合了 GridView 的强大功能和 Repeater 的灵活性。它支持 LayoutTemplate，可以自由定义它是用 <div> 还是 <table> 布局。
+#### 3. ListView（新一代展示王）
+结合了 GridView 的强大功能和 Repeater 的灵活性。它支持 LayoutTemplate，可以自由定义它是用 <div> 还是 </table> 布局。
  * **场景**：既需要分页功能，又需要自定义布局的复杂页面。
-### 4. DetailsView / FormView（单条记录查看）
+#### 4. DetailsView / FormView（单条记录查看）
 用于显示或编辑**单条**数据。
  * **DetailsView**：类似 GridView 的垂直版本。
  * **FormView**：完全基于模板，适合做“添加新用户”或“查看详情”页面。
-## 三、 核心代码实战：Repeater 绑定路面病害数据
+### 三、 核心代码实战：Repeater 绑定路面病害数据
 假设你在“路面检测项目”中要展示一个损坏清单：
 **前端 (.aspx)**
 ```html
@@ -2536,7 +2542,7 @@ private void BindData()
 }
 
 ```
-## 四、 开发者避坑指南
+### 四、 开发者避坑指南
  1. **GridView 性能隐患**：
    GridView 默认会将所有数据存入 **ViewState**。如果你的表格有几百行，页面体积会瞬间暴增。
    * **优化**：如果数据只是展示，请设置 EnableViewState="false"。
@@ -2548,7 +2554,106 @@ private void BindData()
  4. **Eval vs Bind**：
    * Eval：单向。数据库 \rightarrow 页面（只读）。
    * Bind：双向。数据库 \leftrightarrow 页面（用于编辑/新增）。
-### 💡 总结
-你已经把 ASP.NET 的核心控件（验证、导航、状态管理、母版、主题、数据控件）全部过了一遍。这基本涵盖了 Web Forms 开发的 **80%** 常用知识点。
-考虑到你之后想走 **Java 后端** 路线，这些数据绑定的思想（数据源 \rightarrow 视图模板）在 Java 的 **Thymeleaf** 或 **FreeMarker** 模板引擎中是完全一致的。
-这些控件里，你觉得哪一个在处理你的“路面病害图片”展示时最顺手？是自动化的 **GridView** 还是灵活的 **Repeater**？
+---
+---
+
+
+
+## 1. ListControl 类（抽象基类）
+
+`ListControl` 是所有列表式控件（如 `DropDownList`, `ListBox`, `CheckBoxList`, `RadioButtonList`）的 **共同祖先**。它定义了处理列表项的核心逻辑。
+
+- **核心属性**：
+    
+    - `Items`：包含所有选项的集合（`ListItemCollection`）。
+        
+    - `DataTextField`：绑定到数据源中用于**显示**的字段。
+        
+    - `DataValueField`：绑定到数据源中作为**隐藏值**的字段。
+        
+    - `SelectedIndex`：当前选中项的索引。
+        
+- **应用场景**：用于简单的单选或多选表单录入，不涉及复杂的 HTML 布局。
+    
+
+---
+
+## 2. GridView 类（全能表格）
+
+`GridView` 是 ASP.NET 中功能最丰富的数据控件。它将数据渲染为标准的 HTML `<table>`。
+
+- **核心特性**：
+    
+    - **高度自动化**：内置支持分页、排序、自动生成编辑/删除按钮。
+        
+    - **列类型丰富**：支持 `BoundField`（普通文本）、`CheckBoxField`、`CommandField`（按钮）以及最强大的 `TemplateField`（自定义模版）。
+        
+- **优点**：开发效率极高，几乎不需要写代码就能实现增删改查。
+    
+- **缺点**：产生的 HTML 代码较为臃肿，且强依赖于 `ViewState`。
+    
+- **适用场景**：后台管理系统、标准的表格报表。
+    
+
+---
+
+## 3. DataList 类（模版列表）
+
+`DataList` 介于 `GridView` 和 `Repeater` 之间。它通过模版展示数据，但比 `Repeater` 多了一些内置样式和布局控制。
+
+- **布局能力**：支持 `RepeatColumns`（设置每行显示几个元素）和 `RepeatDirection`（水平或垂直排列）。
+    
+- **核心模版**：
+    
+    - `<ItemTemplate>`：定义单项外观。
+        
+    - `<AlternatingItemTemplate>`：定义交替项外观（实现隔行换色）。
+        
+- **缺点**：不支持内置分页（需手动实现），且渲染结果依然会包裹一层 `<table>`。
+    
+- **适用场景**：商品展示列表、图片墙（需要一行多列排列的场景）。
+    
+
+---
+
+## 4. ListView 类（现代展示王）
+
+`ListView` 是在 .NET 3.5 引入的“集大成者”。它结合了 `Repeater` 的完全自定义能力和 `GridView` 的功能性。
+
+- **核心模版体系**：
+    
+    - `<LayoutTemplate>`：**最关键**，定义外层容器（可以是 `div`, `ul`, `table` 等任意 HTML）。
+        
+    - `<ItemTemplate>`：定义数据项的具体内容。
+        
+- **核心特性**：
+    
+    - **零冗余**：它不会强制生成任何额外的 HTML 标签，布局完全由你控制。
+        
+    - **配合 DataPager**：通过关联 `DataPager` 控件，可以实现极其灵活的分页交互。
+        
+- **适用场景**：现代化的 Web 页面、响应式布局（配合 Bootstrap）、对 HTML 规范度要求极高的前端页面。
+    
+
+---
+
+## 总结对比表
+
+|**控件**|**继承关系**|**布局灵活性**|**内置功能（分页/编辑）**|**渲染出的 HTML**|
+|---|---|---|---|---|
+|**ListControl**|基类|极低|基本没有|`<select>` 或 `<table>`|
+|**GridView**|DataBoundControl|低|**极强** (全自动)|固定的 `<table>`|
+|**DataList**|BaseDataList|中|一般 (需写代码)|固定的 `<table>`|
+|**ListView**|DataBoundControl|**极高**|强 (配合 DataPager)|**完全自定义**|
+
+### 💡 选型建议：
+
+- 如果要做**后台表格**：首选 **GridView**，省时省力。
+    
+- 如果要做**一行多列的商品瀑布流**：首选 **DataList**。
+    
+- 如果要做**需要美工高度定制的响应式页面**：首选 **ListView**。
+    
+
+---
+---
