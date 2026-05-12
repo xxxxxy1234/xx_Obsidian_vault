@@ -2438,8 +2438,7 @@ protected void Page_Load(object sender, EventArgs e)
 - ​如果是**页面级**绑定：必须在后端调用 Page.DataBind();。
 - ​如果是**控件级**绑定：必须调用 myControl.DataBind();。
 
->​[!warning] 避坑指南：!IsPostBack
-> 
+>[!warning] 避坑指南：!IsPostBack
 > 务必将 DataBind() 放在 if (!IsPostBack) 中。否则，每次页面回发都会重新绑定数据，导致你无法获取用户在控件中新输入的值。
 
   
