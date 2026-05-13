@@ -12533,3 +12533,101 @@ public class FileEncypt {
     
 2. **密钥数组**：定义一个数组 `int[] keys = {1, 2, 3}`，循环使用数组里的元素进行加密，安全性更高。
 
+---
+---
+
+
+### 题目：修改文件中数据（2-1-9-4-7-8）变为（1-2-4-7-8-9）
+
+
+#### 方法一：传统方式（List 集合处理）
+
+这种方式逻辑严密，适合逐步调试和观察数据转换过程。
+
+```java
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+
+public class SortFileMethod1 {
+    public static void main(String[] args) throws IOException {
+        // 1. 读取数据
+        FileReader fr = new FileReader("myio\\a.txt");
+        StringBuilder sb = new StringBuilder();
+        int ch;
+        while ((ch = fr.read()) != -1) {
+            sb.append((char) ch); // 逐字符读取并拼接
+        }
+        fr.close();
+        System.out.println("读取到的原始数据：" + sb);
+
+        // 2. 排序处理
+        String str = sb.toString();
+        String[] arrStr = str.split("-"); // 按照 "-" 进行切割
+
+        ArrayList<Integer> list = new ArrayList<>();
+        for (String s : arrStr) {
+            int i = Integer.parseInt(s); // 将字符串转为整数
+            list.add(i);
+        }
+        Collections.sort(list); // 对集合进行排序
+        System.out.println("排序后的集合：" + list);
+
+        // 3. 写出数据
+        FileWriter fw = new FileWriter("myio\\a.txt");
+        for (int i = 0; i < list.size(); i++) {
+            if (i == list.size() - 1) {
+                // 最后一个数字后面不拼接 "-"
+                fw.write(list.get(i) + "");
+            } else {
+                fw.write(list.get(i) + "-");
+            }
+        }
+        fw.close();
+    }
+}
+```
+
+---
+
+### 方法二：进阶方式（Stream 流处理）
+
+这种方式利用 Stream 流将“转换、排序、收集”一气呵成，代码更加简洁优雅。
+
+
+```java
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.Arrays;
+
+public class SortFileMethod2 {
+    public static void main(String[] args) throws IOException {
+        // 1. 读取数据
+        FileReader fr = new FileReader("myio\\a.txt");
+        StringBuilder sb = new StringBuilder();
+        int ch;
+        while ((ch = fr.read()) != -1) {
+            sb.append((char) ch);
+        }
+        fr.close();
+
+        // 2. 排序处理 (使用 Stream 流)
+        Integer[] arr = Arrays.stream(sb.toString().split("-"))
+                .map(Integer::parseInt) // 类型转换
+                .sorted()               // 排序
+                .toArray(Integer[]::new); // 转回数组
+
+        // 3. 写出数据
+        FileWriter fw = new FileWriter("myio\\a.txt");
+        // 将数组转为字符串，并去除 toString 默认生成的 [ ] 和 空格
+        String s = Arrays.toString(arr).replace(" ", "");
+        String result = s.substring(1, s.length() - 1).replace(",", "-");
+        
+        fw.write(result);
+        fw.close();
+    }
+}
+```
