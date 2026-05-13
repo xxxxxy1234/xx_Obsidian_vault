@@ -11336,6 +11336,126 @@ public class FileCopyJDK9 {
 ---
 
 
+
+## 文件拷贝的递归写法
+
+
+文件拷贝的**递归写法**通常用于处理**文件夹（目录）**。因为文件夹内部可能嵌套多层子文件夹，递归能让我们像剥洋葱一样，一层层深入直到处理完所有的纯文件。
+
+以下是结合 Java 字节流与递归逻辑的详细实现：
+
+---
+
+### 一、 递归拷贝的核心思路
+
+1. **确定出口**：如果遇到的是**文件**，直接利用字节流进行拷贝。
+    
+2. **递归逻辑**：如果遇到的是**文件夹**：
+    
+    - 在目标路径创建同名文件夹。
+        
+    - 获取该文件夹下的所有子内容（文件或子文件夹）。
+        
+    - 遍历这些子内容，再次调用拷贝方法（进入下一层递归）。
+        
+
+---
+
+### 二、 代码实现（Java 示例）
+
+```plaintext
+D:\myFolder (源起点)
+├── 📄 1.jpg                --> [isFile] 执行 copyFile (直接搬运字节)
+├── 📄 2.txt                --> [isFile] 执行 copyFile (直接搬运字节)
+└── 📁 subDir (子文件夹)     --> [isDir] 再次调用 copyDir (进入下一层递归)
+    ├── 📄 3.png            --> [isFile] 执行 copyFile
+    └── 📁 deepFolder       --> [isDir] 继续向下探索...
+```
+
+```java
+import java.io.*;
+
+public class CopyDirDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 数据源：要拷贝的文件夹
+        File src = new File("D:\\myFolder");
+        // 2. 目的地：拷贝到哪里
+        File dest = new File("E:\\backup");
+
+        // 3. 调用递归拷贝方法
+        copyDir(src, dest);
+    }
+
+    private static void copyDir(File src, File dest) throws IOException {
+        // 在目的地创建与源文件夹同名的目录
+        File newDir = new File(dest, src.getName());
+        if (!newDir.exists()) {
+            newDir.mkdirs(); //
+        }
+
+        // 1. 进入文件夹，获取所有子内容
+        File[] files = src.listFiles(); //
+        if (files == null) return;
+
+        // 2. 遍历
+        for (File file : files) {
+            if (file.isFile()) {
+                // 情况1：是文件 -> 直接拷贝（调用文件拷贝方法）
+                copyFile(file, new File(newDir, file.getName()));
+            } else {
+                // 情况2：是文件夹 -> 递归调用自己
+                copyDir(file, newDir);
+            }
+        }
+    }
+
+    // 纯文件拷贝：利用字节流读写
+    private static void copyFile(File src, File dest) throws IOException {
+        try (FileInputStream fis = new FileInputStream(src);
+             FileOutputStream fos = new FileOutputStream(dest)) {
+            byte[] buffer = new byte[1024 * 8]; // 8KB 缓冲区
+            int len;
+            while ((len = fis.read(buffer)) != -1) {
+                fos.write(buffer, 0, len); //
+            }
+        }
+    }
+}
+```
+
+---
+
+### 三、 底层原理与细节分析
+
+#### 1. 为什么用字节流不用字符流？
+
+拷贝动作属于“纯搬运”。使用字节流（`FileInputStream`/`FileOutputStream`）可以保证即便文件夹里有图片、视频或不同编码的文本，数据依然能原封不动地被复制，不会产生损坏。
+
+#### 2. 内存中的变化
+
+- **栈内存**：每进入一层子文件夹，程序就会在栈内存开辟一个新的方法栈帧。如果文件夹嵌套太深（如几千层），可能会触发 `StackOverflowError`。
+    
+- **堆内存（缓冲区）**：参考 **image_66bf91.jpg**，我们在 `copyFile` 中定义的 `byte[] buffer` 会在内存中开辟空间提高搬运效率。
+    
+
+#### 3. 关于 `mkdirs()` 的细节
+
+创建文件夹时必须保证父级路径存在。`mkdirs()` 比 `mkdir()` 更稳妥，它会自动创建不存在的多级父目录。
+
+---
+
+### 避坑指南
+
+- **死循环风险**：绝对不要把“目的地”设在“数据源”的子目录里（例如把 C 盘拷贝到 C 盘下的某个文件夹），这会导致递归永不停止，直到硬盘塞满。
+    
+- **权限问题**：某些系统文件夹（如 `System32`）可能拒绝访问，导致 `listFiles()` 返回 `null`，代码中必须做非空校验。
+    
+
+
+
+---
+---
+
 ## 文件拷贝的弊端和改进
 
 
