@@ -6027,6 +6027,85 @@ WHERE LOCK_TYPE = 'TABLE' AND LOCK_MODE IN ('IS', 'IX');
 
 
 
+## 表级锁代码示例
+
+
+我们来详细梳理一下**表级锁**。在 MySQL 中，表级锁主要分为三类：表锁（手动）、元数据锁（MDL，自动）和意向锁（自动）。
+
+---
+
+### 1. 表锁 (Table Lock)
+
+表锁分为读锁（Read Lock）和写锁（Write Lock）。这需要通过手动命令触发。
+
+#### 代码示例：
+
+```sql
+-- 客户端 A：开启读锁
+LOCK TABLES student READ;
+SELECT * FROM student; -- 成功
+INSERT INTO student VALUES (11, '小王', 22); -- 报错：当前会话持有读锁，不能写入
+
+-- 客户端 B：尝试写入
+INSERT INTO student VALUES (12, '小李', 23); -- 阻塞：必须等待 A 释放读锁
+
+-- 客户端 A：释放锁
+UNLOCK TABLES;
+```
+
+
+---
+
+### 2. 元数据锁 (Metadata Lock, MDL)
+
+MDL 是系统自动加上的，目的是防止 DML（增删改查数据）与 DDL（修改表结构）发生冲突。
+
+#### 代码示例：
+
+|**时间线**|**事务 A (Session 1)**|**事务 B (Session 2)**|
+|---|---|---|
+|T1|`BEGIN;`|-|
+|T2|`SELECT * FROM student WHERE id = 1;`<br><br>  <br><br>持有 **MDL 读锁**|-|
+|T3|-|`ALTER TABLE student ADD gender CHAR(1);`<br><br>  <br><br>申请 **MDL 写锁**，**阻塞等待**|
+|T4|`COMMIT;` -- 释放读锁|Session 2 自动执行 DDL 语句|
+
+
+---
+
+### 3. 意向锁 (Intention Lock)
+
+意向锁是 InnoDB 自动加的“信号灯”，用来快速判断表里有没有行锁，从而提高加表锁的效率。
+
+#### 代码示例：
+
+|**时间线**|**事务 A (Session 1)**|**事务 B (Session 2)**|
+|---|---|---|
+|T1|`BEGIN;`|-|
+|T2|`UPDATE student SET name='新名' WHERE id=1;`<br><br>  <br><br>自动加 **行级排他锁(X)** 和 **意向排他锁(IX)**|-|
+|T3|-|`LOCK TABLES student WRITE;`<br><br>  <br><br>检测到表上有 **IX 锁**，**直接阻塞**，无需全表扫描|
+|T4|`COMMIT;`|Session 2 获得表锁|
+
+
+---
+
+### 表级锁总结对照表
+
+|**锁类型**|**触发 SQL**|**保护对象**|**兼容性**|
+|---|---|---|---|
+|**表锁 (S/X)**|`LOCK TABLES ... READ/WRITE`|整表数据|读读兼容，读写/写写互斥|
+|**MDL (S/X)**|`SELECT` / `UPDATE` / `ALTER`|表结构|只要有未提交事务，DDL 就被阻塞|
+|**意向锁 (IS/IX)**|`SELECT...S` / `UPDATE` / `DELETE`|表级标记|意向锁间兼容，与表锁互斥|
+
+**这些表级锁虽然各司其职，但它们经常在幕后相互配合。你在编写 Java 后端接口时，如果遇到长事务导致无法上线（无法执行 DDL），通常就是被元数据锁（MDL）给拦住了。这种排查思路对你未来的实习面试非常有帮助。**
+
+
+
+
+
+
+---
+---
+
 ## 行级锁——行锁
 
 
@@ -6179,4 +6258,113 @@ WHERE LOCK_TYPE = 'RECORD';
     
 - **临键锁**：锁“记录 + 空隙”，是默认状态。
     
+
+---
+---
+
+## 行级锁代码示例
+
+
+为了让你更直观地理解这些复杂的行级锁，我们直接进入“实战演练”模式。
+
+以下内容基于 MySQL 的 **InnoDB** 存储引擎，且事务隔离级别为默认的 **可重复读（Repeatable Read）**。
+
+---
+
+### 1. 准备工作：创建测试表
+
+在演示之前，我们需要一张带有索引的表。
+
+```sql
+CREATE TABLE `student` (
+  `id` int NOT NULL,
+  `name` varchar(50) DEFAULT NULL,
+  `age` int DEFAULT NULL,
+  PRIMARY KEY (`id`),          -- 唯一索引（主键）
+  KEY `idx_age` (`age`)        -- 普通索引
+) ENGINE=InnoDB;
+
+INSERT INTO student VALUES (1, '阿强', 10), (5, '阿珍', 20), (10, '阿豪', 30);
+```
+
+---
+
+### 2. 间隙锁（Gap Lock）演示
+
+间隙锁的主要目的是防止其他事务插入数据（防止幻读）。间隙锁之间是可以共存的。
+
+#### 场景：唯一索引等值查询（记录不存在）
+
+当查询一个不存在的记录时，Next-key 锁会优化为**间隙锁**。
+
+|**时间线**|**事务 A (Session 1)**|**事务 B (Session 2)**|
+|---|---|---|
+|T1|`BEGIN;`|`BEGIN;`|
+|T2|`SELECT * FROM student WHERE id = 3 FOR UPDATE;`<br><br>  <br><br>锁定范围：**(1, 5)** 的间隙|-|
+|T3|-|`INSERT INTO student VALUES (2, '小明', 15);`<br><br>  <br><br>**结果：阻塞等待**（被间隙锁拦截）|
+|T4|-|`INSERT INTO student VALUES (6, '小红', 25);`<br><br>  <br><br>**结果：成功**（在范围外）|
+|T5|`COMMIT;`|Session 2 此时才会执行 T3 的插入|
+
+---
+
+### 3. 临键锁（Next-Key Lock）演示
+
+临键锁是行锁与间隙锁的组合，它是 InnoDB 默认的搜索方式。它锁定的是一个**左开右闭**的区间。
+
+#### 场景：普通索引等值查询
+
+普通索引在等值查询时，会锁定记录本身及其前后的间隙。
+
+|**时间线**|**事务 A (Session 1)**|**事务 B (Session 2)**|
+|---|---|---|
+|T1|`BEGIN;`|`BEGIN;`|
+|T2|`SELECT * FROM student WHERE age = 20 FOR UPDATE;`|-|
+|T3|**分析锁定范围：**<br><br>  <br><br>1. `age=20` 记录本身加行锁<br><br>  <br><br>2. 之前的间隙 `(10, 20]`<br><br>  <br><br>3. 之后的间隙直到下一个值 `(20, 30]`<br><br>  <br><br>**总范围：(10, 30]**|-|
+|T4|-|`INSERT INTO student VALUES (6, '测试', 25);`<br><br>  <br><br>**结果：阻塞等待**|
+|T5|-|`UPDATE student SET name='新名' WHERE id=5;`<br><br>  <br><br>**结果：阻塞等待**（记录本身被锁）|
+
+---
+
+### 4. 行锁（Record Lock）演示
+
+`UPDATE`、`DELETE` 等操作会自动加排他锁（X锁）。
+
+#### 场景：主键等值查询（记录存在）
+
+当唯一索引（主键）命中存在的记录时，Next-Key 锁会优化为单纯的**行锁**。
+
+|**时间线**|**事务 A (Session 1)**|**事务 B (Session 2)**|
+|---|---|---|
+|T1|`BEGIN;`|`BEGIN;`|
+|T2|`UPDATE student SET name = '阿强加强版' WHERE id = 1;`<br><br>  <br><br>锁定：**id=1 这一行**|-|
+|T3|-|`INSERT INTO student VALUES (2, '路人', 12);`<br><br>  <br><br>**结果：成功**（间隙未被锁）|
+|T4|-|`DELETE FROM student WHERE id = 1;`<br><br>  <br><br>**结果：阻塞等待**（行锁冲突）|
+
+---
+
+### 5. 核心规则总结表
+
+
+- **唯一索引等值查询**：
+    
+    - 记录存在：退化为 **行锁**（只锁那一行）。
+        
+    - 记录不存在：优化为 **间隙锁**（防止别人插入这个位置）。
+        
+- **普通索引等值查询**：
+    
+    - 会持续向右扫描，直到找到第一个不符合条件的值，此时 Next-Key 锁退化为 **间隙锁**。
+        
+- **间隙锁的特性**：
+    
+    - 间隙锁的唯一目的是防止插入。
+        
+    - **不互斥**：事务 A 在 (1, 5) 加间隙锁，事务 B 也可以在 (1, 5) 加间隙锁。
+        
+
+这些锁的机制虽然复杂，但它们共同构建了数据库的“结界”。在开发中，如果你遇到 `Lock wait timeout exceeded`，通常就是这些看不见的“间隙”在打架。
+
+
+---
+---
 
