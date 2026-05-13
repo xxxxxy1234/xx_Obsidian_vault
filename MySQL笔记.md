@@ -5910,6 +5910,18 @@ _注意：如果你断开了执行加锁命令的会话（Session），系统会
 如果你的数据库出现了卡顿，怀疑是 MDL 锁导致的，可以通过以下 SQL 语句查看当前正在持有的元数据锁：
 
 ```sql
+SELECT 
+    OBJECT_SCHEMA,   -- 数据库名
+    OBJECT_NAME,     -- 表名
+    INDEX_NAME,      -- 索引名（意向锁通常显示为 NULL）
+    LOCK_TYPE,       -- 锁类型（TABLE 代表表级锁）
+    LOCK_MODE,       -- 锁模式（IS 或 IX）
+    LOCK_DATA        -- 锁定的具体数据（意向锁此列通常为空）
+FROM performance_schema.data_locks
+WHERE LOCK_TYPE = 'TABLE' AND LOCK_MODE IN ('IS', 'IX');
+```
+
+```sql
 select object_type, object_schema, object_name, lock_type, lock_duration 
 from performance_schema.metadata_locks;
 ```
@@ -5990,6 +6002,25 @@ from performance_schema.metadata_locks;
 
 ---
 
+### 4. 如何查看意向锁？
+
+```sql
+SELECT 
+    OBJECT_SCHEMA,   -- 数据库名
+    OBJECT_NAME,     -- 表名
+    INDEX_NAME,      -- 索引名（意向锁通常显示为 NULL）
+    LOCK_TYPE,       -- 锁类型（TABLE 代表表级锁）
+    LOCK_MODE,       -- 锁模式（IS 或 IX）
+    LOCK_DATA        -- 锁定的具体数据（意向锁此列通常为空）
+FROM performance_schema.data_locks
+WHERE LOCK_TYPE = 'TABLE' AND LOCK_MODE IN ('IS', 'IX');
+```
+
+---
+
 ### 总结
 
 意向锁的出现，使得表锁在申请时**不再需要全表扫描行锁**，极大地提高了判断效率。它是 InnoDB 支持多粒度锁定（同时支持行锁和表锁）的核心基石。
+
+---
+---
