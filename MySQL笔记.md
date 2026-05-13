@@ -5922,6 +5922,9 @@ from performance_schema.metadata_locks;
 
 
 ---
+---
 
 
+
+## 表锁——意向锁
 
