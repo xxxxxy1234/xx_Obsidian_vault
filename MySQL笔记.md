@@ -6043,6 +6043,16 @@ WHERE LOCK_TYPE = 'TABLE' AND LOCK_MODE IN ('IS', 'IX');
 - **手动触发**：可以使用 `SELECT ... FOR UPDATE`（加写锁）或 `SELECT ... LOCK IN SHARE MODE`（加读锁）。
     
 
+
+|**SQL 语句**|**行锁类型**|**说明**|
+|---|---|---|
+|`INSERT ...`|**排他锁 (X)**|**自动加锁**。|
+|`UPDATE ...`|**排他锁 (X)**|**自动加锁**。|
+|`DELETE ...`|**排他锁 (X)**|**自动加锁**。|
+|`SELECT (正常)`|**不加任何锁**|依靠 MVCC（多版本并发控制）实现快照读。|
+|`SELECT ... LOCK IN SHARE MODE`|**共享锁 (S)**|**手动加锁**。需在语句后显式添加。|
+|`SELECT ... FOR UPDATE`|**排他锁 (X)**|**手动加锁**。需在语句后显式添加。|
+
 ---
 
 ### 2. 行锁的分类
