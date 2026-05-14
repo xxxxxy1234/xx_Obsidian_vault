@@ -12380,6 +12380,127 @@ public class BufferedStreamDemo {
 ---
 
 
+## 字符缓冲流
+
+
+字符缓冲流是 Java IO 流中针对文本处理的高级流。它们通过内置缓冲区减少与磁盘的交互次数，并提供了更便捷的行操作方法。
+
+---
+
+### 一、 字符缓冲流分类
+
+字符缓冲流同样属于包装流，其构造方法需要接收一个基本的字符流对象：
+
+- **BufferedReader (字符缓冲输入流)**：包装 `FileReader`。
+    
+- **BufferedWriter (字符缓冲输出流)**：包装 `FileWriter`。
+    
+
+---
+
+### 二、 提高效率的原理与特点
+
+1. **内置缓冲区**：缓冲流自带长度为 **8192** 的缓冲区。
+    
+    - **BufferedReader** 会预先从文件中读取一大块数据存入字符数组，后续读取直接从内存中取。
+        
+    - **BufferedWriter** 会先将数据写到内存字符数组中，待缓冲区满后再统一写入磁盘。
+        
+2. **性能提升差异**：
+    
+    - 对于字节流而言，缓冲流能显著提高读写性能。
+        
+    - 对于字符流（如 `FileReader`），由于它底层本身已经自带了缓冲区，所以 `BufferedReader` 对性能的**提升并不明显**。
+        
+    - **核心价值**：字符缓冲流的核心优势不在于速度，而在于其**两个特有的、极其方便的方法**。
+        
+
+>[!attention]
+>关于缓冲区：
+>- 字节缓冲流，缓冲区大小为8192个字节数组，即8k
+>- 字符缓冲流，缓冲区大小为8192个字符数组，即16k（java底层一个char占两个字节）
+>
+
+>[!attention]
+>java的内部字符编码是UTF-16，绝大部分汉字和中英文占2个字节（1个char），极个别生僻古汉字占4个字节（2个char），如果char一个超大生僻字，编译不会报错，但会只存一半编码，变成乱码残缺字符
+>
+>IDEA的UTF-8和java的UTF-16不是一回事，
+>- 你在 IDEA 写：`char c = '男'`
+>- 存到硬盘 `.java` 文件：**UTF-8** → “男” 占 3 字节
+>- 编译运行进 JVM 内存：自动转成 **UTF-16** → “男” 变 2 字节，塞进一个 char 完美放下
+>- 生僻大字强行用char运行时会丢失一半编码
+>
+
+---
+
+### 三、 两个特有的方法
+
+这两个方法让处理文本文件变得像读写句子一样简单：
+
+1. **BufferedReader 特有方法：`readLine()`**
+    
+    - **功能**：一次读取一整行数据，直到遇到换行符为止。
+        
+    - **返回值**：返回包含该行内容的字符串（不包含换行符）。如果读到文件末尾，返回 **null**。
+        
+2. **BufferedWriter 特有方法：`newLine()`**
+    
+    - **功能**：写出一个跨平台的换行符。
+        
+    - **优势**：由于不同操作系统的换行符不同（Windows 是 `\r\n`，Linux 是 `\n`），该方法能自动根据当前系统选择正确的换行符。
+        
+
+---
+
+### 四、 代码示例
+
+以下展示如何利用这两个特有方法高效地进行文件读取和带换行的写入。
+
+
+```java
+import java.io.*;
+
+public class BufferedReaderWriterDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 创建流对象
+        BufferedReader br = new BufferedReader(new FileReader("myio\\a.txt"));
+        BufferedWriter bw = new BufferedWriter(new FileWriter("myio\\copy.txt"));
+
+        // 2. 使用特有方法读取和写出
+        String line;
+        // readLine() 读到末尾返回 null
+        while ((line = br.readLine()) != null) {
+            bw.write(line);   // 写出一行内容
+            bw.newLine();     // 写出一个跨平台的换行符
+        }
+
+        // 3. 释放资源
+        bw.close();
+        br.close();
+    }
+}
+```
+
+---
+
+### 五、 核心总结
+
+- **BuffedReader**：最强大的地方在于 **`readLine()`**，可以按行处理逻辑。
+    
+- **BufferedWriter**：最强大的地方在于 **`newLine()`**，解决了跨平台换行的一致性问题。
+    
+- **缓冲区**：长度固定为 8192。
+    
+
+---
+---
+
+
+
+
+
+
+
 
 
 ---
