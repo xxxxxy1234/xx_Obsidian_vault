@@ -12267,6 +12267,117 @@ public class FileWriterDetailDemo {
 ---
 
 
+## 字节缓冲流
+
+
+字节缓冲流（Buffered Stream）是 Java IO 流中的**高级流**（也称为包装流）。它并不直接读写文件，而是对基本的字节流进行包装，通过在内存中建立**缓冲区**来大幅提升读写效率。
+
+---
+
+### 一、 字节缓冲流分类
+
+字节缓冲流基于“装饰者模式”，需要在构造时传入一个基本流对象：
+
+1. **BufferedInputStream (字节缓冲输入流)**：用于包装 `FileInputStream`。
+    
+2. **BufferedOutputStream (字节缓冲输出流)**：用于包装 `FileOutputStream`。
+    
+
+---
+
+### 二、 提高效率的原理
+
+字节缓冲流之所以快，核心在于**减少了内存与硬盘之间的交互次数**。
+
+- **内存缓冲区**：缓冲流在创建时，会在内存中创建一个默认长度为 **8192 (8KB)** 的字节数组作为缓冲区。
+    
+- **读取原理**：
+    
+    - 当调用 `read()` 时，缓冲输入流会一次性从硬盘读取 8192 字节放入自己的缓冲区。
+        
+    - 随后的读取动作直接从内存缓冲区中获取数据，速度极快。
+        
+- **写入原理**：
+    
+    - 当调用 `write()` 时，数据先写到内存缓冲区中。
+        
+    - 直到缓冲区装满，或者手动刷新/关闭流时，才会将这 8192 字节一次性写入硬盘。
+        
+
+**形象比喻**：
+
+- **基本流**：相当于你用勺子（1字节）从水缸（硬盘）往碗里舀水，每舀一下都要跑一趟。
+    
+- **缓冲流**：相当于你在水缸旁边放了一个大水桶（8KB 缓冲区）。先把水桶装满，然后你在桌子旁直接从水桶里舀水，效率翻倍。
+    
+
+---
+
+### 三、 常用方法与代码示例
+
+#### 1. 核心方法
+
+- `bis.read()`: 从缓冲区读取一个字节。
+    
+- `bis.read(byte[] bytes)`: 批量读取数据存入自定义数组。
+    
+- `bos.write(int b)`: 将一个字节写入缓冲区。
+    
+- `bos.write(byte[] bytes, int off, int len)`: 批量写入数组内容。
+    
+- `bos.flush()`: 强制刷新缓冲区，将数据写入硬盘。
+    
+
+#### 2. 代码示例：文件拷贝
+
+
+```java
+import java.io.*;
+
+public class BufferedStreamDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 包装基本流
+        BufferedInputStream bis = new BufferedInputStream(new FileInputStream("video.mp4"));
+        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream("copy.mp4"));
+
+        // 方式一：利用缓冲流逐个字节拷贝
+        // 虽然是一个个读，但实际上是从内存读，速度也很快
+        /*
+        int b;
+        while ((b = bis.read()) != -1) {
+            bos.write(b);
+        }
+        */
+
+        // 方式二：缓冲流 + 自定义数组 (最优性能)
+        byte[] bytes = new byte[1024]; 
+        int len;
+        while ((len = bis.read(bytes)) != -1) {
+            bos.write(bytes, 0, len);
+        }
+
+        // 2. 释放资源：只需关闭缓冲流，其方法底层会自动关闭基本流
+        bos.close();
+        bis.close();
+    }
+}
+```
+
+---
+
+### 四、 性能总结
+
+|**读写方式**|**效率**|**原理**|
+|---|---|---|
+|**基本流逐个字节**|极低|频繁访问硬盘，性能瓶颈在 IO。|
+|**基本流 + 数组**|较高|减少了 IO 次数。|
+|**缓冲流逐个字节**|高|虽然代码层面是逐个读，但底层是内存操作。|
+|**缓冲流 + 数组**|**极高**|内存批量操作 + 减少 IO 次数，是处理大文件的标配。|
+
+**注意**：缓冲流的缓冲区大小默认是 8192，虽然可以在构造时修改，但 8KB 通常是性能平衡点。
+
+---
+---
 
 
 
