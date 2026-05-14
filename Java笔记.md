@@ -12502,6 +12502,119 @@ public class BufferedReaderWriterDemo {
 ## 转换流
 
 
+在 Java IO 流的体系中，**转换流**（Transition Streams）充当了字节流与字符流之间的“桥梁”或“翻译官”，也属于高级流。它能将字节数据按照指定的字符集解码为字符，或者将字符编码为字节。
+
+---
+
+### 一、 转换流的核心成员
+
+转换流主要有两个类，它们都属于字符流体系：
+
+1. **InputStreamReader (字节输入流 -> 字符输入流)**
+    
+    - **作用**：读取字节并将其解码为字符。
+        
+    - **原理**：它读取底层的 `InputStream` 字节，根据指定的编码表（Charset）将其翻译成字符。
+        
+2. **OutputStreamWriter (字符输出流 -> 字节输出流)**
+    
+    - **作用**：将字符编码为字节并写出。
+        
+    - **原理**：它接收字符数据，按照编码表转化为字节，再交给底层的 `OutputStream` 处理。
+        
+
+---
+
+### 二、 核心功能与使用场景
+
+- **指定编码读写**：当文件的编码格式与当前环境默认编码（如 UTF-8 与 GBK）不一致时，必须使用转换流手动指定字符集，否则会出现乱码。
+    
+- **字节流转字符流**：当你手头只有字节流（如从网络获取的 `Socket.getInputStream()`）但需要按行处理文本时，需要先转成字符流。
+    
+
+---
+
+### 三、 JDK 11 前后的重大区别
+
+JDK 11 是转换流使用方式的一个重要分水岭，主要体现在代码的简便性上：
+
+#### 1. JDK 11 之前：转换流是唯一选择
+
+在 JDK 11 之前，如果想在创建字符流（如 `FileReader` 或 `FileWriter`）时指定编码，`FileReader` 是不支持的，因为它只能使用系统默认编码。
+
+- **必须手动包装**：
+
+    ```java
+    // 以前指定 GBK 读取的方法：必须先开字节流，再套转换流
+    InputStreamReader isr = new InputStreamReader(new FileInputStream("a.txt"), "GBK");
+    ```
+    
+
+#### 2. JDK 11 之后：基本流的升级
+
+JDK 11 为 `FileReader` 和 `FileWriter` 增加了新的构造方法，允许在创建时直接指定 **Charset（字符集）**。
+
+- **简化写法**：
+
+```java
+// JDK 11 后的写法：直接在 FileReader 中指定编码 
+FileReader fr = new FileReader("a.txt", Charset.forName("GBK"));
+```
+
+
+**区别总结**： 
+
+- **JDK 11 以前**：如果需要指定编码，**必须**使用 `InputStreamReader` 或 `OutputStreamWriter` 包装字节流。 
+- **JDK 11 以后**：`FileReader` 和 `FileWriter` 内部集成了转换流的功能。除非你需要处理特殊的流对象（如网络流），否则不再需要显式编写转换流代码。 
+
+---
+
+
+### 四、 代码示例 (JDK 11 兼容方式)
+
+以下展示如何使用转换流将一个 GBK 编码的文件转换为 UTF-8 编码：
+
+```java
+import java.io.*;
+import java.nio.charset.Charset;
+
+public class ConvertStreamDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 创建转换输入流，指定以 GBK 格式读取
+        InputStreamReader isr = new InputStreamReader(new FileInputStream("gbk_file.txt"), "GBK");
+        
+        // 2. 创建转换输出流，指定以 UTF-8 格式写出
+        OutputStreamWriter osw = new OutputStreamWriter(new FileOutputStream("utf8_file.txt"), "UTF-8");
+
+        // 3. 读写循环
+        int ch;
+        while ((ch = isr.read()) != -1) {
+            osw.write(ch);
+        }
+
+        // 4. 释放资源 (close 包装流会自动关闭底层基本流)
+        osw.close();
+        isr.close();
+    }
+}
+````
+
+---
+
+### 五、 总结
+
+- **本质**：转换流 = 字节流 + 编码表。
+    
+- **地位**：它是所有字符流（如 `FileReader`）的父类或底层实现基础。
+    
+- **趋势**：随着 JDK 11 增强了基本字符流的构造能力，显式使用转换流的频率正在降低，但其“桥梁”原理依然是 IO 体系的核心。
+    
+---
+---
+
+
+
+
 
 
 
