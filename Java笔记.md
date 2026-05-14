@@ -12499,7 +12499,7 @@ public class BufferedReaderWriterDemo {
 
 
 
-
+## 转换流
 
 
 
@@ -12826,7 +12826,7 @@ public class SortFileMethod1 {
 
 ---
 
-### 方法二：进阶方式（Stream 流处理）
+#### 方法二：进阶方式（Stream 流处理）
 
 这种方式利用 Stream 流将“转换、排序、收集”一气呵成，代码更加简洁优雅。
 
@@ -12865,3 +12865,71 @@ public class SortFileMethod2 {
     }
 }
 ```
+
+
+---
+---
+
+### 题目：实现一个验证程序运行次数的小程序，超过三次给出提示
+
+这个练习题的核心目标是实现一个**软件运行次数验证程序**。通过 IO 流技术将运行次数持久化存储在本地文件中，从而实现跨运行周期的计数统计。
+
+#### 一、 练习代码实现
+
+```java
+import java.io.*;
+
+public class RunCountDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 把文件中的数字读取到内存中
+        // 原则：IO 随用随创建，什么时候不用什么时候关闭
+        BufferedReader br = new BufferedReader(new FileReader("myio\\count.txt"));
+        String line = br.readLine();
+        br.close(); // 读取完毕立即关闭流
+
+        // 处理逻辑：将读取到的字符串转为整数
+        int count = Integer.parseInt(line);
+        // 表示当前软件又运行了一次
+        count++; 
+
+        // 2. 判断运行次数并给出提示
+        if (count <= 3) {
+            System.out.println("欢迎使用本软件,第" + count + "次使用免费~");
+        } else {
+            System.out.println("本软件只能免费使用3次,欢迎您注册会员后继续使用~");
+        }
+
+        // 3. 把当前自增之后的 count 写出到文件当中进行持久化
+        BufferedWriter bw = new BufferedWriter(new FileWriter("myio\\count.txt"));
+        // 注意：write 方法如果直接传 int 会当成字符码表值，需拼接空串转为字符串
+        bw.write(count + ""); 
+        bw.close();
+    }
+}
+```
+
+---
+
+#### 二、 核心要点总结
+
+
+- **IO 流的使用原则**：
+    
+    - **随用随创建**：不要过早开启资源，避免不必要的系统开销。*如果输出流的创建紧跟在输入流之后，会导致文件内容直接被清空读不到数据*
+        
+    - **不用即关闭**：读取完数据后应立即关闭输入流，以便后续输出流能够顺利获取文件的写入权限。
+        
+- **持久化存储逻辑**：
+    
+    - 程序运行时的变量（count）存在于内存中，一旦程序结束数据就会丢失。
+        
+    - 通过 `BufferedReader` 读取旧值，自增后再通过 `BufferedWriter` 覆盖写入，实现了数据的本地持久化，即使电脑重启也能记住运行次数。
+        
+- **字符缓冲流的便利性**：
+    
+    - **`readLine()`**：可以方便地直接获取文件中的数字字符串，无需手动处理字符拼接。
+        
+    - **数据转换**：利用 `Integer.parseInt()` 实现“文本数据”到“数值计算”的跨越。
+        
+
+**💡 小贴士**：在实际测试前，请确保 `myio\count.txt` 文件已存在，且初始内容为一个数字（如 `0`），否则 `parseInt` 可能会抛出异常。
