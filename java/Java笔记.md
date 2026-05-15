@@ -12719,6 +12719,116 @@ ois.close();
 ---
 
 
+### 综合代码示例
+
+
+在序列化多个对象时，最推荐的做法是**将多个对象放入一个集合（如 ArrayList）中，然后将整个集合序列化**。这样在反序列化时，只需读取一次即可获取所有数据，有效避免了手动判断文件末尾（EOFException）的问题。
+
+
+#### 1. 准备实体类
+
+实体类必须实现 `Serializable` 接口，并建议手动指定版本号。
+
+```java
+import java.io.Serializable;
+
+public class Student implements Serializable {
+    private static final long serialVersionUID = 1L; // 手动指定版本号
+    private String name;
+    private int age;
+
+    public Student(String name, int age) {
+        this.name = name;
+        this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "Student{name='" + name + "', age=" + age + "}";
+    }
+}
+```
+
+#### 2. 序列化与反序列化实现
+
+```java
+import java.io.*;
+import java.util.ArrayList;
+
+public class ObjectStreamDemo {
+    public static void main(String[] args) throws IOException, ClassNotFoundException {
+        // 1. 序列化：将多个对象存入集合并写出
+        serializeStudents();
+
+        // 2. 反序列化：一次性读出整个集合
+        deserializeStudents();
+    }
+
+    private static void serializeStudents() throws IOException {
+        // 创建序列化流（包装了字节输出流）
+        ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("students.dat"));
+
+        // 创建集合存储多个对象
+        ArrayList<Student> list = new ArrayList<>();
+        list.add(new Student("张三", 23));
+        list.add(new Student("李四", 24));
+        list.add(new Student("王五", 25));
+
+        // 核心：写出整个集合对象
+        oos.writeObject(list);
+
+        // 释放资源（关闭包装流即可）
+        oos.close();
+        System.out.println("多个对象序列化成功！");
+    }
+
+    private static void deserializeStudents() throws IOException, ClassNotFoundException {
+        // 创建反序列化流
+        ObjectInputStream ois = new ObjectInputStream(new FileInputStream("students.dat"));
+
+        // 核心：读出的对象强转为对应的集合类型，obj是list集合而不是一个个student
+        Object obj = ois.readObject();
+        ArrayList<Student> list = (ArrayList<Student>) obj;
+
+        // 遍历集合查看结果
+        for (Student s : list) {
+            System.out.println(s);
+        }
+
+        // 释放资源
+        ois.close();
+    }
+}
+```
+
+
+
+#### 核心总结与避坑指南
+
+- **为什么要存入集合？**
+    
+    - 如果直接多次调用 `writeObject`，反序列化时很难判断什么时候读到了文件末尾（直接读会抛出 `EOFException`）。
+        
+    - 存入集合后，只需 `readObject` 一次，逻辑非常清晰。
+        
+- **资源管理细节**：
+    
+    - 流的操作遵循“随用随创建，用完即关闭”的原则。
+        
+    - 关闭高级流（如 `ObjectOutputStream`）会自动关闭它包装的低级字节流。
+        
+- **版本一致性**：
+    
+    - 必须确保序列化时和反序列化时，`serialVersionUID` 是一致的。如果类结构发生改变且没有固定版本号，反序列化会报错。
+        
+- **效率原理**：
+    
+    - 对象操作流底层同样会利用字节缓冲区来提升 IO 效率，减少与硬盘的直接交互。
+
+
+
+---
+
 ### 扩展：将对象写到磁盘中必须用到序列化流吗？
 
 
@@ -12728,7 +12838,7 @@ ois.close();
 
 以下是几种常见的将对象写到磁盘的方法对比，帮助你理解为什么序列化流不是唯一选择：
 
----
+
 
 #### 1. Java 序列化流 (ObjectOutputStream)
 
