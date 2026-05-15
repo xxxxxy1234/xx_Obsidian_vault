@@ -12612,6 +12612,110 @@ public class ConvertStreamDemo {
 ---
 
 
+## 对象操作流
+
+
+在 Java IO 中，**序列化流**（ObjectOutputStream）和**反序列化流**（ObjectInputStream）被统称为**对象操作流**。它们的核心作用是将 Java 对象转换为字节序列（序列化），以便于存储到磁盘或在网络中传输；并能将这些字节序列恢复为原始对象（反序列化）。
+
+---
+
+### 一、 序列化流（ObjectOutputStream）
+
+**1. 概念与作用**
+
+序列化流属于**高级流**，它包装了基础的字节输出流。其核心功能是利用 `writeObject(Object obj)` 方法，将一个 Java 对象写入到目的地。
+
+**2. 核心代码示例**
+
+```java
+// 1. 创建底层字节输出流
+FileOutputStream fos = new FileOutputStream("object.dat");
+// 2. 创建序列化流包装底层流
+ObjectOutputStream oos = new ObjectOutputStream(fos);
+
+// 3. 创建要序列化的对象
+Student s = new Student("张三", 23);
+
+// 4. 写出对象
+oos.writeObject(s);
+
+// 5. 释放资源
+oos.close();
+```
+
+---
+
+### 二、 反序列化流（ObjectInputStream）
+
+**1. 概念与作用**
+
+反序列化流用于读取被序列化后的字节数据，并将其还原成内存中的 Java 对象。
+
+**2. 核心代码示例**
+
+
+```java
+// 1. 创建反序列化流
+ObjectInputStream ois = new ObjectInputStream(new FileInputStream("object.dat"));
+
+// 2. 读取对象
+Object obj = ois.readObject();
+
+// 3. 打印对象
+System.out.println(obj);
+
+// 4. 释放资源
+ois.close();
+```
+
+---
+
+### 三、 序列化的“三大要素”
+
+要成功实现对象的序列化与反序列化，必须满足以下条件：
+
+1. **Serializable 接口**：
+    
+    - 被序列化的类必须实现 `java.io.Serializable` 接口。
+        
+    - 这是一个**标记接口**，内部没有任何方法。实现它仅代表该类获得了序列化的“入场券”。
+        
+2. **serialVersionUID（序列版本号）**：
+    
+    - **作用**：验证序列化对象和对应类是否匹配。
+        
+    - **建议**：手动显式定义 `private static final long serialVersionUID = 1L;`。
+        
+    - **原因**：如果不手动定义，每当类文件发生微小改动（如加个空格），编译器都会重新生成版本号，导致反序列化时抛出 `InvalidClassException` 异常。
+        
+3. **transient 关键字（瞬态关键字）**：
+    
+    - 如果某个成员变量不想被序列化（例如密码、隐私信息），可以在变量前加上 `transient`。
+        
+    - **效果**：该属性在序列化时会被忽略，反序列化回来后该值为其类型的默认值（如 `null` 或 `0`）。
+        
+
+---
+
+### 四、 提高效率与原理图解
+
+对象操作流底层同样涉及数据的编码与存储逻辑。
+
+- **底层联系**：序列化流在写入时，会记录类的结构、属性名、属性值等元数据。这与字符流类似，都需要通过缓冲区和特定的协议来保证数据的完整性。
+    
+- **缓冲机制**：虽然 `ObjectOutputStream` 主要关注对象结构，但它通常也会结合缓冲区来减少磁盘 IO 交互，提高传输效率。
+    
+
+---
+
+### 五、 常见问题与细节总结
+
+| **特性**    | **说明**                                                                                |
+| --------- | ------------------------------------------------------------------------------------- |
+| **读到末尾**  | 如果文件中有多个对象，连续调用 `readObject()` 读到末尾会抛出 `EOFException`。通常建议将多个对象放入 `ArrayList` 一次性序列化。 |
+| **构造方法**  | 反序列化时，并不会调用该类的构造方法，而是直接根据字节序列重建对象。                                                    |
+| **版本一致性** | 序列化后的 `serialVersionUID` 必须与反序列化时的类版本号一致（类似加密解密中密钥一致性的逻辑）。                            |
+
 
 
 
