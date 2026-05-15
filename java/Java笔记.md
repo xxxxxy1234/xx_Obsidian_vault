@@ -12905,6 +12905,185 @@ public class ObjectStreamDemo {
 ---
 
 
+## 打印流
+
+
+打印流（Print Stream）是 Java IO 体系中功能最强大、使用最方便的**输出流**之一。它的核心价值在于：**只负责输出，不负责读取**，并且极大地简化了数据的写出操作。
+
+---
+
+### 一、 打印流的分类
+
+打印流分为两类，分别对应字节和字符操作：
+
+1. **PrintStream (字节打印流)**：继承自 `FilterOutputStream`。
+    
+2. **PrintWriter (字符打印流)**：继承自 `Writer`。
+    
+
+---
+
+### 二、 核心特点（为什么好用？）
+
+1. **打印任意类型**：
+    
+    普通的流写出数据往往需要转成字节或字符，而打印流提供了 `println()`、`print()`、`printf()`，可以直接传入 `int`、`double`、`Object`、`boolean` 等，它会自动将其转为字符串输出。
+    
+2. **自动换行与自动刷新**：
+    
+    - **自动换行**：调用 `println()` 会根据系统自动添加换行符。
+        
+    - **自动刷新**：如果在构造时开启了 `autoFlush`，那么每次调用 `println`、`printf` 或 `format` 时，数据都会立即冲刷到目的地。
+        
+3. **永不抛出 IOException**：
+    
+    打印流的所有方法内部都处理了异常，你不需要在代码里反复写 `try-catch`（虽然这在严谨开发中是个双刃剑）。
+    
+
+---
+
+### 三、 构造方法与成员方法解析
+
+#### 1. 构造方法
+
+打印流可以关联多种目的地：
+
+- **文件/路径**：`new PrintStream("a.txt")`
+    
+- **字节流/字符流**：可以包装其他的输出流。
+    
+- **指定编码**：在 JDK 11 后，可以直接在构造器指定 `Charset`。
+    
+
+#### 2. 特有成员方法
+
+- **`println(Xxx xx)`**：打印数据 + 自动刷新 + 自动换行。
+    
+- **`print(Xxx xx)`**：打印数据，不换行。
+    
+- **`printf(String format, Object... args)`**：**带占位符的打印**。例如：`printf("姓名：%s，年龄：%d", name, age)`，这在格式化报表时非常高效。
+    
+
+---
+
+### 四、 代码示例
+
+
+```java
+import java.io.*;
+
+public class PrintStreamDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 创建字节打印流，开启自动刷新
+        PrintStream ps = new PrintStream(new FileOutputStream("print.txt"), true);
+
+        // 2. 打印各种类型
+        ps.println(97);          // 打印数字 97，而不是字符 'a'
+        ps.println(true);        // 打印字符串 "true"
+        ps.println(3.14);
+        
+        // 3. 格式化打印 (printf)
+        ps.printf("今天的日期是 %s，温度是 %d 度", "2026-05-15", 25);
+
+        // 4. 释放资源
+        ps.close();
+    }
+}
+```
+
+---
+
+### 五、 打印流与缓冲流的关系
+
+虽然打印流提供了很多便捷方法，但它底层依然遵循你之前学到的**缓冲区逻辑**：
+
+- **PrintStream**：底层默认没有显式的 8192 字节缓冲区，但如果你包装了一个 `BufferedOutputStream`，它就会变得又快又好用。
+    
+- **PrintWriter**：底层自带缓冲区，如果不开启 `autoFlush`，记得手动 `flush` 或 `close`，否则数据会“憋”在内存里。
+    
+
+---
+
+### 思考：输出语句和打印流什么关系
+
+
+简单来说，你平时写的最多的输出语句 **`System.out.println()`**，其本质就是在使用一个**字节打印流（PrintStream）**。
+
+我们可以从以下几个维度来彻底理清它们的关系：
+
+
+
+#### 1. 身份揭秘：System.out 是什么？
+
+在 Java 中，`System` 是一个类，而 `out` 是该类里的一个**静态变量**。
+
+如果我们查看源码，会发现它的定义是：
+
+`public final static PrintStream out = null;`
+
+- **结论**：`System.out` 实际上就是一个名为 `out` 的 **`PrintStream`（字节打印流）对象**。
+    
+- **关系**：输出语句只是调用了这个打印流对象的方法而已。
+    
+
+
+
+#### 2. 核心联系：方法调用
+
+当你调用 `System.out.println("Hello")` 时，其实是按以下步骤执行的：
+
+1. 找到 `System` 类。
+    
+2. 获取它内部的 `PrintStream` 类型的成员变量 `out`。
+    
+3. 调用 `PrintStream` 类中的特有方法 `println()`。
+    
+
+这就是为什么 `System.out` 既可以 `print()`，也可以像你在看到的那样进行 `printf()` 格式化输出。
+
+
+
+#### 3. “标准输出流”的重定向
+
+打印流的一个强大之处在于：**它可以被改变方向**。
+
+- **默认情况**：`System.out` 关联的是控制台（显示器）。
+    
+- **修改方向**：你可以通过 `System.setOut()` 方法，把原本要打印到控制台的内容，转而打印到文件里。
+    
+
+
+```java
+// 创建一个指向文件的打印流
+PrintStream ps = new PrintStream("log.txt");
+// 修改系统的指向
+System.setOut(ps);
+
+// 此时，这条语句不会在屏幕显示，而是直接写进了 log.txt 文件
+System.out.println("这条信息被重定向到了文件里"); 
+```
+
+
+
+#### 4. 总结对比
+
+| **特性**   | **普通输出语句 (System.out)**                             | **手动创建的打印流 (PrintWriter/Stream)** |
+| -------- | --------------------------------------------------- | --------------------------------- |
+| **本质**   | 自动创建好的 `PrintStream` 对象                             | 需要手动 `new` 的高级流对象                 |
+| **目的地**  | 默认是 **控制台**                                         | 默认是 **文件** 或其他流                   |
+| **自动刷新** | 默认开启                                                | 构造时可选择是否开启                        |
+| **共同点**  | 都可以使用 `println`、`printf` 等方便的方法，都不会抛出 `IOException` |                                   |
+
+
+#### 深度理解
+
+之所以 Java 设计了打印流并将其内置在 `System.out` 中，就是为了让开发者能够**像说话一样自然地输出数据**，而不需要像使用 `FileOutputStream` 那样，每次都要手动把数字转成字节数组，还要处理异常。
+
+---
+---
+
+
+
 
 
 
