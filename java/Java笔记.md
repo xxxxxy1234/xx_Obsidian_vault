@@ -12636,7 +12636,7 @@ ObjectOutputStream oos = new ObjectOutputStream(fos);
 // 3. 创建要序列化的对象
 Student s = new Student("张三", 23);
 
-// 4. 写出对象
+// 4. 写出对象，调用一次写出一个
 oos.writeObject(s);
 
 // 5. 释放资源
@@ -12658,7 +12658,7 @@ oos.close();
 // 1. 创建反序列化流
 ObjectInputStream ois = new ObjectInputStream(new FileInputStream("object.dat"));
 
-// 2. 读取对象
+// 2. 读取对象，调用一次读出一个
 Object obj = ois.readObject();
 
 // 3. 打印对象
