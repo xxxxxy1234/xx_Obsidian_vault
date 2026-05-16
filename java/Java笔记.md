@@ -13368,6 +13368,199 @@ public class ZipFolderDemo {
 ---
 
 
+## Commons-io工具包
+
+
+**Commons-io** 是 Apache 组织提供的一个非常强大的开源第三方 **IO 操作工具包**。
+
+在 Java 原生 IO 中，我们写一个文件拷贝或者递归删除文件夹，往往需要写十几行甚至几十行充满 `try-catch-finally` 的代码。而 Commons-io 的核心目的就是**简化 Java 的 IO 流操作**，让你用“一行代码”就能搞定原本复杂的 IO 业务。
+
+下面为你详细介绍它的引入方式、核心核心类、具体方法示例。
+
+---
+
+### 一、 如何引入 Commons-io
+
+Commons-io 不是 Java 官方自带的，使用前需要下载其 jar 包，或者在项目的 `pom.xml` 中引入 Maven 依赖：
+
+```xml
+<dependency>
+    <groupId>commons-io</groupId>
+    <artifactId>commons-io</artifactId>
+    <version>2.11.0</version> </dependency>
+```
+
+---
+
+### 二、 核心工具类与具体方法举例
+
+Commons-io 中最常用的两个核心工具类是 **`FileUtils`**（专门操作文件/文件夹）和 **`IOUtils`**（专门操作流）。
+
+#### 1. FileUtils 类（文件与目录操作）
+
+这个类直接封装了对本地硬盘文件和文件夹的操作，完全不需要你手动去 `new FileInputStream`。
+
+- **复制文件或文件夹**
+
+    ```java
+    File srcFile = new File("D:\\test\\a.txt");
+    File destFile = new File("D:\\test\\b.txt");
+    File srcDir = new File("D:\\test\\dir1");
+    File destDir = new File("D:\\test\\dir2");
+    
+    // 一行代码复制文件
+    FileUtils.copyFile(srcFile, destFile); 
+    
+    // 一行代码复制整个文件夹（多级嵌套也会连带复制）
+    FileUtils.copyDirectory(srcDir, destDir); 
+    ```
+    
+- **删除文件或文件夹**
+    
+    在 Java 原生中，`file.delete()` 无法直接删除非空的文件夹。而这里：
+
+    ```java
+    File dir = new File("D:\\test\\myFolder");
+    
+    // 一行代码：递归删除文件夹，不管里面有多少东西，通通删掉
+    FileUtils.deleteDirectory(dir); 
+    ```
+    
+- **读写文件内容**
+    
+    不需要写 `BufferedReader` 的循环读取了：
+
+    ```java
+    File file = new File("D:\\test\\a.txt");
+    
+    // 一行代码：读取文件所有内容并转为字符串
+    String content = FileUtils.readFileToString(file, "UTF-8");
+    
+    // 一行代码：直接往文件写出字符串（参数3表示是否追加写）
+    FileUtils.writeStringToFile(file, "新内容", "UTF-8", true);
+    ```
+    
+
+---
+
+#### 2. IOUtils 类（流对象操作）
+
+这个类专门用来对已经开启的各种输入流、输出流进行批量操作，或者优雅地释放资源。
+
+- **流之间的互相拷贝**
+    
+    比如从网络下载、或者在反序列化、转换流等场景下将输入流直接对接到输出流：
+
+    ```java
+    InputStream is = new FileInputStream("src.dat");
+    OutputStream os = new FileOutputStream("dest.dat");
+    
+    // 一行代码：把输入流的数据自动全部抽干并写入输出流（底层自带高效缓冲区）
+    IOUtils.copy(is, os);
+    ```
+    
+- **从流中读取整行文本**
+    
+    类似字符缓冲流 `readLine()` 的高级版：
+
+    ```java
+    InputStream is = new FileInputStream("a.txt");
+    
+    // 一行代码：把流里的文本按行读出来，自动装进 List 集合
+    List<String> lines = IOUtils.readLines(is, "UTF-8");
+    ```
+    
+
+---
+
+### 三、 底层提升效率的原理
+
+虽然你在代码表面上只写了“一行代码”，但 Commons-io 的底层源码依然严格遵循你之前学到的 **IO 缓冲机制**：
+
+- 当你调用 `FileUtils.copyFile()` 或 `IOUtils.copy()` 时，它的底层会自动帮你创建一个大容量的**字节数组缓冲区（通常是 4KB 或 8KB）**。
+    
+- 它的底层在读写完毕后，会自动在 `finally` 块中帮你调用 `close()` 释放资源，完全规避了开发者因忘记关流而导致的内存泄漏或文件被占用的问题。
+    
+
+### 核心总结
+
+引入 Commons-io 后，Java 原生的那些高级流（缓冲流、转换流等）在日常最基础的“拷贝、读写、删除”业务中就很少需要手动去包装了。它极大地提升了开发效率，是商业项目开发中的“标配”工具包。
+
+---
+---
+
+
+## Hutool工具包
+
+
+**Hutool**（谐音“糊涂”）是国内开发者开源的一个非常强大的 **Java 基础工具类库**。
+
+如果说 Commons-io 是专注于优化 IO 流的“偏科生”，那么 Hutool 就是一个包罗万象的“全能型选手”。它的口号是“制造一个偷懒的第三方库”，将 Java 开发中常用的各类工具类（如字符串、日期、加密、线程、网络、包括咱们刚学完的 **IO 与文件操作**）全部进行了超简化的封装。
+
+由于我们正在学习 IO 体系，下面严格针对 Hutool 中关于 IO 流（IoUtil）**和**文件操作（FileUtil）的核心方法进行讲解。
+
+---
+
+### 一、 核心文件工具类：FileUtil
+
+`FileUtil` 彻底干掉了复杂的包装流和多层循环，对文件的读、写、复制、删除全部实现了“一行代码”搞定。
+
+#### 1. 文件的读与写
+
+- **`FileUtil.readUtf8String(File file)`**：直接将文本文件按 UTF-8 编码读取为一整串字符串。
+    
+- **`FileUtil.writeUtf8String(String content, File file)`**：将字符串直接以 UTF-8 格式覆写到目标文件中。
+    
+
+#### 2. 文件的复制与删除
+
+- **`FileUtil.copy(File src, File dest, boolean isOverride)`**：
+    
+    - 支持复制单个文件，也支持**直接复制整个文件夹**（多级嵌套一并复制）。
+        
+    - 参数3表示如果目标文件已存在，是否直接覆盖。
+        
+- **`FileUtil.del(File file)`**：
+    
+    - 强力删除！如果传入的是文件，直接删除；如果传入的是**非空文件夹**，会自动递归将文件夹内部的所有东西连带文件夹本身通通删干净，再也不用手动写递归了。
+        
+
+#### 3. 路径与便捷操作
+
+- **`FileUtil.touch(File file)`**：创建文件。如果文件的父级目录不存在，它会**自动帮你把父级目录全部创建出来**，彻底解决原生 `createNewFile()` 频繁报“找不到路径”的痛点。
+    
+
+---
+
+### 二、 核心流工具类：IoUtil
+
+`IoUtil` 专门用来对已经开启的各种字节流、字符流进行对接传输和优雅释放。
+
+- **`IoUtil.copy(InputStream in, OutputStream out)`**：
+    
+    - 将输入流的数据自动源源不断地写出到输出流（底层自带缓冲区）。
+        
+- **`IoUtil.close(Closeable closeable)`**：
+    
+    - 优雅关流。原生 Java 关闭流需要处理异常，而使用它一行代码搞定，且**即使流对象为 `null` 也会自动兼容，绝对不会抛出空指针异常**。
+        
+
+---
+
+### 三、 功能对比：Hutool vs Commons-io
+
+既然这两个都是第三方工具包，它们在 IO 领域有什么区别呢？
+
+|**特性 / 业务**|**Apache Commons-io**|**Hutool (FileUtil / IoUtil)**|
+|---|---|---|
+|**删除非空文件夹**|`FileUtils.deleteDirectory(dir)`|`FileUtil.del(dir)` (方法名更短)|
+|**创建文件与父目录**|需要先判断父目录是否存在并 `mkdirs`|`FileUtil.touch(file)` (一步到位)|
+|**流拷贝**|`IOUtils.copy(in, out)`|`IoUtil.copy(in, out)`|
+|**整体定位**|**专注于 IO 领域**，生态极为严谨成熟|**全能基础库**，IO 只是其中一部分，API 更加本土化、符合国内开发习惯|
+
+### 💡 核心总结
+
+在实际的企业级项目开发中，**Hutool 的出场率极高**。引入它之后，你不仅不需要再去手动写复杂的压缩、解压缩、转换流代码，连日常的日期格式化、密码加密、网络请求也都能一并“偷懒”解决。它和 Commons-io 一样，底层都完美封装了原生的**缓冲和异常处理机制**，确保了代码的安全与高效。
 
 
 
