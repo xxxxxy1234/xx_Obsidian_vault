@@ -13098,6 +13098,115 @@ System.out.println("这条信息被重定向到了文件里");
 
 
 
+## 解压缩流
+
+
+
+在 Java IO 流中，**解压缩流**（`ZipInputStream`）属于字节输入流的一种高级流。它专门用于读取 `.zip` 格式的压缩包，并将其中的一个个文件或文件夹（在 Java 中被称为 **`ZipEntry`**）解压还原到指定的本地路径。
+
+---
+
+### 一、 解压的核心原理
+
+解压文件的过程就像是“顺藤摸瓜”：
+
+1. 用 `ZipInputStream` 关联压缩包文件。
+    
+2. 通过循环调用 **`getNextEntry()`** 方法，一个一个地获取压缩包内部的文件或文件夹对象（`ZipEntry`）。
+    
+3. 判断当前 `ZipEntry` 是文件夹还是文件：
+    
+    - 如果是**文件夹**：直接在本地创建对应的目录。
+        
+    - 如果是**文件**：利用循环读取该 Entry 的数据，并用 `FileOutputStream` 写入本地。
+        
+
+---
+
+### 二、 代码示例
+
+以下是一个标准的、功能完整的解压工具代码示例。
+
+```java
+import java.io.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
+public class ZipStreamDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 创建指向压缩包的源文件对象，以及解压后的目的地文件夹
+        File src = new File("D:\\test\\data.zip");
+        File dest = new File("D:\\test\\unzip_result");
+
+        // 2. 调用解压方法
+        unzip(src, dest);
+    }
+
+    public static void unzip(File src, File dest) throws IOException {
+        // 创建解压缩流，包装低级的字节输入流
+        ZipInputStream zis = new ZipInputStream(new FileInputStream(src));
+
+        ZipEntry entry;
+        // 循环获取压缩包里的每一个真实实体（文件或文件夹）
+        while ((entry = zis.getNextEntry()) != null) {
+            System.out.println("正在处理：" + entry.getName());
+
+            // 构建当前条目在本地的目标解压路径
+            File file = new File(dest, entry.getName());
+
+            if (entry.isDirectory()) {
+                // 如果是文件夹，直接在本地创建
+                file.mkdirs();
+            } else {
+                // 如果是文件，需要先创建其父级目录（防止多级目录下报错）
+                File parent = file.getParentFile();
+                if (!parent.exists()) {
+                    parent.mkdirs();
+                }
+
+                // 创建输出流，准备将数据写到本地文件中
+                FileOutputStream fos = new FileOutputStream(file);
+                
+                // 批量读取并写入数据
+                byte[] bytes = new byte[1024 * 8]; // 8KB 缓冲区
+                int len;
+                while ((len = zis.read(bytes)) != -1) {
+                    fos.write(bytes, 0, len);
+                }
+
+                // 关流细节：当前文件写完后，只需关闭输出流
+                fos.close();
+                // 宣告当前实体处理完毕，准备获取下一个
+                zis.closeEntry();
+            }
+        }
+
+        // 3. 所有实体解压完毕，关闭核心解压流
+        zis.close();
+        System.out.println("解压完成！");
+    }
+}
+```
+
+---
+
+### 三、 核心要点总结
+
+- **`getNextEntry()` 的返回值**：该方法读到压缩包末尾时会返回 `null`，这与普通输入流读到末尾返回 `-1` 或 `null` 的机制类似。
+    
+- **不要用错 `read` 方法**：读取解压数据时，应当调用 **`zis.read()`**，而不是针对 `entry` 进行操作。因为 `ZipInputStream` 在切到下一个 Entry 后，它自身的数据流向就会自动变成该内部文件的二进制数据。
+    
+- **父级目录创建**：解压包含多级目录的文件时，一定要先通过 `file.getParentFile().mkdirs()` 确保父文件夹存在，否则 `FileOutputStream` 会抛出 `FileNotFoundException`（拒绝访问）。
+
+
+---
+---
+
+
+
+## 压缩流
+
+
 
 
 
