@@ -12944,24 +12944,38 @@ public class ObjectStreamDemo {
 
 ### 三、 构造方法与成员方法解析
 
-#### 1. 构造方法
 
-打印流可以关联多种目的地：
+#### 构造方法
 
-- **文件/路径**：`new PrintStream("a.txt")`
+- `public PrintStream(OutputStream/File/String)` 关联字节输出流/文件/文件路径
     
-- **字节流/字符流**：可以包装其他的输出流。
+- `public PrintStream(String fileName, Charset charset)` 指定字符编码
     
-- **指定编码**：在 JDK 11 后，可以直接在构造器指定 `Charset`。
+- `public PrintStream(OutputStream out, boolean autoFlush)` 自动刷新
     
+- `public PrintStream(OutputStream out, boolean autoFlush, String encoding)` 指定字符编码且自动刷新
 
-#### 2. 特有成员方法
 
-- **`println(Xxx xx)`**：打印数据 + 自动刷新 + 自动换行。
+
+
+- `public PrintWriter(Writer/File/String)` 关联字节输出流/文件/文件路径
     
-- **`print(Xxx xx)`**：打印数据，不换行。
+- `public PrintWriter(String fileName, Charset charset)` 指定字符编码
     
-- **`printf(String format, Object... args)`**：**带占位符的打印**。例如：`printf("姓名：%s，年龄：%d", name, age)`，这在格式化报表时非常高效。
+- `public PrintWriter(Writer, boolean autoFlush)` 自动刷新
+    
+- `public PrintWriter(Writer out, boolean autoFlush, String encoding)` 指定字符编码且自动刷新
+
+
+#### 成员方法
+
+- `public void write(int b)` 常规方法：规则跟之前一样，将指定的字节写出
+    
+- `public void println(Xxx xx)` 特有方法：打印任意数据，自动刷新，自动换行
+    
+- `public void print(Xxx xx)` 特有方法：打印任意数据，不换行
+    
+- `public void printf(String format, Object... args)` 特有方法：带有占位符的打印语句，不换行
     
 
 ---
