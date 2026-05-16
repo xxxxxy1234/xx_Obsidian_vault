@@ -13207,6 +13207,167 @@ public class ZipStreamDemo {
 ## 压缩流
 
 
+**压缩流**（`ZipOutputStream`）属于字节输出流的一种高级流。它的主要作用是将一个或多个文件、文件夹打包并压缩成一个 `.zip` 格式的压缩文件。
+
+在 Java 中，压缩包里的每一个文件或文件夹，都被视为一个 **`ZipEntry`（压缩条目）**。要往压缩包里写数据，必须先创建一个 `ZipEntry` 扔进流里，才能开始写入对应的二进制字节。
+
+以下分别介绍**压缩单个文件**和压缩文件夹（多级嵌套）的实现方式。
+
+---
+
+### 一、 压缩单个文件
+
+压缩单个文件比较简单：创建 `ZipOutputStream` 关联压缩目标，然后创建一个与原文件同名的 `ZipEntry`，最后把原文件的数据读出来写进去即可。
+
+```java
+import java.io.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+public class ZipFileDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 定义源文件和生成的压缩包文件
+        File src = new File("D:\\test\\a.txt");
+        File zipFile = new File("D:\\test\\a.zip");
+
+        // 2. 创建压缩输出流
+        ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
+
+        // 3. 创建一个 ZipEntry（代表压缩包里的文件实体），名字通常与原文件一致
+        ZipEntry entry = new ZipEntry(src.getName());
+        // 将条目放入压缩流中
+        zos.putNextEntry(entry);
+
+        // 4. 读取原文件数据并写出到压缩流中
+        FileInputStream fis = new FileInputStream(src);
+        byte[] bytes = new byte[1024 * 8];
+        int len;
+        while ((len = fis.read(bytes)) != -1) {
+            zos.write(bytes, 0, len);
+        }
+
+        // 5. 关流：先关当前条目，再关总流
+        fis.close();
+        zos.closeEntry();
+        zos.close();
+
+        System.out.println("单个文件压缩成功！");
+    }
+}
+```
+
+---
+
+### 二、 压缩文件夹（多级嵌套）
+
+压缩文件夹的难点在于：文件夹可能包含**多级子文件夹**和**多个文件**。我们需要使用**递归**的思想去遍历整个文件夹，并且在创建 `ZipEntry` 时，要保持它们在压缩包内部的**相对路径结构**。
+
+
+```java
+import java.io.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+public class ZipFolderDemo {
+    public static void main(String[] args) throws IOException {
+        // 1. 创建源文件夹对象和目标压缩包文件对象
+        File src = new File("D:\\test\\myFolder");
+        File zipFile = new File("D:\\test\\myFolder.zip");
+
+        // 2. 创建压缩输出流
+        ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
+
+        // 3. 调用递归压缩方法
+        // 参数3传入原文件夹的名字，用于在压缩包内部构建相对根路径
+        toZip(src, zos, src.getName());
+
+        // 4. 释放资源
+        zos.close();
+        System.out.println("文件夹压缩成功！");
+    }
+
+    /**
+     * 递归压缩文件夹的核心方法
+     * @param src 当前正在处理的文件或文件夹
+     * @param zos 压缩输出流
+     * @param name 当前条目在压缩包内部的相对路径
+     */
+    public static void toZip(File src, ZipOutputStream zos, String name) throws IOException {
+        // 获取当前文件夹下的所有子文件和子文件夹
+        File[] files = src.listFiles();
+        
+        // 如果文件夹为空，也需要把它放进压缩包
+        if (files == null || files.length == 0) {
+            // 在 ZIP 协议中，名字以 "/" 结尾的代表一个文件夹
+            zos.putNextEntry(new ZipEntry(name + "/"));
+            zos.closeEntry();
+            return;
+        }
+
+        // 遍历所有子文件/子文件夹
+        for (File file : files) {
+            if (file.isFile()) {
+                // 情况一：是文件。创建对应的 ZipEntry（相对路径 + 文件名）
+                ZipEntry entry = new ZipEntry(name + "/" + file.getName());
+                zos.putNextEntry(entry);
+
+                // 读取文件数据并写出
+                FileInputStream fis = new FileInputStream(file);
+                byte[] bytes = new byte[1024 * 8];
+                int len;
+                while ((len = fis.read(bytes)) != -1) {
+                    zos.write(bytes, 0, len);
+                }
+                fis.close();
+                zos.closeEntry();
+            } else {
+                // 情况二：是文件夹。递归调用自己
+                // 相对路径变为：当前路径 + "/" + 子文件夹名
+                toZip(file, zos, name + "/" + file.getName());
+            }
+        }
+    }
+}
+```
+
+---
+
+### 三、 核心要点总结
+
+1. **`ZipEntry` 的名字决定了压缩包内的结构**：
+    
+    - 如果名字是 `a.txt`，它会直接待在压缩包的根目录下。
+        
+    - 如果名字是 `myFolder/sub/b.txt`，解压软件打开时就会自动呈现出层级目录。
+        
+2. **文件夹的判定标准**：
+    
+    - 往 `ZipEntry` 传名字时，如果字符串以正斜杠 **`/`** 结尾，压缩算法会自动将其识别为一个标准的空文件夹条目。
+        
+3. **关闭条目与关闭流**：
+    
+    - 每次写完一个文件的数据后，应当调用 `zos.closeEntry()` 宣告当前条目打包结束。
+        
+    - 只有当所有的文件都递归放入完毕后，才能调用 `zos.close()` 最终关闭压缩流，否则写出的 `.zip` 文件会损坏。
+
+
+>[!tip]
+>在 Java 压缩流（ZIP 协议）中，**必须使用正斜杠 `name + "/" + file.getName()`**。
+>无论你的电脑是 Windows 还是 Linux，请一律写正斜杠。原因如下：
+>
+>### 1. ZIP 压缩包的国际标准规定
+>ZIP 文件格式是一套独立的标准。根据 ZIP 官方协议规范，压缩包内部的路径分隔符**统一规定为正斜杠 `/`**。
+>- 如果你写 `name + "/" + file.getName()`，所有的解压软件（如 WinRAR、7-Zip、Mac 自带解压）都能完美识别并解压成正常的文件夹。
+>- 如果你写 `name + "\\" + file.getName()`，在 Windows 上有些解压软件或许能兼容，但在 Mac 或 Linux 系统下解压，它可能不会生成文件夹，而是直接生成一个名字带有反斜杠的古怪文件（比如叫 `myFolder\subFolder\a.txt` 的单个文件）。
+>### 2. 文件夹的识别标志
+>正如前面总结的细节，ZIP 协议中判定“这是一个空文件夹”的唯一标准，就是看这个 `ZipEntry` 的名字**是不是以正斜杠 `/` 结尾**。
+>- 成功：`new ZipEntry("images/")` —— 识别为 images 文件夹。
+>- 失败：`new ZipEntry("images\\")` —— 无法正确识别。
+
+---
+---
+
+
 
 
 
