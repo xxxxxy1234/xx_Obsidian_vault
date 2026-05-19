@@ -15104,7 +15104,7 @@ synchronized(锁对象) {
 
 ---
 
-### 四、 核心代码闭环实现
+### 四、 核心代码闭环实现——基于原生锁的“管程（Monitor）机制”
 
 我们用代码把上面的思路落地：
 
@@ -15237,15 +15237,175 @@ public class MainTest {
 Process finished with exit code 0
 ```
 
-### 💡 核心点拨
 
-在这个改进中，我们巧妙地处理了多线程的“优雅退出”**问题。**
-
-### 💡 关键避坑细节
+#### 关键避坑细节
 
 1. **`wait()` 和 `notify()` 必须由【锁对象】来调用**。比如锁是 `Desk.LOCK`，你就必须写 `Desk.LOCK.wait()`。如果直接写 `wait()`，相当于调用 `this.wait()`，直接会抛出 `IllegalMonitorStateException`（非法监视器状态异常）。
     
 2. **`wait()` 会释放锁，而 `sleep()` 绝不释放锁**。当线程执行到 `wait()` 躺平后，它会主动把钥匙交出来还给大屏幕，这样对方才有机会拿到钥匙进来干活。
+
+---
+
+
+### 五、 核心代码闭环实现——基于阻塞队列（BlockingQueue）机制
+
+
+
+
+我们刚才使用的是 **基于原生锁的“管程（Monitor）机制”**，也就是 **`synchronized` + `Object.wait() / notifyAll()`**。
+
+- **它的特点**：所有的排队逻辑、清空逻辑、唤醒逻辑，全部是由我们程序员**手动写代码控制**的（比如手动判断 `flag == 0`，手动调用 `wait()` ）。
+    
+- **它的局限**：代码写起来比较琐碎，逻辑一旦复杂，很容易因为少写一个 `notifyAll()` 或者 `while` 判断出错而导致死锁。
+    
+
+使用**阻塞队列（BlockingQueue）** 是 Java 中实现生产者-消费者模型**最正统、最优雅、也是企业级开发中最推荐**的方式。
+
+
+
+#### 什么是阻塞队列方式？
+
+**阻塞队列（BlockingQueue）** 是 Java 官方提供的一个专门用来解决线程协作的容器（位于 `java.util.concurrent` 包下）。
+
+它最大的特点就是：**把“等待”和“唤醒”的逻辑直接封装在了队列的内部。**
+
+我们可以把阻塞队列想象成一条**自动传送带**：
+
+- **如果传送带满了（达到上限）**：厨师再想往上放面条，传送带就会强制让厨师**原地阻塞（进入等待状态）**，直到有吃货拿走一碗，传送带才自动放行厨师。
+    
+- **如果传送带空了**：吃货想去拿面条，传送带就会强制让吃货**原地阻塞（进入等待状态）**，直到厨师做出一碗放上去，传送带才自动唤醒吃货。
+    
+
+有了它，程序员**不需要再写 `synchronized`，不需要写 `wait()`，也不需要写 `notifyAll()`**。所有的安全和等待机制，全被传送带自己承包了！
+
+
+
+#### 阻塞队列的核心 API
+
+我们只需要记住两组核心方法（通常用第一组）：
+
+- **`put(E e)`**：添加元素。如果队列满了，线程**死等阻塞**。
+    
+- **`take()`**：取出元素。如果队列空了，线程**死等阻塞**。
+    
+
+常用的实现类有：
+
+- `ArrayBlockingQueue`：基于数组实现的有界阻塞队列（最常用）。
+    
+- `LinkedBlockingQueue`：基于链表实现的阻塞队列。
+    
+
+
+
+#### 1. 共享的传送带（不再需要独立的锁和flag）
+
+
+```java
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public class Desk {
+    // 创建一个容量为 1 的阻塞队列（传送带上只能放一碗面）
+    public static final BlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
+    
+    // 依然需要计数器来记录总数
+    public static int count = 0;
+    // 定义一个锁专门用来保护 count 计数器的安全（注意：跟队列本身的阻塞无关）
+    public static final Object COUNT_LOCK = new Object();
+}
+```
+
+#### 2. 生产者（厨师）
+
+```java
+public class Cook implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            // 1. 先检查吃货是不是吃饱了
+            synchronized (Desk.COUNT_LOCK) {
+                if (Desk.count >= 10) {
+                    System.out.println("厨师：吃货吃饱了，我下班了！");
+                    break;
+                }
+            }
+
+            try {
+                // 2. 生产面条并塞进队列。如果队列满了，这一行代码会自动阻塞，直到队列空出来
+                Desk.queue.put("香喷喷的面条");
+                System.out.println("厨师做了一碗香喷喷的面条放到了传送带上！");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+#### 3. 消费者（吃货）
+
+```java
+public class Foodie implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                // 1. 从队列中取面条。如果队列是空的，这一行代码会自动阻塞死等，直到厨师放面条进来
+                String noodle = Desk.queue.take();
+                
+                // 2. 改变计数器
+                synchronized (Desk.COUNT_LOCK) {
+                    Desk.count++;
+                    System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
+                    System.out.println("----------------------------------------");
+                    
+                    if (Desk.count == 10) {
+                        System.out.println("吃货：饱了饱了，实在吃不下了！");
+                        break;
+                    }
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+#### 4. 测试类（MainTest）
+
+```java
+public class MainTest {
+    public static void main(String[] args) {
+        new Thread(new Cook(), "厨师线程").start();
+        new Thread(new Foodie(), "吃货线程").start();
+    }
+}
+```
+
+
+
+#### 核心总结
+
+阻塞队列不仅写起来简单，最厉害的是它实现了**解耦**。在大型分布式系统中（比如天猫双十一），著名的**消息队列（MQ，如 RocketMQ/RabbitMQ）**，其本质就是把这个单机版的 `BlockingQueue` 放大到了分布式服务器上，用来实现系统之间的“生产者与消费者”削峰填谷。
+
+
+---
+
+### 六、 两种方式对比
+
+|**维度**|**传统方式 (synchronized + wait/notify)**|**阻塞队列方式 (BlockingQueue)**|
+|---|---|---|
+|**代码复杂度**|**较高**。需要自己管理锁、标记、循环判断、手动唤醒。|**极低**。一行 `put()` 或 `take()` 搞定一切。|
+|**容易出错度**|**较高**。极易因为逻辑漏洞导致死锁或虚假唤醒。|**极低**。底层的锁和协作全由 JDK 官方大牛写好了。|
+|**解耦程度**|生产者和消费者需要紧密依赖同一个锁对象。|**彻底解耦**。生产者和消费者只面向“队列”编程，互不关心对方是谁。|
+|**实际应用**|常用于理解多线程底层原理、或极特殊的自定义锁场景。|**绝对的主流**。Java 的**线程池（ThreadPoolExecutor）**底层就是基于阻塞队列实现的。|
+
+---
+---
+
+
 
 
 
