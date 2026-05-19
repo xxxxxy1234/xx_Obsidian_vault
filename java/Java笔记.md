@@ -13872,6 +13872,27 @@ public class ThreadDemo1 {
 
 
 
+#### 补充：Thread类构造方法
+
+
+```java
+// 1. 空参构造：创建线程，自动生成线程名 
+Thread() 
+// 2. 传入 Runnable 任务 
+Thread(Runnable target) 
+// 3. 指定线程名 
+Thread(String name) 
+// 4. 传入 Runnable + 指定线程名 
+Thread(Runnable target, String name) 
+// 5. 指定线程所属的线程组 
+Thread(ThreadGroup group, String name) 
+// 6. 线程组 + Runnable 任务 
+Thread(ThreadGroup group, Runnable target) 
+// 7. 线程组 + Runnable + 线程名（最常用完整版） 
+Thread(ThreadGroup group, Runnable target, String name) 
+// 8. 线程组 + Runnable + 线程名 + 栈大小（底层用，极少用）  
+Thread(ThreadGroup group, Runnable target, String name, long stackSize)
+```
 
 
 
