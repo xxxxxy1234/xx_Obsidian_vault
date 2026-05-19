@@ -15306,6 +15306,202 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class Desk {
+    // 传送带：容量为 1 的阻塞队列
+    public static final BlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
+    // 共享计数器
+    public static int count = 0; 
+}
+
+```
+
+
+#### 2. 生产者（厨师）
+
+```java
+public class Cook implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            // ❌ 没有锁保护，直接读取 count
+            if (Desk.count >= 10) {
+                System.out.println(Thread.currentThread().getName() + "：吃货吃饱了，我下班了！");
+                break;
+            }
+
+            try {
+                Desk.queue.put("香喷喷的面条");
+                System.out.println(Thread.currentThread().getName() + " 成功放了一碗面条。");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+
+```
+
+
+#### 3. 消费者（吃货）
+
+```java
+public class Foodie implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                // 从队列中拿面条（如果空了，吃货会在这里卡住等待）
+                String noodle = Desk.queue.take();
+                
+                // ❌ 灾难区：拿完面条后，数据的修改和打印完全暴露在外，没有锁！
+                Desk.count++; 
+                
+                System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
+                System.out.println("----------------------------------------");
+                
+                // ❌ 没有锁保护，直接判断
+                if (Desk.count == 10) {
+                    System.out.println(Thread.currentThread().getName() + "：饱了饱了，退出！");
+                    break;
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+#### 4. 测试类（MainTest）
+
+```java
+public class MainTest {
+    public static void main(String[] args) {
+        new Thread(new Cook(), "厨师线程").start();
+        new Thread(new Foodie(), "吃货线程").start();
+    }
+}
+```
+
+
+
+
+#### 5. 运行结果
+
+
+特别注意，在多线程中，即使使用了自带线程安全的阻塞队列，**只要打印语句的位置不对，依然会发生严重的逻辑错乱和打印错误**。
+
+我们刚才阻塞队列的代码，打印语句放在了锁的外面，但这样会发生异常打印情况
+
+
+##### ❌ 厨师的错误写法
+
+```java
+// 厨师线程
+Desk.queue.put("香喷喷的面条"); // 1. 先把面条放上传送带
+// ❌ 打印在外面（裸奔状态）
+System.out.println("厨师做了一碗香喷喷的面条放到了传送带上！"); // 2. 再打印
+```
+
+##### ❌ 吃货的错误写法
+
+```java
+// 吃货线程
+String noodle = Desk.queue.take(); // 1. 先从传送带上拿走面条
+// ❌ 打印在外面（裸奔状态）
+System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！"); // 2. 再打印
+```
+
+
+
+##### 为什么这样写会导致打印彻底崩溃？
+
+阻塞队列 `put` 和 `take` 的底层确实是加了锁的，能保证“放”和“拿”的动作安全。**但是，它管不到你后面的 `System.out.println`！**
+
+因为这两段打印在外面成了“裸奔”状态，CPU 会在“放/拿面条”和“打印语句”的**缝隙中疯狂切换线程**。
+
+##### 灾难现场情景再现：
+
+假设现在传送带（阻塞队列）是空的。
+
+1. **厨师线程** 抢到了 CPU，成功执行了 `Desk.queue.put(...)`，面条稳稳地放上了传送带。
+    
+2. 厨师刚想执行下一行的 `System.out.println` 打印“厨师做了一碗...”。**结果，CPU 时间片突然用完了！** 厨师被强行挂起（卡在了放完面条、还没来得及喊话的瞬间）。
+    
+3. **吃货线程** 瞬间杀了出来。吃货发现传送带有面条（因为厨师刚才放了），于是成功执行 `Desk.queue.take()` 把面条拿走并吃掉。
+    
+4. 吃货运气极好，CPU 没切走，紧接着执行了它那一行的 `System.out.println`，控制台啪地打印出：**`“吃货线程 吃掉了【香喷喷的面条】！”`**
+    
+5. 终于，**厨师线程** 重新抢回了 CPU，接着刚才被挂起的地方执行它的打印。控制台随后打印出：**`“厨师做了一碗香喷喷的面条放到了传送带上！”`**
+    
+
+##### 最终控制台看到的荒唐奇观：
+
+
+```Plaintext
+吃货线程 吃掉了【香喷喷的面条】！
+厨师做了一碗香喷喷的面条放到了传送带上！
+```
+
+**“还没做出来，怎么就先吃掉了？！”** 这就是把打印语句放在外面的最典型下场。在内存里，阻塞队列完美保证了是厨师先放、吃货后拿。但因为**打印的时机被别的线程插脚了**，导致你在控制台看到的顺序彻底颠倒，产生了严重的视觉 Bug！
+
+
+
+
+
+#### 终极敲黑板
+
+在使用阻塞队列时，新手最容易犯的错误就是：以为用了 `BlockingQueue` 就万事大吉了，随手把日志打印（`System.out.println` 或 `log.info`）写在 `put` / `take` 的下面。
+
+一定要记住：**阻塞队列只能保护它自己容器内部的数据安全，保护不了你业务代码里的打印语句。** 只要涉及到多线程“向控制台输出”或者“修改其他全局变量（如 count）”，依然必须用 `synchronized` 或者 `Lock` 把动作和打印捆死在一起！
+
+
+
+
+
+
+
+
+---
+
+
+### 六、核心代码闭环实现——改进后的阻塞队列机制
+
+
+#### 改进方法思想（eg吃货）：
+
+```java
+// 1. 拿面条（此时还没打印，吃货可能会在这里阻塞住）
+String noodle = Desk.queue.take(); 
+
+// 2. 只要一旦拿到了面条，立刻进入这把锁
+synchronized (Desk.COUNT_LOCK) {
+    Desk.count++;
+    // 【核心关键】：把打印语句和 count++ 死死捆绑在同一把锁里！
+    System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
+    System.out.println("----------------------------------------");
+}
+```
+
+
+- 阻塞队列自身的机制保证了：`put` 成功后，`take` 才能拿到。所以**动作的先后顺序是绝对没问题的**。
+    
+- 只要吃货一从队列里拿到面条（`take()` 成功执行），它会瞬间**咬死 `COUNT_LOCK` 这把锁**。
+    
+- 在大括号里面，它慢条斯理地让 `count++` 然后再执行 `System.out.println`。因为有这把锁罩着，**在它打印完之前，任何其他吃货或者厨师线程都绝对进不来**，CPU 就算中途切走线程，别人由于没有 `COUNT_LOCK` 钥匙也只能在外面干等。
+    
+- 这就保证了 **“拿到面条 $\rightarrow$ 碗数增加 $\rightarrow$ 打印控制台”** 变成了一个不可分割的整体（原子性）。
+    
+
+
+
+#### 1. 共享的传送带
+
+
+```java
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public class Desk {
     // 创建一个容量为 1 的阻塞队列（传送带上只能放一碗面）
     public static final BlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
     
@@ -15386,119 +15582,6 @@ public class MainTest {
 
 
 
-
-#### 5. 运行结果
-
-
-特别注意，在多线程中，即使使用了自带线程安全的阻塞队列，**只要打印语句的位置不对，依然会发生严重的逻辑错乱和打印错误**。
-
-我们刚才阻塞队列的代码，打印语句放在了锁的外面，但这样会发生异常打印情况
-
-
-
-### 一、 致命的错误写法（打印在队列操作外面）
-
-为了彻底看清这个 Bug，我们来看把打印语句写在 `put()` 和 `take()` **外面**的后果：
-
-#### ❌ 厨师的错误写法
-
-Java
-
-```
-// 厨师线程
-Desk.queue.put("香喷喷的面条"); // 1. 先把面条放上传送带
-// ❌ 打印在外面（裸奔状态）
-System.out.println("厨师做了一碗香喷喷的面条放到了传送带上！"); // 2. 再打印
-```
-
-#### ❌ 吃货的错误写法
-
-Java
-
-```
-// 吃货线程
-String noodle = Desk.queue.take(); // 1. 先从传送带上拿走面条
-// ❌ 打印在外面（裸奔状态）
-System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！"); // 2. 再打印
-```
-
----
-
-### 二、 为什么这样写会导致打印彻底崩溃？
-
-阻塞队列 `put` 和 `take` 的底层确实是加了锁的，能保证“放”和“拿”的动作安全。**但是，它管不到你后面的 `System.out.println`！**
-
-因为这两段打印在外面成了“裸奔”状态，CPU 会在“放/拿面条”和“打印语句”的**缝隙中疯狂切换线程**。
-
-#### 🎬 灾难现场情景再现：
-
-假设现在传送带（阻塞队列）是空的。
-
-1. **厨师线程** 抢到了 CPU，成功执行了 `Desk.queue.put(...)`，面条稳稳地放上了传送带。
-    
-2. 厨师刚想执行下一行的 `System.out.println` 打印“厨师做了一碗...”。**结果，CPU 时间片突然用完了！** 厨师被强行挂起（卡在了放完面条、还没来得及喊话的瞬间）。
-    
-3. **吃货线程** 瞬间杀了出来。吃货发现传送带有面条（因为厨师刚才放了），于是成功执行 `Desk.queue.take()` 把面条拿走并吃掉。
-    
-4. 吃货运气极好，CPU 没切走，紧接着执行了它那一行的 `System.out.println`，控制台啪地打印出：**`“吃货线程 吃掉了【香喷喷的面条】！”`**
-    
-5. 终于，**厨师线程** 重新抢回了 CPU，接着刚才被挂起的地方执行它的打印。控制台随后打印出：**`“厨师做了一碗香喷喷的面条放到了传送带上！”`**
-    
-
-#### 😱 最终控制台看到的荒唐奇观：
-
-Plaintext
-
-```
-吃货线程 吃掉了【香喷喷的面条】！
-厨师做了一碗香喷喷的面条放到了传送带上！
-```
-
-**“还没做出来，怎么就先吃掉了？！”** 这就是把打印语句放在外面的最典型下场。在内存里，阻塞队列完美保证了是厨师先放、吃货后拿。但因为**打印的时机被别的线程插脚了**，导致你在控制台看到的顺序彻底颠倒，产生了严重的视觉 Bug！
-
----
-
-### 三、 刚刚代码里的 `COUNT_LOCK` 为什么能解决这个问题？
-
-在上一节我给出的代码里，我是这样写吃货的：
-
-Java
-
-```
-// 1. 拿面条（此时还没打印，吃货可能会在这里阻塞住）
-String noodle = Desk.queue.take(); 
-
-// 2. 只要一旦拿到了面条，立刻进入这把锁
-synchronized (Desk.COUNT_LOCK) {
-    Desk.count++;
-    // 【核心关键】：把打印语句和 count++ 死死捆绑在同一把锁里！
-    System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
-    System.out.println("----------------------------------------");
-}
-```
-
-#### 为什么这样就不会错乱了？
-
-- 阻塞队列自身的机制保证了：`put` 成功后，`take` 才能拿到。所以**动作的先后顺序是绝对没问题的**。
-    
-- 只要吃货一从队列里拿到面条（`take()` 成功执行），它会瞬间**咬死 `COUNT_LOCK` 这把锁**。
-    
-- 在大括号里面，它慢条斯理地让 `count++` 然后再执行 `System.out.println`。因为有这把锁罩着，**在它打印完之前，任何其他吃货或者厨师线程都绝对进不来**，CPU 就算中途切走线程，别人由于没有 `COUNT_LOCK` 钥匙也只能在外面干等。
-    
-- 这就保证了 **“拿到面条 $\rightarrow$ 碗数增加 $\rightarrow$ 打印控制台”** 变成了一个不可分割的整体（原子性）。
-    
-
-### 💡 终极敲黑板
-
-在使用阻塞队列时，新手最容易犯的错误就是：以为用了 `BlockingQueue` 就万事大吉了，随手把日志打印（`System.out.println` 或 `log.info`）写在 `put` / `take` 的下面。
-
-一定要记住：**阻塞队列只能保护它自己容器内部的数据安全，保护不了你业务代码里的打印语句。** 只要涉及到多线程“向控制台输出”或者“修改其他全局变量（如 count）”，依然必须用 `synchronized` 或者 `Lock` 把动作和打印捆死在一起！
-
-
-
-
-
-
 #### 核心总结
 
 阻塞队列不仅写起来简单，最厉害的是它实现了**解耦**。在大型分布式系统中（比如天猫双十一），著名的**消息队列（MQ，如 RocketMQ/RabbitMQ）**，其本质就是把这个单机版的 `BlockingQueue` 放大到了分布式服务器上，用来实现系统之间的“生产者与消费者”削峰填谷。
@@ -15506,14 +15589,14 @@ synchronized (Desk.COUNT_LOCK) {
 
 ---
 
-### 六、 两种方式对比
+### 七、 两种方式对比
 
-|**维度**|**传统方式 (synchronized + wait/notify)**|**阻塞队列方式 (BlockingQueue)**|
-|---|---|---|
-|**代码复杂度**|**较高**。需要自己管理锁、标记、循环判断、手动唤醒。|**极低**。一行 `put()` 或 `take()` 搞定一切。|
-|**容易出错度**|**较高**。极易因为逻辑漏洞导致死锁或虚假唤醒。|**极低**。底层的锁和协作全由 JDK 官方大牛写好了。|
-|**解耦程度**|生产者和消费者需要紧密依赖同一个锁对象。|**彻底解耦**。生产者和消费者只面向“队列”编程，互不关心对方是谁。|
-|**实际应用**|常用于理解多线程底层原理、或极特殊的自定义锁场景。|**绝对的主流**。Java 的**线程池（ThreadPoolExecutor）**底层就是基于阻塞队列实现的。|
+| **维度**    | **传统方式 (synchronized + wait/notify)** | **阻塞队列方式 (BlockingQueue)**                                |
+| --------- | ------------------------------------- | --------------------------------------------------------- |
+| **代码复杂度** | **较高**。需要自己管理锁、标记、循环判断、手动唤醒。          | **极低**。一行 `put()` 或 `take()` 搞定一切。                        |
+| **容易出错度** | **较高**。极易因为逻辑漏洞导致死锁或虚假唤醒。             | **极低**。底层的锁和协作全由 JDK 官方大牛写好了。                             |
+| **解耦程度**  | 生产者和消费者需要紧密依赖同一个锁对象。                  | **彻底解耦**。生产者和消费者只面向“队列”编程，互不关心对方是谁。                       |
+| **实际应用**  | 常用于理解多线程底层原理、或极特殊的自定义锁场景。             | **绝对的主流**。Java 的**线程池（ThreadPoolExecutor）**底层就是基于阻塞队列实现的。 |
 
 ---
 ---
