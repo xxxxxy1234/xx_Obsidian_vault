@@ -14536,6 +14536,179 @@ MyThread t2 = new MyThread();
 
 
 
+## 线程的安全问题——同步方法
+
+
+
+上一节我们提到了通过**同步代码块**给核心代码加锁。其实，Java 还提供了一种更简洁的锁实现方式——**同步方法（synchronized method）**。
+
+当一个方法内部的所有代码都需要被保护时，我们不需要用 `synchronized(lock)` 把方法体包裹起来，而是可以直接把 `synchronized` 关键字声明在方法头上。
+
+
+---
+
+### 一、 什么是同步方法？
+
+同步方法就是**把整个方法给锁起来**。同一个时刻，只允许一个线程进入该方法执行，其他线程只能在方法外面排队等候。
+
+#### 语法格式：
+
+```java
+修饰符 synchronized 返回值类型 方法名(参数列表) {
+    // 整个方法体都会被自动上锁
+}
+```
+
+---
+
+### 二、 核心谜团：同步方法的锁对象是谁？
+
+既然是锁，就必须有“锁对象（钥匙）”。同步方法不需要我们手动传入 `lock` 对象，Java 底层其实已经自动帮我们指定了默认的锁对象：
+
+1. **非静态的同步方法（普通方法）**：
+    
+    - 底层默认的锁对象是 **`this`**（即当前调用该方法的那个任务对象）。
+        
+2. **静态的同步方法（加了 static 的方法）**：
+    
+    - 底层默认的锁对象是 **`当前类的字节码文件对象`**（即 `类名.class`，在内存中绝对唯一）。
+        
+
+---
+
+### 三、 核心代码示例
+
+同样以“三个窗口共同售卖 100 张票”为例，我们将售票的核心逻辑抽取成一个**同步方法**：
+
+#### 1. 实现 Runnable 接口（非静态同步方法）
+
+因为只 new 了一个任务对象，多个线程共享同一个 `this`，所以直接用普通的同步方法即可。
+
+```java
+class TicketRunnable implements Runnable {
+    private int ticket = 100;
+
+    @Override
+    public void run() {
+        while (true) {
+            // 调用同步方法
+            boolean hasTicket = sellTicket();
+            if (!hasTicket) {
+                break;
+            }
+        }
+    }
+
+    // 这是一个非静态的同步方法，底层的锁对象是 this（当前对象）
+    private synchronized boolean sellTicket() {
+        if (ticket > 0) {
+            try {
+                Thread.sleep(10); // 模拟网络延迟
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            ticket--;
+            System.out.println(Thread.currentThread().getName() + " 正在卖票，剩: " + ticket + " 张");
+            return true;
+        } else {
+            System.out.println(Thread.currentThread().getName() + " 发现票卖完了...");
+            return false;
+        }
+    }
+}
+
+public class SyncMethodDemo1 {
+    public static void main(String[] args) {
+        TicketRunnable task = new TicketRunnable(); // 只 new 了一次，this 唯一
+
+        new Thread(task, "窗口A").start();
+        new Thread(task, "窗口B").start();
+        new Thread(task, "窗口C").start();
+    }
+}
+```
+
+---
+
+#### 2. 继承 Thread 类（静态同步方法）
+
+如果采用继承 `Thread` 的方式，我们必须要 `new` 三个独立的线程对象。此时如果方法不加 `static`，锁对象 `this` 就会变成三把不同的钥匙，锁就会失效。因此**必须使用静态同步方法**。
+
+
+```java
+class TicketThread extends Thread {
+    // 必须是静态的，确保 100 张票被所有线程对象共享
+    private static int ticket = 100; 
+
+    public TicketThread(String name) {
+        super(name);
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            boolean hasTicket = sellTicketStatic();
+            if (!hasTicket) {
+                break;
+            }
+        }
+    }
+
+    // 这是一个【静态】的同步方法，底层的锁对象是 TicketThread.class
+    // 字节码对象在内存中全宇宙唯一，因此可以完美锁住 new 出来的多个线程对象！
+    private static synchronized boolean sellTicketStatic() {
+        if (ticket > 0) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            ticket--;
+            System.out.println(Thread.currentThread().getName() + " 正在卖票，剩: " + ticket + " 张");
+            return true;
+        } else {
+            System.out.println(Thread.currentThread().getName() + " 发现票卖完了...");
+            return false;
+        }
+    }
+}
+
+public class SyncMethodDemo2 {
+    public static void main(String[] args) {
+        // new 了三个不同的线程对象
+        TicketThread t1 = new TicketThread("窗口A");
+        TicketThread t2 = new TicketThread("窗口B");
+        TicketThread t3 = new TicketThread("窗口C");
+
+        t1.start();
+        t2.start();
+        t3.start();
+    }
+}
+```
+
+---
+
+### 同步代码块 vs 同步方法
+
+它们两个该怎么选择呢？
+
+|**特性 / 维度**|**同步代码块 (synchronized(lock) {})**|**同步方法 (synchronized method)**|
+|---|---|---|
+|**锁的粒度**|**更小、更灵活**。可以只锁方法里某几行核心代码。|**更大**。强制锁住整个方法体内的所有代码。|
+|**锁对象指定**|**手动指定**。可以传任何唯一的 Object，也可以传 `.class`。|**自动指定**。普通方法是 `this`，静态方法是 `类名.class`。|
+|**代码可读性**|稍显臃肿，多了一层大括号嵌套。|非常干净、清爽，方法功能一目了然。|
+
+**开发建议：**
+
+- 如果一个方法里**所有的代码**都需要被同步，直接用**同步方法**。
+    
+- 如果一个方法很大，但只有中间的**两三行代码**在操作共享变量（比如去改数据库、改集合），请务必使用**同步代码块**只锁那几行。因为锁的范围越小，线程排队的时间就越短，程序的性能和并发吞吐量就越高！
+
+---
+---
+
+
 
 
 
