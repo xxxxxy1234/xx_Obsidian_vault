@@ -14710,6 +14710,140 @@ public class SyncMethodDemo2 {
 
 
 
+## 线程的安全问题——Lock锁
+
+
+在 Java 中，除了使用传统的 `synchronized` 关键字（同步代码块/同步方法）来解决线程安全问题外，从 JDK 5 开始，官方在 `java.util.concurrent.locks` 包下提供了一个功能更强大的全新武器——**`Lock` 锁**。
+
+其中最常用的实现类就是 **`ReentrantLock`（可重入锁）**。
+
+---
+
+### 一、 为什么要引入 Lock 锁？
+
+传统的 `synchronized` 属于**隐式锁**（自动上锁和释放锁）。它虽然好用，但也存在一些局限性：
+
+- **看不到获取锁和释放锁的过程**：所有的加锁和解锁都是由 JVM 底层大括号隐式控制的。
+    
+- **不够灵活**：如果一个线程在等待锁的过程中卡住了（比如网络死锁），它会一直在 `BLOCKED` 状态下死等，没有任何办法让它“看苗头不对就放弃抢锁”。
+    
+
+而 `Lock` 锁是**显式锁**。它把加锁和解锁的操作变成了**纯代码的方法调用**，让开发者可以手动控制什么时候上锁、什么时候解锁，甚至可以实现“限时抢锁”等高级操作。
+
+---
+
+### 二、 Lock 锁的核心 API
+
+`Lock` 是一个接口，我们日常开发直接 new 它的核心实现类 `ReentrantLock`：
+
+```java
+Lock lock = new ReentrantLock();
+```
+
+它最基础的两个成员方法是：
+
+- **`lock()`**：加锁（如果锁被别人占了，当前线程就在此死等）。
+    
+- **`unlock()`**：释放锁。
+    
+
+---
+
+### 三、 核心代码示例（买票案例）
+
+使用 Lock 锁有一个全行业铁律：**为了防止代码中途发生异常导致锁无法释放，必须将 `unlock()` 写入 `try-finally` 的 `finally` 块中。**
+
+```java
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+class TicketLockTask implements Runnable {
+    private int ticket = 100;
+    
+    // 1. 创建 Lock 锁对象 (因为只 new 了一个任务，所以锁是唯一的)
+    private final Lock ticketLock = new ReentrantLock();
+
+    @Override
+    public void run() {
+        while (true) {
+            // 2. 在操作共享变量前，手动调用 lock() 加锁
+            ticketLock.lock(); 
+            
+            try {
+                // 3. 将可能发生异常的核心业务代码放入 try 块中
+                if (ticket > 0) {
+                    try {
+                        Thread.sleep(10); // 模拟网络延迟
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    ticket--;
+                    System.out.println(Thread.currentThread().getName() + " 正在卖票，剩: " + ticket + " 张");
+                } else {
+                    System.out.println(Thread.currentThread().getName() + " 发现票卖完了...");
+                    break;
+                }
+            } finally {
+                // 4. 【核心铁律】必须在 finally 块中手动释放锁
+                // 确保万一 try 里面崩了，这把钥匙也能还回去，否则会导致别的线程永远进不来（死锁）
+                ticketLock.unlock(); 
+            }
+        }
+    }
+}
+
+public class LockDemo {
+    public static void main(String[] args) {
+        TicketLockTask task = new TicketLockTask();
+
+        new Thread(task, "窗口A").start();
+        new Thread(task, "窗口B").start();
+        new Thread(task, "窗口C").start();
+    }
+}
+```
+
+---
+
+### 四、 `synchronized` 与 `Lock` 对比
+
+|**对比维度**|**synchronized (内置锁 / 关键字)**|**Lock (JUC 锁 / 接口类)**|
+|---|---|---|
+|**实现机制**|依赖 JVM 底层指令（Monitor 机制）|纯 Java 代码实现（依赖 AQS 框架和 CAS 算法）|
+|**上锁/解锁方式**|**隐式**。出入代码块/方法时自动完成。|**显式**。必须手动写 `lock()` 和 `unlock()`。|
+|**是否容易死锁**|极低。JVM 保证大括号出去了绝对会释放锁。|相对较高。如果忘记写 `finally { unlock(); }` 就会死锁。|
+|**锁的灵活性**|较低。拿不到锁就一直死等。|极高。支持非阻塞拿锁、限时拿锁、以及可中断地拿锁。|
+|**公平性**|**只能是非公平锁**（全凭本事抢）。|**可以指定公平锁**：`new ReentrantLock(true)` （先来后到排队）。|
+
+---
+
+### 五、 Lock 锁的独门绝技（高级功能介绍）
+
+除了普通的 `lock()` 之外，`Lock` 接口之所以高级，是因为它还支持以下玩法：
+
+1. **限时等待抢锁：`tryLock(long time, TimeUnit unit)`**
+    
+    - 线程尝试去抢锁，如果抢到了返回 `true`；如果没抢到，它不会死等，而是在门口等指定的时间（比如 3 秒）。3 秒钟到了锁还没释放，该方法返回 `false`，线程扭头就走去干别的事。彻底避免死等引发的程序卡死。
+        
+2. **多条件精准唤醒（Condition）**
+    
+    - 原生的 `wait/notify` 只能随机唤醒一个线程。而 Lock 锁可以绑定多个 `Condition` 条件，实现“精准唤醒线程 A”或“精准唤醒线程 B”，在后面学习**生产者消费者模型**时非常强大。
+        
+
+**开发怎么选？**
+
+- 在常规业务、加锁范围很明确的场景下，**优先推荐使用 `synchronized`**，因为代码干净，且不需要担心忘记关锁。
+    
+- 如果需要用到高级特性（如：实现公平锁、超时放弃、跨方法段加锁解锁），则毫不犹豫选择 **`Lock` 锁**。
+
+---
+---
+
+
+
+## 死锁
+
+
 
 
 
