@@ -7639,13 +7639,98 @@ Read View 是一个事务在执行**快照读（普通的 `SELECT`）** 时，MV
 
 ---
 
-### 命令行工具职责速查表
 
-|**工具名称**|**它的核心定位**|**最佳应用场景**|
-|---|---|---|
-|**`mysql`**|数据操作与执行器|编写运维脚本、批量导入数据、执行特定 SQL|
-|**`mysqladmin`**|服务器运维控制台|探活（ping）、查看当前线程排查积压（processlist）|
-|**`mysqlbinlog`**|灾备与数据恢复神器|误删数据后，逆向导出 SQL 语句进行数据找回|
-|**`mysqlshow`**|纯命令行下的对象资产清点|快速看一眼某个库里有几张表、表里有多少数据|
+### 5. `mysqldump`（数据备份/迁移工具）
 
-这四个工具是 MySQL 原生自带的四大金刚。作为开发，最常用的就是 `mysql -e` 来跑一些定时同步脚本；而如果是运维或者做高可用，`mysqlbinlog` 的使用频率会非常高。你目前有遇到需要通过 Binlog 日志去人工恢复数据的场景吗？
+`mysqldump` 是 MySQL 官方自带的、最经典且最常用的**逻辑备份客户端工具**。
+
+- **核心作用**：它通过连接 MySQL 实例，将指定的数据库或表结构转化为对应的 `CREATE TABLE` 建表语句，并将表内的数据转化为一连串的 `INSERT INTO` 语句，最终保存为一个普通的 `.sql` 文本文件。
+    
+- **基本语法**：
+    
+    - **备份特定表**：`mysqldump [options] db_name [tables]`
+        
+    - **备份特定数据库**：`mysqldump [options] --database/-B db1 [db2 db3...]`
+        
+    - **备份全部数据库**：`mysqldump [options] --all-databases/-A`
+        
+- **输出控制核心选项**：
+    
+    - `--add-drop-database`：在每个创建数据库语句前加上 `DROP DATABASE` 语句。
+        
+    - `--add-drop-table`：在每个表创建语句前加上 `DROP TABLE` 语句（默认开启，防止导入时表已存在而报错）。
+        
+    - `-n, --no-create-db`：只备份数据，不包含创建数据库的语句。
+        
+    - `-t, --no-create-info`：只备份数据，不包含创建表结构的语句（纯数据备份）。
+        
+    - `-d, --no-data`：只备份表结构，不包含任何表内数据（纯结构备份）。
+        
+    - `-T, --tab=name`：自动生成两个文件，一个是建表结构的 `.sql` 文件，另一个是存放纯数据的 `.txt` 文本文件。
+        
+
+---
+
+### 6. `mysqlimport` / `source`（数据导入工具）
+
+当使用 `mysqldump` 备份好数据后，我们需要对应的工具把数据重新“灌”回数据库。针对不同的备份格式，MySQL 提供了两种导入手段：
+
+#### 🛠️ 工具 A：`mysqlimport`（文本文件导入工具）
+
+- **核心作用**：它是专门用来配合 `mysqldump -T` 参数使用的。它可以高性能地把 `.txt` 文本文件里的纯数据行，快速高效地导入到指定的数据库表中。
+    
+- **基本语法**：
+    
+    
+    
+    ```Bash
+    mysqlimport [options] db_name textfile1 [textfile2...]
+    ```
+    
+- **代码示例**（将 `/tmp/city.txt` 内的数据导入到 `test` 数据库的 `city` 表中）：
+    
+    
+    
+    ```Bash
+    mysqlimport -uroot -p2143 test /tmp/city.txt
+    ```
+    
+
+#### 🛠️ 指令 B：`source` 指令（SQL 脚本导入指令）
+
+- **核心作用**：如果你备份出来的是一个包含大量 SQL 语句的 `.sql` 脚本文件，你无法在 Linux 宿主机命令行直接运行它。此时你需要先通过 `mysql` 客户端连入数据库，然后使用内置的 `source` 指令来按顺序执行整个 SQL 脚本。
+    
+- **基本语法**：
+    
+    
+    
+    ```SQL
+    source /root/xxxxx.sql
+    ```
+    
+
+---
+
+### 六大常用工具总结对比：
+
+1. **日常执行与脚本自动化** ➔ `mysql -e`
+    
+2. **状态检查与一键控制** ➔ `mysqladmin`
+    
+3. **查资产与行数统计** ➔ `mysqlshow --count`
+    
+4. **底层物理日志分析** ➔ `mysqlbinlog`
+    
+5. **逻辑数据备份与打包** ➔ `mysqldump`
+    
+6. **逻辑数据恢复与还原** ➔ `mysqlimport` 或 `source`
+    
+
+|**工具名称**|**定位与核心职责**|**核心关注点 / 常见选项**|**经典应用场景**|
+|---|---|---|---|
+|**`mysql`**|**交互式客户端与单条命令执行器**|`-e`：无需交互，直接执行 SQL 并退出<br><br>  <br><br>`-u`, `-p`, `-h`, `-P`：基础连接参数|编写自动化运维 Shell 脚本、定时批量处理数据。|
+|**`mysqladmin`**|**服务器管理与运维控制程序**|`ping`：服务器状态探测<br><br>  <br><br>`processlist`：查看活跃线程<br><br>  <br><br>`status`：简短状态报表|数据库探活、快速创建/删除测试库、排查连接积压。|
+|**`mysqlshow`**|**数据库对象结构查找与统计工具**|`--count`：统计库、表及行数的统计信息<br><br>  <br><br>`-i`：显示数据库或表的详细状态|在纯命令行（无可视化工具）下，快速清点资产、看表结构和数据量。|
+|**`mysqlbinlog`**|**二进制日志（Binlog）翻译与分析工具**|`--start/stop-datetime`：时间段过滤<br><br>  <br><br>`--start/stop-position`：Pos 点过滤<br><br>  <br><br>`-d`：指定数据库过滤|数据被误删后的紧急排查、根据时间或位置进行数据恢复。|
+|**`mysqldump`**|**逻辑备份与数据迁移神器**|`--all-databases (-A)`：全库备份<br><br>  <br><br>`--no-data (-d)`：只导表结构<br><br>  <br><br>`--no-create-info (-t)`：只导纯数据|生产环境定期导出数据备份、异地机房数据迁移。|
+|`mysqlimport`<br><br>  <br><br>/ `source`|**逻辑备份数据的高效导入还原工具**|`mysqlimport`：配合 `mysqldump -T` 导入纯文本行数据<br><br>  <br><br>`source`：在 mysql 内部按顺序执行 `.sql` 脚本|灾备恢复、测试环境初始化（将备份好的数据重新灌回数据库）。|
