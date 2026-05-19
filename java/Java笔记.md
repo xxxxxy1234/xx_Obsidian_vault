@@ -13888,6 +13888,152 @@ public class ThreadDemo3 {
 - 如果你的多线程业务**必须要获取计算结果**（例如：多线程分段下载文件、多线程计算报表总和），那不用犹豫，直接选**方式三（Callable）**。
 
 
+---
+---
+
+
+
+
+
+## 多线程的常见成员方法
+
+
+多线程的常见成员方法涵盖了线程的基本属性管理（命名、优先级）以及线程的生命周期控制（休眠、让步、插队、守护）。
+
+下面为你进行详细的分类介绍与对应的代码示例。
+
+---
+
+### 一、 线程属性管理方法
+
+#### 1. `getName()` 与 `setName(String name)`
+
+- **作用**：获取或设置线程的名称。如果没有手动设置，Java 会默认命名为 `Thread-0`、`Thread-1` 等。
+    
+- **注意**：除 `setName` 之外，也可以通过定义子类的构造方法利用 `super(name)` 给线程设置名字。
+    
+
+#### 2. `getPriority()` 与 `setPriority(int newPriority)`
+
+- **作用**：获取或设置线程的优先级。
+    
+- **特点**：Java 中线程优先级的范围是 **1 - 10**。默认优先级是 **5**。优先级越高的线程，抢占到 CPU 时间片的概率越大（但不是绝对先执行）。
+    
+
+---
+
+### 二、 线程状态控制方法
+
+#### 1. `currentThread()` (静态方法)
+
+- **作用**：获取当前正在执行的线程对象。
+    
+- **场景**：在通过实现 `Runnable` 或 `Callable` 接口创建的线程中，无法直接调用 `getName()`，必须先通过 `Thread.currentThread()` 拿到当前线程对象。
+    
+
+#### 2. `sleep(long time)` (静态方法)
+
+- **作用**：让当前正在执行的线程休眠指定的毫秒数（1 秒 = 1000 毫秒）。
+    
+- **特点**：休眠期间线程会阶段性释放 CPU 执行权，进入阻塞状态，时间到了会自动醒来。
+    
+
+#### 3. `setDaemon(boolean on)`
+
+- **作用**：将当前线程设置为**守护线程**（后台线程）。
+    
+- **特点**：当程序中所有的非守护线程（如主线程）都结束运行时，守护线程不管有没有执行完，都会被操作系统强行直接杀死（例如垃圾回收器就是最典型的守护线程）。
+    
+
+#### 4. `yield()` (静态方法)
+
+- **作用**：出让线程/礼让线程。
+    
+- **特点**：暂停当前正在执行的线程，让其从“运行状态”回到“就绪状态”，重新与其它线程一起抢占 CPU 执行权。**它只是提供一种礼让的可能，并不能保证其他线程一定能抢到。**
+    
+
+#### 5. `join()`
+
+- **作用**：插入线程/插队线程。
+    
+- **特点**：当在 A 线程中调用了 B 线程的 `join()` 方法时，A 线程会立即进入阻塞状态，直到 B 线程完全执行完毕后，A 线程才会继续往下执行。
+    
+
+---
+
+### 三、 综合代码示例
+
+以下示例完美融合了上述各种核心方法的使用逻辑：
+
+```java
+class MyTask extends Thread {
+    public MyTask(String name) {
+        super(name); // 利用构造方法直接设置线程名称
+    }
+
+    @Override
+    public void run() {
+        for (int i = 1; i <= 3; i++) {
+            // 1. 获取当前执行的线程名字
+            System.out.println(getName() + " (优先级:" + getPriority() + ") 正在运行: " + i);
+            
+            // 2. 演示 sleep 方法（必须捕获异常）
+            try {
+                Thread.sleep(500); // 每次运行休眠 500 毫秒
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // 3. 演示 yield 方法
+            if ("礼让线程".equals(getName())) {
+                Thread.yield(); // 当该线程运行到此处时，尝试出让执行权
+            }
+        }
+    }
+}
+
+public class ThreadMethodDemo {
+    public static void main(String[] args) throws InterruptedException {
+        // 获取当前执行主方法的线程（主线程）
+        Thread mainThread = Thread.currentThread();
+        System.out.println("主线程名称: " + mainThread.getName());
+
+        // 创建三个线程任务
+        MyTask t1 = new MyTask("普通线程A");
+        MyTask t2 = new MyTask("礼让线程");
+        MyTask t3 = new MyTask("守护线程B");
+
+        // 4. 设置优先级
+        t1.setPriority(Thread.MAX_PRIORITY); // 设置为最大优先级 10
+        t2.setPriority(Thread.MIN_PRIORITY); // 设置为最小优先级 1
+
+        // 5. 设置守护线程
+        // 注意：必须在 start() 启动之前将其设置为守护线程
+        t3.setDaemon(true); 
+
+        // 启动线程
+        t1.start();
+        t2.start();
+        t3.start();
+
+        // 6. 演示 join 方法（让普通线程A强行给主线程插队）
+        // 主线程走到这里会停下死等，直到 t1 线程完全运行完毕，主线程下面的代码才会执行
+        t1.join(); 
+
+        System.out.println("====== 主线程(main)到此结束 ======");
+        // 当主线程和普通线程A都结束了，守护线程B哪怕没有循环完，也会随之直接消亡。
+    }
+}
+```
+
+
+---
+---
+
+
+
+
+
 
 
 ---
