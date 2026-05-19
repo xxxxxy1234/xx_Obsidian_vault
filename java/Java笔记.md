@@ -15084,9 +15084,7 @@ public class DeadLockDemo {
 
 在 Java 中，官方极度推荐使用 **`while` 循环** 来进行第二步的判断，而不是 `if`（防止伪唤醒 Bug）。因此，你可以直接把这套黄金模板刻在脑子里：
 
-Java
-
-```
+```java
 synchronized(锁对象) {
     // 1. 判断是否需要等待 (用 while，别用 if)
     while (等待条件满足) {
@@ -15112,12 +15110,14 @@ synchronized(锁对象) {
 
 #### 1. 共享的数据纽带（桌子）
 
-Java
 
-```
+```java
 public class Desk {
     // 标记：0 表示桌上没面，1 表示桌上有面
     public static int flag = 0;
+    
+    // 计数器：记录吃货已经吃了多少碗
+    public static int count = 0;
     
     // 锁对象（全宇宙唯一）
     public static final Object LOCK = new Object();
@@ -15126,14 +15126,18 @@ public class Desk {
 
 #### 2. 生产者（厨师）
 
-Java
-
-```
+```java
 public class Cook implements Runnable {
     @Override
     public void run() {
         while (true) {
             synchronized (Desk.LOCK) {
+                // 一进来先看吃货饱了没有
+                if (Desk.count == 10) {
+                    System.out.println("厨师：听说吃货吃饱走了？那我也下班了！(退出)");
+                    break;
+                }
+
                 // 判断：桌上有面，厨师就等待
                 while (Desk.flag == 1) {
                     try {
@@ -15144,12 +15148,12 @@ public class Cook implements Runnable {
                 }
                 
                 // 生产：做面条
-                System.out.println("厨师做了一碗香喷喷的面条！");
+                System.out.println("厨师大火颠勺，做了一碗香喷喷的面条！");
                 
-                // 改变状态
+                // 改变状态：桌上有面了
                 Desk.flag = 1;
                 
-                // 唤醒消费者
+                // 唤醒消费者来吃
                 Desk.LOCK.notifyAll();
             }
         }
@@ -15159,9 +15163,8 @@ public class Cook implements Runnable {
 
 #### 3. 消费者（吃货）
 
-Java
 
-```
+```Java
 public class Foodie implements Runnable {
     @Override
     public void run() {
@@ -15177,14 +15180,21 @@ public class Foodie implements Runnable {
                 }
                 
                 // 消费：吃面条
-                System.out.println("吃货把面条一扫而空，真过瘾！");
-                System.out.println("-------------------------");
+                Desk.count++; // 碗数 + 1
+                System.out.println(Thread.currentThread().getName() + " 把面条一扫而空！这是第 " + Desk.count + " 碗。");
+                System.out.println("----------------------------------------");
                 
-                // 改变状态
+                // 改变状态：桌上没面了
                 Desk.flag = 0;
                 
                 // 唤醒厨师去生产
                 Desk.LOCK.notifyAll();
+                
+                // 判断是否吃饱：如果吃够 10 碗了，吃货打个饱嗝，退出程序
+                if (Desk.count == 10) {
+                    System.out.println("吃货：实在吃不下了，饱了饱了！(退出)");
+                    break;
+                }
             }
         }
     }
@@ -15193,9 +15203,7 @@ public class Foodie implements Runnable {
 
 #### 4. 运行控制台
 
-Java
-
-```
+```java
 public class MainTest {
     public static void main(String[] args) {
         new Thread(new Cook(), "厨师线程").start();
@@ -15204,7 +15212,34 @@ public class MainTest {
 }
 ```
 
-运行之后你会发现，不管后台隐藏了多少线程在捣乱，控制台的打印都会极其丝滑、严格按照：**“做一碗 $\rightarrow$ 吃一碗 $\rightarrow$ 做一碗 $\rightarrow$ 吃一碗”** 的完美交替顺序进行。
+#### 5. 运行结果
+
+运行程序后，你会在控制台看到非常治愈且完美的 10 轮严格交互，并且最终两个工作线程都会优雅地自我销毁，整个 Java 进程安全退出：
+
+
+```Plaintext
+厨师大火颠勺，做了一碗香喷喷的面条！
+吃货线程 把面条一扫而空！这是第 1 碗。
+----------------------------------------
+厨师大火颠勺，做了一碗香喷喷的面条！
+吃货线程 把面条一扫而空！这是第 2 碗。
+----------------------------------------
+...（中间省略 3-8 碗）...
+厨师大火颠勺，做了一碗香喷喷的面条！
+吃货线程 把面条一扫而空！这是第 9 碗。
+----------------------------------------
+厨师大火颠勺，做了一碗香喷喷的面条！
+吃货线程 把面条一扫而空！这是第 10 碗。
+----------------------------------------
+吃货：实在吃不下了，饱了饱了！(退出)
+厨师：听说吃货吃饱走了？那我也下班了！(退出)
+
+Process finished with exit code 0
+```
+
+### 💡 核心点拨
+
+在这个改进中，我们巧妙地处理了多线程的“优雅退出”**问题。**
 
 ### 💡 关键避坑细节
 
