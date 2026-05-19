@@ -14407,6 +14407,104 @@ public class SynchronizedDemo {
 }
 ```
 
+
+#### private final Object lock = new Object()和private static Object lock=new Object()有区别吗
+
+
+**这个问题问得极其敏锐！** 这两种写法在多线程开发中有着本质的区别，而这个区别直接决定了你的锁**能不能真正锁住线程**。
+
+简单来说：区别取决于你是用 **实现 `Runnable` 接口** 的方式还是 **继承 `Thread` 类** 的方式来创建线程。
+
+我们来逐一拆解：
+
+
+
+##### 1. `private final Object lock = new Object();`（实例变量锁）
+
+这种写法属于**实例变量**。这意味着：**每 `new` 一个任务对象，就会产生一把全新的锁。**
+
+###### 💡 什么时候它是安全的？（实现 Runnable 接口）
+
+正如我上面写的买票代码示例，我们只 `new` 了一次任务对象：
+
+```java
+TicketTask task = new TicketTask(); // 这里只 new 了一次，所以 lock 锁只有一把
+
+Thread t1 = new Thread(task, "窗口A");
+Thread t2 = new Thread(task, "窗口B");
+```
+
+此时，`t1`、`t2`、`t3` 这三个线程共享的是同一个 `task` 对象，因此它们使用的是**同一把 `lock` 锁**。在这种场景下，它是**绝对安全**的。
+
+###### ❌ 什么时候它会失效？（继承 Thread 类）
+
+如果你是用继承 `Thread` 的方式，代码通常会写成这样：
+
+
+```java
+// 如果 MyThread 继承了 Thread，且锁没有加 static
+MyThread t1 = new MyThread(); // 内部创建了锁钥匙 A
+MyThread t2 = new MyThread(); // 内部创建了锁钥匙 B
+
+t1.start();
+t2.start();
+```
+
+这时候就崩盘了。因为你 `new` 了两个独立的线程对象，它们各自在堆内存里拥有独立的 `lock` 实例变量。`t1` 拿着 A 钥匙进 A 门，`t2` 拿着 B 钥匙进 B 门，**同步代码块直接形同虚设，依然会出现超卖的 Bug！**
+
+
+
+##### 2. `private static Object lock = new Object();`（类变量锁）
+
+加了 `static` 关键字后，这个属性就变成了**静态变量（类变量）**。
+
+###### 💡 它的威力
+
+在 Java 中，静态变量属于**类本身**，被这个类的所有对象所**共同共享**。无论你 `new` 了 1 个对象、100 个对象，还是 10000 个对象，在内存的静态区里，**永远有且仅有这么一把 `lock` 锁**。
+
+###### 场景对比：
+
+即使你用继承 `Thread` 的方式 `new` 了多个线程：
+
+```java
+MyThread t1 = new MyThread(); 
+MyThread t2 = new MyThread(); 
+```
+
+由于 `lock` 是 `static` 的，`t1` 和 `t2` 抬头看的是同一个大屏幕，抢的是同一把公用钥匙。此时，**同步代码块依然生效，能够完美保证线程安全！**
+
+
+
+##### 核心区别对比表
+
+|**写法**|**锁的级别**|**钥匙的总数量**|**适用多线程场景**|
+|---|---|---|---|
+|**`private final Object lock`**|**对象级别** (每个对象独立拥有)|你 `new` 几个对象，就有几把钥匙|仅适用于 **实现 `Runnable`** 且只 new 了一个任务对象的场景。|
+|**`private static Object lock`**|**类级别** (所有对象共享同一把)|无论 new 多少对象，**永远只有 1 把**|通杀。既可用于 `Runnable`，更是 **继承 `Thread`** 时的唯一救星。|
+
+
+
+##### 终极避坑建议
+
+在实际开发中，为了防止由于不小心 `new` 了多个对象而导致锁失效，程序员通常会使用以下两招“稳赚不赔”的方法：
+
+1. **如果非要自己定义 lock，就把它加上 `static`**：
+
+    ```java
+    private static final Object LOCK = new Object(); // 加上 final 防止锁被人在中途换掉
+    ```
+    
+2. **直接使用当前类的字节码对象（最省事、最推荐）**：
+    
+    Java 中每个类在内存中都有唯一的 `.class` 文件对象，它是绝对唯一的。你甚至不需要自己声明 `lock` 变量，直接这样写：
+
+    ```java
+    synchronized (TicketTask.class) { // TicketTask.class 全宇宙唯一
+        // 核心安全代码
+    }
+    ```
+
+
 ---
 
 ### 四、 同步代码块的“三大铁律”（避坑指南）
