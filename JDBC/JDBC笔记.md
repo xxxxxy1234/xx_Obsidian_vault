@@ -580,3 +580,154 @@ SELECT * FROM users WHERE username = 'admin' OR '1'='1' AND password = '123'
 - 它的致命软肋在于**动态拼串麻烦**且**无法防范 SQL 注入攻击**。
     
 - 在现代 Java 体系中，除了一些不带参数的 DDL 脚本执行或异构 SQL 批处理，它基本已经退居幕后。
+
+
+---
+---
+
+
+
+## API详解——ResultSet
+
+
+
+在 JDBC 的工作流中，`DriverManager` 帮我们打通了电话（`Connection`），`Statement` 帮我们把请求传了过去，而 **`ResultSet`（结果集接口）** 就是数据库给你回信时，寄过来的那个“数据包裹”。
+
+当执行查询语句（`SELECT`）后，数据库会返回一张虚拟的表格，`ResultSet` 就是在 Java 语言中封装并操纵这张表格的**核心接口**。它扮演着“数据指针与翻译官”的角色。
+
+下面为你详细拆解 `ResultSet` 的工作机制、核心 API、数据类型转换以及注意事项。
+
+### 1. ResultSet 的核心职责
+
+`ResultSet` 的结构非常像一张数据库表，有行（Row）和列（Column）。但它并不是把数据库里的几万条数据一次性全部加载到 Java 内存中，它的底层工作极其克制：
+
+1. **控制光标（Cursor）**：内部维护了一个“行光标”（或叫指针）。刚拿到对象时，光标指向**第一行数据的前面（Before First Row）**。
+    
+2. **数据解析与翻译**：提供了一系列的 `get` 方法，负责将数据库底层的二进制数据，翻译转换成 Java 里的 `String`、`int`、`Date` 等具体的对象类型。
+    
+
+![[JDBC笔记-6.png]]
+
+
+### 2. 常用 API 详解
+
+`ResultSet` 的方法主要分为两类：**光标移动方法** 和 **获取列数据方法**。
+
+#### ① 光标移动方法（控制看哪一行）
+
+- **`next()`** _(最核心、最常用)_
+    
+    - **作用**：将光标从当前行向前移动一行。
+        
+    - **返回值**：`boolean` 类型。如果新的一行有数据，返回 `true`；如果已经到了表格末尾没有数据了，返回 `false`。
+        
+    - **经典用法**：配合 `while` 循环遍历整张表。
+        
+- **高级光标控制（需连接配置支持）**
+    
+    - `previous()`：光标向后退一行。
+        
+    - `absolute(int row)`：光标直接跳到指定的第几行（1 代表第一行，-1 代表最后一行）。
+        
+    - `first()` / `last()`：光标直接跳到第一行或最后一行。
+        
+    - _(注意：默认情况下 ResultSet 是“只读且只能向前滚动”的，调用这些高级方法需要创建 Statement 时进行特殊配置。)_
+        
+
+#### ② 获取列数据方法（控制拿哪个字段）
+
+`ResultSet` 提供了极其丰富的 `getXxx()` 方法，其中 `Xxx` 代表你希望转换成的 Java 数据类型：
+
+- **常用数据类型获取**：
+    
+    - `getString(int columnIndex / String columnLabel)`：获取字符串（可对应 MySQL 的 `varchar`、`text`）。
+        
+    - `getInt(int columnIndex / String columnLabel)`：获取整数（对应 `int`、`tinyint`）。
+        
+    - `getDouble(int columnIndex / String columnLabel)`：获取浮点数（对应 `double`、`decimal`）。
+        
+    - `getTimestamp(int columnIndex / String columnLabel)`：获取时间戳（对应 `datetime`、`timestamp`）。
+        
+- **传参的两种方式（索引 vs 列名）**：
+    
+    每个 `get` 方法都有两种重载形式，比如拿名字：
+    
+    1. **根据列名（推荐）**：`rs.getString("username")`。可读性极高，即便 SQL 调整了字段查询顺序，代码也不会垮。
+        
+    2. **根据索引（从 1 开始）**：`rs.getString(2)`。代表获取当前行的第 2 列。执行效率略高一点点，但极其容易数错，不便于维护。
+        
+
+### 3. 经典遍历模版
+
+当你从 `Statement` 拿到 `ResultSet` 后，标准的处理代码如下：
+
+
+```java
+// 执行查询
+ResultSet rs = stmt.executeQuery("SELECT id, username, create_time FROM users");
+
+// 遍历结果集
+while (rs.next()) { 
+    // 每次进入循环，光标都精准停留在某一行
+    
+    // 提取当前行的各个字段数据
+    int id = rs.getInt("id");
+    String name = rs.getString("username");
+    java.sql.Timestamp createTime = rs.getTimestamp("create_time");
+    
+    // 将其打印或者封装成 Java Bean 对象
+    System.out.println("用户: " + id + " | 名字: " + name + " | 注册时间: " + createTime);
+}
+
+// 用完记得关闭它
+rs.close();
+```
+
+### 4. 两个高频踩坑点与底层认知
+
+#### ❌ 坑点一：在没有调用 `next()` 之前直接取数据
+
+很多新手拿到 `ResultSet` 后非常兴奋，直接调用：
+
+```java
+ResultSet rs = stmt.executeQuery("SELECT name FROM users WHERE id = 1");
+String name = rs.getString("name"); // 💥 直接报错：Before start of result set
+```
+
+**原因**：正如前面所说，刚拿到的 `ResultSet` 光标停在第一行**之前**（第 0 行），这里没有任何数据。哪怕你的结果集里只有 1 条数据，你也必须先调用一次 `rs.next()` 让光标走到第一行，才能正常取值。单条数据通常配合 `if (rs.next()) { ... }` 使用。
+
+#### ❌ 坑点二：数据库的 NULL 值被包装成了 Java 的 0
+
+在数据库中，一个 `age` 字段（`int` 类型）如果是 `NULL`（代表用户没填）。
+
+当你调用 `int age = rs.getInt("age");` 时，Java 没办法让基础数据类型 `int` 变成 `null`，于是 **JDBC 驱动会自动帮你把它转换成 `0`**。
+
+这在业务上会引发灾难（没填年龄变成了 0 岁）。
+
+**解决方案**：
+
+1. **方法一（使用包装类 + `wasNull()`）**：
+
+    ```java
+    int age = rs.getInt("age");
+    Integer realAge = null;
+    if (!rs.wasNull()) { // wasNull() 检查上一次 get 的字段在数据库里是不是 NULL
+        realAge = age;
+    }
+    ```
+
+2. **方法二（直接 getObject）**：
+
+```java
+Integer realAge = rs.getObject("age", Integer.class); // 直接拿到包装类，可为 null
+```
+
+
+---
+
+### 总结
+
+*   `ResultSet` 是 Java 里的**虚拟数据表**，它依赖**行光标**单向向下移动来读取数据。
+*   每次取数据前，**必须先通过 `next()` 移动光标**。
+*   通过 `getXxx("列名")` 的方式将数据库字段类型翻译为 Java 对象。
+*   对于数据库中的 `NULL` 值要格外小心，基础类型（如 `int`）接收会变成 `0`，建议使用 `getObject()` 或包装类处理。
