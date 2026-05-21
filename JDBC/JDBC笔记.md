@@ -1255,3 +1255,422 @@ public class DruidJavaConfig {
 ### 总结
 
 数据库连接池是 Java 后端工程的必备基础设施。引入连接池后，我们不仅实现了连接的复用，斩断了频繁建连的性能损耗，更能通过配置“最大连接数”来充当**保护数据库的最后一道防火墙**，防止过多的并发请求把数据库服务器直接冲垮。
+
+
+---
+---
+
+
+## 补充：配置文件是干嘛的
+
+
+一个最简单的比喻：
+
+如果把你的 **Java 程序** 比作一台 **“空调”**。
+
+- **Java 代码**（`.java` / `.class`）：是空调内部的**硬件电路和核心逻辑**。它出厂就固定死了，规定了怎么制冷、怎么调节风速。
+    
+- **配置文件**（`.properties` / `.yml` / `.xml`）：就是空调的“遥控器”。通过遥控器，你可以自由决定把温度设为 26℃ 还是 18℃，决定开冷风还是送风。
+    
+
+### 1. 配置文件解决的核心痛点：拒绝硬编码
+
+在没有配置文件之前，如果我们写一个连接数据库的代码，通常是这样的：
+
+
+```java
+// 硬编码（Hard Coding）——把配置死死写在代码里
+String url = "jdbc:mysql://localhost:3306/test_db";
+String username = "root";
+String password = "123";
+```
+
+这样写会带来一个**极其灾难性**的后果：
+
+你的代码在本地电脑（开发环境）跑得好好的。今天项目要上线了，公司的正式数据库服务器 IP 是 `192.168.1.100`，密码是 `Prod_7589@pwd`。
+
+这时候你该怎么办？
+
+1. 你必须在几百个 Java 文件中找到这一行。
+    
+2. 把代码里的 `localhost` 和 `123` 改掉。
+    
+3. **重新把整个项目打包、编译**，然后再发布到服务器上。
+    
+
+如果明天正式环境的密码又改了呢？你又得重复一遍：**改代码 $\rightarrow$ 重新编译 $\rightarrow$ 重新打包 $\rightarrow$ 重新部署**。在大型微服务系统中，光是编译打包可能就要花半个小时。
+
+### 2. 配置文件的核心工作原理：解耦
+
+配置文件的出现，实现了“代码结构”与“环境参数”的彻底分离（解耦）。
+
+```
++---------------------------+              +-------------------------+
+|   druid.properties (配置)  |             |    BrandApp.class (代码) |
+|                           |              |                          |
+|   url=jdbc:mysql://...    | ----------->|  1. 动态读取配置文件       |
+|   username=root           | (启动时加载)  |  2. 拿到参数，建立连接    |
+|   password=123            |             |  3. 执行增删改查业务       |
++---------------------------+              +-------------------------+
+         ^
+         | (修改时，只需要改这里，代码完全不用动)
+```
+
+1. **各司其职**：Java 代码只负责**逻辑流程**（“去读取连接池参数并连接”），而不管具体的参数值是什么。具体的动态参数全部写在 `druid.properties` 这样的文本文件里。
+    
+2. **启动加载**：当程序启动时，Java 代码会通过输入流（`InputStream`）去读取这个文本文件，把里面的键值对（Key-Value）加载到内存中，再传给连接池。
+    
+
+### 3. 配置文件的巨大好处
+
+- **改配置不需要重新编译**：
+    
+    如果数据库密码变了，你只需要用记事本打开服务器上的 `druid.properties`，把密码那一项改掉，然后**重启一下程序**就行了。Java 代码一行都不需要动，更不需要重新打包。
+    
+- **一份代码，多套环境**：
+    
+    在标准的软件开发中，通常有三套环境：
+    
+    - **开发环境（Dev）**：程序员自己电脑，连本地数据库。
+        
+    - **测试环境（Test）**：测试小姐姐用的环境，连测试数据库。
+        
+    - **生产环境（Prod）**：真实用户访问的正式环境，连线上数据库。
+        
+    
+    有了配置文件，你的 Java 代码只需要写一套打包好。去开发环境时，带上开发版的配置文件；去生产环境时，直接把里面的 IP 换成正式服务器的 IP 即可。
+    
+
+### 4. 常见的配置文件格式
+
+在 Java 的世界里，你主要会遇到以下三种格式的配置文件：
+
+- **`.properties`（属性文件）**：
+    
+    最古老、最简单。一行一个配置，用等号连接。
+    
+    
+    
+    ```Properties
+    database.username=root
+    database.password=123
+    ```
+    
+- **`.xml`（可扩展标记语言）**：
+    
+    极其严谨，标签套标签。早期的 Spring 和 MyBatis 深度依赖 XML。缺点是太臃肿，充斥着大量的尖括号 `< >`。
+    
+    
+    
+    ```XML
+    <database>
+        <username>root</username>
+        <password>123</password>
+    </database>
+    ```
+    
+- **`.yml` / `.yaml`（现代主流）**：
+    
+    Spring Boot 时代的最爱。通过**缩进**来表示层级关系，没有尖括号，也没有分号，长得非常清爽。
+    
+    
+    
+    ```YAML
+    database:
+      username: root
+      password: 123
+    ```
+    
+
+### 总结
+
+配置文件说白了就是**给程序留出的“后门接口”**。它让非技术人员、运维人员或者处于不同环境下的你，不用动底层源码，只要改改几个文本字，就能动态控制整个程序的运行行为。
+
+
+
+
+
+---
+---
+
+
+## 综合练习——商品品牌数据的增删改查
+
+
+这是一道非常经典的 **JDBC 综合实战练习**。它不仅考察了你对前面学到的 `Connection`、`PreparedStatement`、`ResultSet` 的运用，还融入了连接池（这里推荐继续使用性能和功能都很赞的 **Druid**）以及面向对象设计（实体类封装）。
+
+为了让练习结构清晰，我们将整个项目拆分为 4 个部分：
+
+1. **数据库环境（SQL 脚本）**
+    
+2. **Java 实体类（`Brand`）**
+    
+3. **Druid 工具类（`JdbcUtils`，方便复用连接）**
+    
+4. **核心业务测试类（实现 CRUD 增删改查）**
+    
+
+### 第一步：准备数据库环境 (`tb_brand`)
+
+在你的 MySQL 中运行以下脚本，创建商品品牌表并初始化几条测试数据：
+
+```sql
+CREATE DATABASE IF NOT EXISTS test_db CHARACTER SET utf8mb4;
+USE test_db;
+
+DROP TABLE IF EXISTS tb_brand;
+CREATE TABLE tb_brand (
+    id INT PRIMARY KEY AUTO_INCREMENT,  -- 品牌ID
+    brand_name VARCHAR(50) NOT NULL,   -- 品牌名称
+    company_name VARCHAR(50) NOT NULL, -- 企业名称
+    ordered INT,                       -- 排序字段
+    description VARCHAR(255),          -- 描述信息
+    status INT                         -- 状态：0 禁用，1 启用
+);
+
+-- 初始化数据
+INSERT INTO tb_brand (brand_name, company_name, ordered, description, status) 
+VALUES 
+('三只松鼠', '三只松鼠股份有限公司', 5, '好吃到根本停不下来', 1),
+('华为', '华为技术有限公司', 100, '万物互联，华流即顶流', 1),
+('小米', '小米科技有限责任公司', 50, '让每个人都能享受科技的乐趣', 0);
+```
+
+### 第二步：创建实体类 (`Brand`)
+
+对应数据库表的字段，编写一个标准的 Java Bean，用来在程序中传递和存储品牌数据。
+
+
+```java
+public class Brand {
+    private Integer id;
+    private String brandName;
+    private String companyName;
+    private Integer ordered;
+    private String description;
+    private Integer status;
+
+    // 无参构造方法
+    public Brand() {}
+
+    // 全参构造方法
+    public Brand(Integer id, String brandName, String companyName, Integer ordered, String description, Integer status) {
+        this.id = id;
+        this.brandName = brandName;
+        this.companyName = companyName;
+        this.ordered = ordered;
+        this.description = description;
+        this.status = status;
+    }
+
+    // Getter 和 Setter 方法
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getBrandName() { return brandName; }
+    public void setBrandName(String brandName) { this.brandName = brandName; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+
+    public Integer getOrdered() { return ordered; }
+    public void setOrdered(Integer ordered) { this.ordered = ordered; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public Integer getStatus() { return status; }
+    public void setStatus(Integer status) { this.status = status; }
+
+    // 重写 toString 方便打印打印查看结果
+    @Override
+    public String toString() {
+        return "Brand{" + "id=" + id + ", brandName='" + brandName + '\'' + ", companyName='" + companyName + '\'' +
+                ", ordered=" + ordered + ", description='" + description + '\'' + ", status=" + status + '}';
+    }
+}
+```
+
+### 第三步：编写 Druid 连接池工具类 (`JdbcUtils`)
+
+在 `src/main/resources` 下确保你已经配置好了 `druid.properties` 文件（内容参考上一节）。接着编写一个工具类，用来管理连接池。
+
+
+```java
+import com.alibaba.druid.pool.DruidDataSourceFactory;
+import javax.sql.DataSource;
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
+
+/**
+ * JDBC 工具类：负责连接池初始化及连接提供
+ */
+public class JdbcUtils {
+    private static DataSource dataSource;
+
+    static {
+        try {
+            Properties prop = new Properties();
+            InputStream is = JdbcUtils.class.getClassLoader().getResourceAsStream("druid.properties");
+            prop.load(is);
+            // 初始化 Druid 连接池
+            dataSource = DruidDataSourceFactory.createDataSource(prop);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 从连接池获取一个可用的连接
+     */
+    public static Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+}
+```
+
+### 第四步：核心业务类（实现增删改查）
+
+接下来进入核心练习。我们在一个测试类中分别编写 4 个方法来实现 **C（增）R（查）U（改）D（删）** 操作。
+
+```java
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
+
+public class BrandCrudTest {
+
+    public static void main(String[] args) throws Exception {
+        System.out.println("====== 1. 查询所有品牌 ======");
+        selectAll();
+
+        System.out.println("\n====== 2. 添加新品牌 ======");
+        Brand newBrand = new Brand(null, "苹果", "苹果电子产品商贸有限公司", 10, "Designed by Apple in California", 1);
+        addBrand(newBrand);
+        selectAll(); // 添加后再查一次对比结果
+
+        System.out.println("\n====== 3. 修改品牌数据 ======");
+        // 把刚才添加的苹果(假设通过添加返回/观察得知其自增 id=4) 的描述进行修改
+        Brand updateBrand = new Brand(4, "苹果-M系列", "苹果技术有限公司", 20, "极限性能，全线换代", 1);
+        updateBrandById(updateBrand);
+        selectAll();
+
+        System.out.println("\n====== 4. 根据 id 删除品牌 ======");
+        deleteById(4); // 把 id 为 4 的品牌删掉
+        selectAll();
+    }
+
+    /**
+     * R - 查询所有商品品牌数据
+     */
+    public static void selectAll() throws Exception {
+        String sql = "SELECT * FROM tb_brand";
+        List<Brand> list = new ArrayList<>();
+
+        // 利用 try-with-resources 自动释放从池子中借出的连接和执行对象
+        try (Connection conn = JdbcUtils.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            // 循环遍历结果集
+            while (rs.next()) {
+                // 1. 提取当前行的数据
+                int id = rs.getInt("id");
+                String brandName = rs.getString("brand_name");
+                String companyName = rs.getString("company_name");
+                int ordered = rs.getInt("ordered");
+                String description = rs.getString("description");
+                int status = rs.getInt("status");
+
+                // 2. 封装到实体类对象中（ORM 思想的雏形）
+                Brand brand = new Brand(id, brandName, companyName, ordered, description, status);
+                
+                // 3. 塞入集合
+                list.add(brand);
+            }
+        }
+
+        // 打印集合
+        for (Brand b : list) {
+            System.out.println(b);
+        }
+    }
+
+    /**
+     * C - 添加品牌数据
+     */
+    public static void addBrand(Brand brand) throws Exception {
+        // id 字段设置了自增，所以 SQL 语句中无需插入 id 
+        String sql = "INSERT INTO tb_brand (brand_name, company_name, ordered, description, status) VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection conn = JdbcUtils.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // 为 5 个占位符分别填装数据
+            pstmt.setString(1, brand.getBrandName());
+            pstmt.setString(2, brand.getCompanyName());
+            pstmt.setInt(3, brand.getOrdered());
+            pstmt.setString(4, brand.getDescription());
+            pstmt.setInt(5, brand.getStatus());
+
+            // 执行修改，返回受影响的行数
+            int rows = pstmt.executeUpdate();
+            System.out.println("添加成功！受影响行数：" + rows);
+        }
+    }
+
+    /**
+     * U - 根据 id 修改品牌数据
+     */
+    public static void updateBrandById(Brand brand) throws Exception {
+        String sql = "UPDATE tb_brand SET brand_name = ?, company_name = ?, ordered = ?, description = ?, status = ? WHERE id = ?";
+
+        try (Connection conn = JdbcUtils.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // 先设置更新的字段
+            pstmt.setString(1, brand.getBrandName());
+            pstmt.setString(2, brand.getCompanyName());
+            pstmt.setInt(3, brand.getOrdered());
+            pstmt.setString(4, brand.getDescription());
+            pstmt.setInt(5, brand.getStatus());
+            // 最后千万别忘了设置 WHERE 后面的 id 限制，否则全表都会被改掉！
+            pstmt.setInt(6, brand.getId());
+
+            int rows = pstmt.executeUpdate();
+            System.out.println("修改成功！受影响行数：" + rows);
+        }
+    }
+
+    /**
+     * D - 根据 id 删除对应品牌
+     */
+    public static void deleteById(int id) throws Exception {
+        String sql = "DELETE FROM tb_brand WHERE id = ?";
+
+        try (Connection conn = JdbcUtils.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            // 设置要删除的 id 参数
+            pstmt.setInt(1, id);
+
+            int rows = pstmt.executeUpdate();
+            System.out.println("删除成功！受影响行数：" + rows);
+        }
+    }
+}
+```
+
+### 核心通关秘籍：
+
+1. **统一使用 `PreparedStatement`**：在这个练习中，添加、修改、删除都有动态参数传入。使用 `?` 占位符不仅规避了 SQL 注入，也让参数绑定逻辑和 SQL 的解耦更加清晰。
+    
+2. **正确区分两类核心执行法**：
+    
+    - `executeQuery()`：有来有回，拿来做查询，返回的是一整张映射表（`ResultSet`）。
+        
+    - `executeUpdate()`：有去无回，拿来做增删改，返回一个简单数字（受影响的行数）。
