@@ -984,3 +984,274 @@ try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
     2. **极高的可读性**：告别恶心的单双引号拼接，代码像填空题一样整洁。
         
     3. **恐怖的执行性能**：支持数据库端编译缓存，配合 `addBatch()` 批处理，是海量数据操作的唯一选择。
+
+
+---
+---
+
+
+
+## 数据库连接池
+
+
+在传统的 JDBC 开发中，我们每次执行数据库操作都需要经历“**建立连接 $\rightarrow$ 执行 SQL $\rightarrow$ 断开连接**”的过程。然而，频繁地创建和销毁 `Connection` 物理连接是一件极其沉重、耗时的网络操作，会严重拖慢高并发系统的性能。
+
+为了解决这个问题，**数据库连接池（Database Connection Pool）** 应运而生。
+
+---
+### 1. 什么是数据库连接池？
+
+
+![[JDBC笔记-9.png]]
+
+
+简单来说，数据库连接池就是一个**存放数据库连接的“核心缓存池”**。
+
+它的核心思想是**资源复用**：系统在启动时，会预先向数据库申请创建一批连接（`Connection` 对象）并保存在池子里。当你的业务代码需要访问数据库时，不再直接找 `DriverManager` 新建连接，而是**向池子借一个现成的空闲连接**；用完之后，也**不真正关闭连接，而是将其归还给池子**，供下一个请求继续使用。
+
+---
+
+### 2. 连接池的工作原理与“借还骗局”
+
+连接池的内部运转逻辑非常巧妙，可以用以下四个阶段来概括：
+
+```
++--------------------------------------------------------+
+|                   数据库连接池 (Pool)                    |
+|                                                        |
+|   [ 物理连接 1 ]     [ 物理连接 2 ]     [ 物理连接 3 ]     |
++--------------------------------------------------------+
+         |                                      ^
+         | 2. 借出空闲连接                        | 3. 归还连接
+         v                                      |
++--------------------------------------------------------+
+|                 你的 Java 业务线程 (Thread)              |
++--------------------------------------------------------+
+```
+
+1. **初始化**：系统启动，连接池根据配置创建一定数量的连接（如 10 个）常驻内存。
+    
+2. **借出（Borrow）**：当有数据库操作请求到来，连接池检查是否有空闲连接。如果有，直接分配给线程；如果没有且未达到最大连接上限，则新建一个连接给线程；如果达到上限且全是忙碌状态，线程就会进入**阻塞等待**状态，直到超时报错。
+    
+3. **归还（Return）**：这里设计了一个精妙的“骗局”**。当你在代码中调用 `connection.close()` 时，底层连接池利用了**动态代理技术拦截了这个方法——**它并没有真正断开与数据库的物理 TCP 连接，而是把这个连接的状态从“忙碌”改回“空闲”，并重新放回池子。**
+    
+4. **销毁**：连接池内部会有守护线程。如果发现池子长期闲置了太多的连接，或者某个连接超过了最大存活时间（Max Lifetime），它会自动断开物理连接，释放数据库服务器的资源。
+    
+
+
+---
+
+### 3. 连接池的核心配置参数
+
+无论你使用哪种连接池技术，以下几个参数都是决定系统性能的关键：
+
+|**参数名称**|**含义说明**|**调优建议**|
+|---|---|---|
+|**`initialSize`**|**初始连接数**。池子刚建立时预先创建好多少个连接。|设为与最小空闲连接数一致，避免系统刚启动时频繁建连。|
+|**`maxActive` / `maximumPoolSize`**|**最大连接数**。池子最多能同时容纳多少个连接。|**生产环境最重要的参数。** 绝不是越大越好。太大会导致数据库 CPU 飙升；通常根据（CPU 核数 $\times$ 2）等公式结合压力测试来决定（通常 10-50 足够满足极高并发）。|
+|**`minIdle` / `minimumIdle`**|**最小空闲连接数**。池子里任何时候都必须保留的最低连接空闲数。|防止业务突然波峰时，池内没有可用连接。|
+|**`maxWait` / `connectionTimeout`**|**最大等待时间**。当池子满了，新来的请求最多愿意在原地**死等**多少毫秒。|默认通常是 30 秒（30000ms）。在互联网高并发业务中，建议缩短至 2-3 秒，超时快速失败，防止前端线程大面积积压卡死。|
+
+
+---
+
+### 4. 常见的工业级连接池有哪些？
+
+
+![[JDBC笔记-10.png]]
+
+
+随着 Java 技术的演进，连接池也经历了数代更迭：
+
+- **HikariCP（现代王者）**
+    
+    - **地位**：目前工业界性能最高、最受欢迎的连接池，也是 **Spring Boot 2.x/3.x 默认集成的连接池**。
+        
+    - **特点**：代码量极少，利用了大量底层字节码优化和无锁化设计，执行速度和稳定性对其他老牌连接池形成了降维打击。它的名字在日语里是“光”的意思，意指像光一样快。
+        
+- **Druid（阿里德鲁伊）**
+    
+    - **地位**：国内非常流行的开源连接池。
+        
+    - **特点**：它不仅仅是一个连接池，还内置了极其强大的**监控和扩展功能**。自带 Web 监控页面，能防 SQL 注入，能监控每一条 SQL 的执行慢日志。如果你的项目对底层黑盒监控有强烈需求，它是首选。
+        
+- **C3P0 / DBCP（历史尘埃）**
+    
+    - **地位**：经典的早期连接池（很多老教程和十几年前的项目在使用）。
+        
+    - **特点**：由于在高并发下存在严重的锁竞争，性能较差，且早已停止维护，**现代新项目绝对不要再选用**。
+        
+
+---
+
+
+
+### 5. 基于Druid连接池的完整 Java 代码示例
+
+
+在原生 JDBC 开发中，我们直接使用 `DriverManager` 获取连接；而在使用连接池时，我们会统一通过 **`DataSource`（数据源接口）** 来获取连接。
+
+#### 1. 准备工作：引入依赖
+
+如果你是普通的 Maven 项目，需要在 `pom.xml` 中引入 Druid 的依赖包以及 MySQL 驱动包：
+
+
+```xml
+<dependencies>
+    <!-- 1. 阿里 Druid 连接池 -->
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid</artifactId>
+        <version>1.2.23</version> <!-- 建议使用较新的稳定版本 -->
+    </dependency>
+
+    <!-- 2. MySQL 驱动 -->
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <version>8.3.0</version>
+    </dependency>
+</dependencies>
+```
+
+#### 2. 推荐方案：基于配置文件初始化 Druid（生产标准）
+
+在实际开发中，我们通常把数据库的硬编码信息剥离出来，写在 `.properties` 配置文件中，这样更方便维护。
+
+##### 步骤一：创建 `druid.properties` 配置文件
+
+在项目的 `src/main/resources` 目录下创建一个名为 `druid.properties` 的文件，内容如下：
+
+
+```Properties
+# 基础连接信息
+driverClassName=com.mysql.cj.jdbc.Driver
+url=jdbc:mysql://localhost:3306/test_db?useSSL=false&serverTimezone=UTC
+username=root
+password=your_password
+
+# 连接池核心调优参数
+initialSize=5
+maxActive=20
+minIdle=5
+maxWait=3000
+
+# 开启 Druid 独有的监控统计滤镜 (stat 用于统计, wall 用于防御 SQL 注入)
+filters=stat,wall
+```
+
+##### 步骤二：编写工具类与核心执行代码
+
+通过 Druid 提供的 `DruidDataSourceFactory` 核心工厂类，直接读取配置文件一键生成数据源。
+
+```java
+import com.alibaba.druid.pool.DruidDataSourceFactory;
+
+import javax.sql.DataSource;
+import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Properties;
+
+public class DruidQuickStart {
+
+    // 1. 声明一个全局唯一的静态数据源对象（一个数据库对应一个池子即可）
+    private static DataSource dataSource;
+
+    // 2. 在静态代码块中完成连接池的初始化
+    static {
+        try {
+            Properties properties = new Properties();
+            // 读取 resources 目录下的配置文件
+            InputStream is = DruidQuickStart.class.getClassLoader().getResourceAsStream("druid.properties");
+            properties.load(is);
+
+            // 通过 Druid 工厂类，将属性直接注入并创建出 DataSource
+            dataSource = DruidDataSourceFactory.createDataSource(properties);
+            System.out.println("Druid 连接池初始化成功！");
+        } catch (Exception e) {
+            System.err.println("Druid 连接池初始化失败！");
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        String sql = "SELECT id, username, email FROM users WHERE id = ?";
+
+        // 3. 使用 try-with-resources 自动借出并归还连接
+        try (
+            // 【核心变化】：不再找 DriverManager，而是直接向 dataSource 借一条连接
+            Connection conn = dataSource.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)
+        ) {
+            // 4. 设置参数并执行
+            pstmt.setInt(1, 1);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    System.out.println("成功拿到连接并查询到数据！");
+                    System.out.println("用户ID: " + rs.getInt("id") + 
+                                       " | 用户名: " + rs.getString("username") + 
+                                       " | 邮箱: " + rs.getString("email"));
+                } else {
+                    System.out.println("未找到该 ID 的用户数据。");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // 5. 运行结束时，conn.close() 被触发：
+        // 注意：此时它并没有关闭物理连接，而是将物理连接无感知地归还给了 Druid 缓冲池！
+    }
+}
+```
+
+#### 3. 补充：硬编码纯 Java 方式（不依赖配置文件）
+
+如果你的小脚本不想写配置文件，也可以直接通过 new 对象的方式在代码里配置 Druid：
+
+```java
+import com.alibaba.druid.pool.DruidDataSource;
+import java.sql.Connection;
+
+public class DruidJavaConfig {
+    public static void main(String[] args) throws Exception {
+        // 1. 直接 new 一个 Druid 的实现类对象
+        DruidDataSource dataSource = new DruidDataSource();
+
+        // 2. 手动调用 setter 方法注入参数
+        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        dataSource.setUrl("jdbc:mysql://localhost:3306/test_db");
+        dataSource.setUsername("root");
+        dataSource.setPassword("password");
+
+        // 3. 配置连接池大小
+        dataSource.setInitialSize(5);
+        dataSource.setMaxActive(10);
+        dataSource.setMaxWait(2000);
+
+        // 4. 获取连接使用
+        Connection conn = dataSource.getConnection();
+        System.out.println("通过纯 Java 配置成功获取连接：" + conn);
+        
+        conn.close(); // 归还连接
+        dataSource.close(); // 整个程序关闭时，销毁连接池
+    }
+}
+```
+
+#### 代码关键点拨
+
+1. **`DataSource` 接口统一化**：不管底层换成 Druid、HikariCP 还是 DBCP，Java 业务层认的都是 `javax.sql.DataSource` 这个标准接口。你可以随意替换底层实现，代码无需大改。
+    
+2. **`conn.close()` 的行为改变**：引入 Druid 后，代码中的 `conn.close()` 代表的是 **“放回池中”** 变为可用状态，而不是真正断开物理网络。
+    
+3. **`filters=stat,wall` 的魔力**：这是 Druid 独有的核心竞争力。配置了 `stat` 后，它会自动统计慢 SQL；配置了 `wall` 后，Druid 内部会启动一个 SQL 解析器，如果发现你拼接的 SQL 有注入嫌疑，它会在 Java 层**直接拦截并报错**，不给攻击者任何伤害数据库的机会。
+
+---
+
+
+### 总结
+
+数据库连接池是 Java 后端工程的必备基础设施。引入连接池后，我们不仅实现了连接的复用，斩断了频繁建连的性能损耗，更能通过配置“最大连接数”来充当**保护数据库的最后一道防火墙**，防止过多的并发请求把数据库服务器直接冲垮。
