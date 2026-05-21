@@ -144,3 +144,310 @@ public class JdbcQuickStart {
 ## API详解——DriverManager
 
 
+在 JDBC 的整个世界里，`DriverManager`（驱动管理器）扮演着“大总管”或“调度中心”的角色。它是你编写的 Java 程序与底层各种数据库驱动之间的桥梁。
+
+下面为你详细拆解这个核心类的主要职责、常用 API、内部机制以及现代开发中的变化。
+
+### 1. DriverManager 的核心职责
+
+`DriverManager` 的工作非常纯粹，主要就两件事：
+
+1. **管理驱动**：把各种数据库厂商提供的驱动（Driver）登记注册在自己这里。
+    
+2. **建立连接**：当你给它一个数据库地址（URL）时，它负责在注册表里挑选出合适的驱动，帮你打通一条通往数据库的物理管道（返回 `Connection` 对象）。
+    
+
+![[JDBC笔记-2.png]]
+
+
+![[JDBC笔记-3.png]]
+
+### 2. 常用 API 详解
+
+`DriverManager` 的所有方法都是**静态方法（static）**，你不需要实例化它，直接调用即可。最常用的有以下几个：
+
+#### ① `getConnection(String url, String user, String password)`
+
+这是最核心的方法，用来获取数据库连接。
+
+- **参数**：
+    
+    - `url`：数据库连接字符串（不同数据库格式不同，如 `jdbc:mysql://...` 或 `jdbc:oracle:thin:...`）。
+        
+    - `user`：数据库用户名。
+        
+    - `password`：数据库密码。
+        
+- **返回值**：一个实现了 `Connection` 接口的数据库连接对象。
+    
+- **异常**：如果连接失败（用户名密码错、网络不通、未找到驱动等），会抛出 `SQLException`。
+    
+
+_(注：它还有一个重载版本 `getConnection(String url, java.util.Properties info)`，可以把用户名、密码和其他配置参数封装在 `Properties` 对象里传入。)_
+
+#### ② `registerDriver(Driver driver)`
+
+- **作用**：向 `DriverManager` 注册一个新的数据库驱动。
+    
+- **现实情况**：开发中**几乎不需要我们手动调用这个方法**。因为厂商的驱动类（比如 MySQL 的 `com.mysql.cj.jdbc.Driver`）在它自己的静态代码块里已经默认调用了 `DriverManager.registerDriver(this)`。也就是说，只要该驱动类被加载，它就会自己把自己注册上去。
+    
+
+#### ③ `setLoginTimeout(int seconds)` / `getLoginTimeout()`
+
+- **作用**：设置或获取等待数据库连接建立的**超时时间**（单位：秒）。
+    
+- **场景**：如果数据库服务器挂了，或者网络极慢，程序不能无限期死等。通过这个方法可以限制最长等待时间，超时则直接抛出异常。
+    
+
+### 3. 深入底层：它是如何找到对应驱动的？
+
+当你调用 `DriverManager.getConnection("jdbc:mysql://localhost:3306/db", "root", "123")` 时，`DriverManager` 内部是如何知道该用 MySQL 驱动，而不是 Oracle 驱动的呢？
+
+其内部有一个有趣的“毛遂自荐”机制：
+
+```
++---------------------------------------------------------+
+|                  DriverManager 内部                     |
+|                                                         |
+|  [ 驱动列表 (Registered Drivers) ]                      |
+|  - OracleDriver                                         |
+|  - PostgreSQLDriver                                     |
+|  - MySqlDriver  <-- 只有它认识 "jdbc:mysql://"           |
++---------------------------------------------------------+
+       |
+       | 1. 遍历列表，逐个询问：
+       |    "这条 URL 'jdbc:mysql://...' 你们谁认识？"
+       |
+       v
+  OracleDriver   --> "我不认识，不归我管。" (返回 null)
+  MySqlDriver    --> "我认识！这是我的地盘，我来连！" (返回 Connection)
+```
+
+1. `DriverManager` 内部维护了一个已经注册的驱动列表。
+    
+2. 当你传入一条 URL 时，它会调用 `for` 循环，**遍历**列表中的每一个驱动对象。
+    
+3. 它会调用驱动自带的 `acceptsURL(url)` 方法询问：“你认识这个 URL 吗？”
+    
+4. 比如 Oracle 驱动一看开头是 `jdbc:mysql`，就会拒绝；轮到 MySQL 驱动时，它识别出这是自己的协议，就会主动接单，并负责创建真实的连接返回给 `DriverManager`。
+    
+
+### 4. 时代变迁：现代 Java 中的自动加载机制 (SPI)
+
+这涉及到一个经典的面试题或技术演进：**“为什么现在不需要写 `Class.forName()` 了？”**
+
+#### 过去（JDBC 4.0 之前，Java 5 及以前）：
+
+我们必须在代码第一行硬编码写上：
+
+```java
+Class.forName("com.mysql.cj.jdbc.Driver"); // 强行加载驱动类
+```
+
+**原理**：这行代码的作用是让 JVM 去寻找并加载这个类。前面说到，驱动类内部有静态代码块，一旦被加载就会自动向 `DriverManager` 注册。如果不写这行，`DriverManager` 内部的驱动列表就是空的，就会报错 `No suitable driver found`。
+
+#### 现在（JDBC 4.0 之后，Java 6 及以后）：
+
+你直接写 `DriverManager.getConnection()` 就能成功，上面那行不写也完全没事。
+
+**原理**：Java 引入了 **SPI (Service Provider Interface) 机制**。
+
+当你引入了 MySQL 的 Jar 包后，你可以解压它，在 `META-INF/services/` 目录下会发现一个名为 `java.sql.Driver` 的配置文件，里面的内容只有一行，就是该驱动类的全限定名：`com.mysql.cj.jdbc.Driver`。
+
+当你的程序第一次调用 `DriverManager` 时，它会利用 `ServiceLoader` **自动去扫描**你项目所有 Jar 包里的这个指定配置文件，把里面写好的驱动类全部自动加载并注册掉。
+
+### 总结
+
+你可以把 `DriverManager` 理解为一个“无知但严谨的接线员”。它自己不知道怎么连 MySQL 还是 Oracle，但它手里有一本各大厂商主动登记的通讯录。你把连接需求（URL）报给它，它就挨个翻通讯录问谁能接这个活，确认后把电话线递到你手里（返回 `Connection`），它的任务就圆满完成了。
+
+
+---
+---
+
+
+## API详解——Connection
+
+
+
+如果说 `DriverManager` 的角色是帮你打通电话的“接线员”，那么 **`Connection`（数据库连接接口）** 就是那条**已经建立好的“电话线”**。
+
+在 JDBC 中，`Connection` 对象代表了 Java 程序与特定数据库之间的一个**物理会话（Session）**。所有的 SQL 语句执行、事务管理，都必须依赖这个连接对象才能进行。
+
+下面为你深度拆解 `Connection` 接口的核心职责、常用 API、最重要的事务管理机制，以及生产环境中的最佳实践。
+
+### 1. Connection 的核心职责
+
+`Connection` 接口主要承担三大核心任务：
+
+1. **控制会话状态**：管理连接的开启、关闭、超时以及只读状态。
+    
+2. **创建执行对象**：它是 `Statement`、`PreparedStatement` 和 `CallableStatement` 的**工厂**，没有连接就无法创建这些执行 SQL 的对象。
+    
+3. **管理事务（Transaction）**：这是 `Connection` 最灵魂的功能，Java 层的事务提交、回滚完全由它控制。
+    
+
+
+![[JDBC笔记-4.png]]
+
+
+![[JDBC笔记-5.png]]
+
+### 2. 常用 API 详解
+
+`Connection` 是一个接口，具体的实现类由数据库厂商（如 MySQL 的 `ConnectionImpl`）提供。我们日常开发中最常用的方法可以分为三类：
+
+#### ① 创建 SQL 执行对象（工厂方法）
+
+- **`prepareStatement(String sql)`** _(最常用)_
+    
+    - **作用**：创建一个 `PreparedStatement` 对象，用于向数据库发送**预编译**的 SQL 语句。
+        
+    - **优势**：支持占位符 `?`，能防止 SQL 注入，且效率更高。
+        
+- **`createStatement()`**
+    
+    - **作用**：创建一个基本的 `Statement` 对象，用于发送普通的、无参数的静态 SQL 语句。目前生产中已极少使用。
+        
+- **`prepareCall(String sql)`**
+    
+    - **作用**：创建一个 `CallableStatement` 对象，用于调用数据库的**存储过程（Stored Procedures）**。
+        
+
+#### ② 事务管理方法（核心）
+
+- **`setAutoCommit(boolean autoCommit)`**
+    
+    - **作用**：开启或关闭**自动提交模式**。
+        
+    - **注意**：JDBC **默认是开启（true）自动提交的**，意味着你每执行一条 `executeUpdate()`，数据库就会立刻把它持久化。如果你要开启一个包含多条 SQL 的事务，必须先调用 `setAutoCommit(false)`。
+        
+- **`commit()`**
+    
+    - **作用**：提交当前事务，让上一次提交后的所有修改在数据库中永久生效。
+        
+- **`rollback()`**
+    
+    - **作用**：回滚当前事务，撤销当前事务中所有未提交的修改。通常写在 `catch` 块中。
+        
+
+#### ③ 连接状态与元数据
+
+- **`close()`**
+    
+    - **作用**：立即释放此 `Connection` 对象的数据库和 JDBC 资源，而不是等待它们被垃圾回收（GC）。
+        
+- **`isClosed()`**
+    
+    - **作用**：判断当前连接是否已经被关闭。
+        
+- **`getMetaData()`**
+    
+    - **作用**：返回一个 `DatabaseMetaData` 对象，通过它可以获取非常底层的数据库信息（如：数据库版本、支持哪些特性、当前用户权限等）。
+        
+
+### 3. 核心机制：如何在 JDBC 中控制事务？
+
+在实际业务（如银行转账：A 扣钱，B 加钱）中，多条 SQL 必须作为一个整体，要么全成功，要么全失败。JDBC 通过 `Connection` 实现这一机制的标准模板如下：
+
+
+```java
+Connection conn = null;
+try {
+    conn = DriverManager.getConnection(url, user, pass);
+    
+    // 1. 【核心】关闭自动提交，正式开启事务
+    conn.setAutoCommit(false); 
+    
+    // 执行业务 SQL 1：给 A 扣钱 100 元
+    // 执行业务 SQL 2：给 B 加钱 100 元
+    
+    // 2. 如果一切顺利，手动提交事务
+    conn.commit(); 
+    System.out.println("转账成功，事务已提交！");
+    
+} catch (Exception e) {
+    // 3. 一旦中间任何一步发生异常，立刻回滚整个事务
+    if (conn != null) {
+        try {
+            conn.rollback();
+            System.err.println("发生异常，事务已回滚，数据未受影响。");
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+        }
+    }
+    e.printStackTrace();
+} finally {
+    // 4. 无论成功失败，恢复默认的自动提交状态（在使用连接池时这很重要），并关闭连接
+    if (conn != null) {
+        try {
+            conn.setAutoCommit(true); 
+            conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 4. 生产环境下的重要认知：不要频繁开关 Connection
+
+在新手阶段，我们习惯了“用时拿连接，用完立马 `.close()`”。但在真实的生产环境中，**绝对不能这样做**。
+
+#### 为什么建立 Connection 很慢？
+
+因为 `Connection` 代表的是一次真实的**网络物理连接**（通常基于 TCP/IP 协议）。每当你调用一次 `DriverManager.getConnection()`，底层都要经历：
+
+1. 三次握手建立 TCP 连接。
+    
+2. 数据库服务器的身份验证（校验用户名、密码）。
+    
+3. 数据库为该会话分配内存、初始化资源。
+    
+
+这个过程非常耗时（通常需要几十毫秒甚至更久）。在高并发的网站中，如果一秒有 1000 个请求，每个请求都去新建、销毁连接，数据库服务器的 CPU 会瞬间被拉满，系统直接卡死。
+
+#### 解决方案：引入数据库连接池（Connection Pool）
+
+为了解决这个问题，现代工业界普遍使用**连接池**技术（如 **HikariCP**（Spring Boot 默认）、Druid 等）。
+
+```
++--------------------------------------------------------+
+|                      连接池 (Pool)                      |
+|                                                        |
+|  [ 空闲连接管道 ] [ 空闲连接管道 ] [ 空闲连接管道 ]   |
++--------------------------------------------------------+
+       ^                                          |
+       | 2. 用完归还 (调用 close())               | 1. 借出连接
+       |                                          v
++--------------------------------------------------------+
+|                   你的业务代码 (Thread)                 |
++--------------------------------------------------------+
+```
+
+- **工作原理**：程序启动时，连接池会预先向数据库申请一批 `Connection`（比如 10 个）放在池子里。
+    
+- **获取连接**：你需要用连接时，不再找 `DriverManager`，而是向连接池“借”一个已经建好的空闲连接。
+    
+- **关闭连接（核心骗局）**：当你调用 `connection.close()` 时，连接池在底层做了解析拦截——**它并没有真正断开与数据库的物理连接，而是悄悄把这个连接标记为空闲，放回池子里供下一个请求复用。**
+    
+
+### 总结
+
+- `Connection` 是 Java 代码和数据库通信的**生命线**。
+    
+- 它是创建 `PreparedStatement` 对象的**工厂**。
+    
+- 控制事务的秘诀在于：`setAutoCommit(false)` 开启 -> 顺利则 `commit()` -> 失败则 `rollback()`。
+    
+- 生产环境严禁频繁建立物理连接，必须通过**连接池**来管理和复用 `Connection` 对象。
+
+---
+---
+
+
+
+## API详解——Statement
+
+
+
+
