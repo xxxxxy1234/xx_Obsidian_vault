@@ -13993,7 +13993,7 @@ public class ThreadDemo3 {
         // 3. 创建 Callable 任务对象
         MyCallable mc = new MyCallable();
 
-        // 4. 创建 FutureTask 管理对象，把任务塞进去
+        // 4. 创建 FutureTask 管理线程运行结果对象，把任务塞进去
         FutureTask<Integer> ft = new FutureTask<>(mc);
 
         // 5. 创建 Thread 线程对象并启动
