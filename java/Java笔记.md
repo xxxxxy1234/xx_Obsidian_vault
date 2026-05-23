@@ -17301,6 +17301,166 @@ public class ReflectionFieldDemo {
 ## 反射获取成员方法
 
 
+利用反射获取类的**成员方法（Method）**，是整个反射机制中动能最强大、最常被使用的部分。它能让我们在程序运行期间，动态地去窥探一个类有哪些方法，并**强行命令某个对象去执行（调用）这个方法**。
+
+同样的，`Class` 类也为成员方法提供了两组、共 4 个核心方法：一组只拿 **`public`**，一组 **“全盘通吃（包含私有 `private`）”**。
+
+### 一、 获取成员方法的 4 个核心方法
+
+|**方法名称**|**作用说明**|
+|---|---|
+|**`Method[] getMethods()`**|获取所有 **`public`** 修饰的成员方法（**包含**从父类、`Object` 类继承过来的）。|
+|**`Method getMethod(String name, Class<?>... parameterTypes)`**|根据**方法名**和**参数类型**，获取某一个具体的 **`public`** 成员方法。|
+|**`Method[] getDeclaredMethods()`**|**全盘通吃**。获取当前类自身声明的**所有**成员方法（包含私有、公有，但**不包含**父类继承的方法）。|
+|**`Method getDeclaredMethod(String name, Class<?>... parameterTypes)`**|**最常用**。根据方法名和参数类型，获取某一个具体的成员方法（包含私有）。|
+
+### 二、 核心操作方法：拿到了 Method 怎么调用？
+
+拿到了 `Method` 对象后，如果想要让它真正跑起来，需要调用它的核心方法：**`invoke`**。
+
+
+```Java
+Object returnValue = method.invoke(Object obj, Object... args);
+```
+
+- **`obj`**：代表你要让**哪个对象实例**去执行这个方法。
+    
+- **`args`**：代表执行这个方法时，需要传进去的**具体实际参数**。
+    
+- **`returnValue`**：方法的**返回值**。如果该方法是 `void`（没有返回值），则返回 `null`。
+    
+
+### 三、 实战演练：纯闭环代码实现
+
+我们定义一个 `Student` 类，故意整出四个完全不同的经典方法：公有无参、公有带参、公有带返回值、以及最棘手的**私有带参**。
+
+
+```Java
+package com.test.domain;
+
+public class Student {
+    
+    // 1. 公有、无参、无返回值
+    public void play() {
+        System.out.println("【方法执行】学生在快乐地玩游戏...");
+    }
+
+    // 2. 公有、带参、无返回值
+    public void study(String subject) {
+        System.out.println("【方法执行】学生正在疯狂背诵: " + subject);
+    }
+
+    // 3. 公有、带参、有返回值
+    public int calculate(int a, int b) {
+        System.out.println("【方法执行】数学课上，正在计算 " + a + " + " + b);
+        return a + b;
+    }
+
+    // 4. 私有、带参、无返回值
+    private void secret(String crushName) {
+        System.out.println("【方法执行】偷偷在日记本里写下暗恋对象的名字: " + crushName);
+    }
+}
+```
+
+接下来通过反射核心代码，把它们挨个掏出来并暴力执行一遍：
+
+
+```java
+import java.lang.reflect.Method;
+import com.test.domain.Student;
+
+public class ReflectionMethodDemo {
+    public static void main(String[] args) throws Exception {
+        // 1. 获取 Class 对象并实例化一个具体的 Student 对象
+        Class<?> clazz = Class.forName("com.test.domain.Student");
+        Object stuInstance = clazz.getDeclaredConstructor().newInstance();
+
+        System.out.println("--- 1. 动态调用：公有无参无返回值方法 ---");
+        // 根据“方法名”获取方法，无参方法不需要传后面的参数类型
+        Method playMethod = clazz.getMethod("play");
+        // 让 stuInstance 这个对象去执行 play 方法
+        playMethod.invoke(stuInstance);
+
+
+        System.out.println("\n--- 2. 动态调用：公有带参无返回值方法 ---");
+        // 🌟注意：获取带参方法时，必须严格指定参数的 Class 类型！
+        Method studyMethod = clazz.getMethod("study", String.class);
+        // 执行时，把具体的参数值传入
+        studyMethod.invoke(stuInstance, "《Java从入门到入土》");
+
+
+        System.out.println("\n--- 3. 动态调用：公有带参有返回值方法 ---");
+        // 指定两个参数都是 int 类型的 Class
+        Method calcMethod = clazz.getMethod("calculate", int.class, int.class);
+        // 用变量接收方法的真实返回值
+        Object result = calcMethod.invoke(stuInstance, 50, 20);
+        System.out.println("反射调用 calculate 方法的最终结果: " + result);
+
+
+        System.out.println("\n--- 4. 动态调用：私有方法（暴力反射） ---");
+        // ❌ 不能用 getMethod，必须用 getDeclaredMethod 才能抓到 private 方法
+        Method secretMethod = clazz.getDeclaredMethod("secret", String.class);
+        
+        // 🌟【致命核心】：必须解开 private 的权限封印！
+        secretMethod.setAccessible(true);
+        
+        // 强行调用私有方法
+        secretMethod.invoke(stuInstance, "隔壁班小芳");
+    }
+}
+```
+
+### 运行结果
+
+
+```Plaintext
+--- 1. 动态调用：公有无参无返回值方法 ---
+【方法执行】学生在快乐地玩游戏...
+
+--- 2. 动态调用：公有带参无返回值方法 ---
+【方法执行】学生正在疯狂背诵: 《Java从入门到入土》
+
+--- 3. 动态调用：公有带参有返回值方法 ---
+【方法执行】数学课上，正在计算 50 + 20
+反射调用 calculate 方法的最终结果: 70
+
+--- 4. 动态调用：私有方法（暴力反射） ---
+【方法执行】偷偷在日记本里写下暗恋对象的名字: 隔壁班小芳
+```
+
+### 深度避坑与高级面试追问
+
+#### 1. 为啥获取方法时必须同时传“方法名”和“参数类型”？
+
+因为 Java 语法支持**方法重载（Overload）**！在同一个类中，可以同时存在 `study()`、`study(String name)`、`study(int time)` 多个同名方法。如果只传一个方法名 `"study"`，反射根本不知道你要揪出哪一个。所以必须靠后面的 `Class<?>... parameterTypes` 参数类型列表来进行精准唯一的定位。
+
+#### 2. 如果方法里有“可变参数（VarArgs）”，反射怎么拿？
+
+这是个很高级的语法糖坑。假设方法签名是 `public void foo(String... args)`。
+
+在底层，Java 编译器会把可变参数**直接编译成一个数组**，即 `String[]`。
+
+所以在反射获取时，你必须写成：
+
+```java
+Method method = clazz.getMethod("foo", String[].class); // 传入数组的 Class 
+```
+
+而在调用 `invoke` 传参时，由于 `invoke(Object obj, Object... args)` 本身也是一个可变参数，为了防止编译器把你的数组给“拆散”当成多个参数传进去，最安全的做法是**强转成 Object 整体**：
+
+```Java
+method.invoke(stuInstance, (Object) new String[]{"A", "B", "C"});
+```
+
+
+---
+---
+
+
+
+
+
 
 
 
