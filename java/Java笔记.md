@@ -17369,3 +17369,161 @@ public class RunCountDemo {
         
 
 **💡 小贴士**：在实际测试前，请确保 `myio\count.txt` 文件已存在，且初始内容为一个数字（如 `0`），否则 `parseInt` 可能会抛出异常。
+
+
+---
+---
+
+
+
+## 题目：TCP通信练习：客户端发送数据，接受服务端反馈的消息并打印；服务端接收数据并打印，再给客户端反馈消息
+
+
+
+
+#### 1. 客户端（发送数据 $\rightarrow$ 声明结束 $\rightarrow$ 接收反馈）
+
+
+```java
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.Socket;
+
+public class TcpClientExercise {
+    public static void main(String[] args) {
+        System.out.println("====== 客户端已启动 ======");
+        
+        // 1. 创建 Socket 对象并连接服务端（完成三次握手）
+        try (Socket socket = new Socket("127.0.0.1", 10000)) {
+            
+            // 2. 写出数据
+            String str = "见到你很高兴！";
+            OutputStream os = socket.getOutputStream();
+            os.write(str.getBytes());
+            os.flush(); // 确保数据冲进网卡
+            System.out.println("客户端发送成功 -> " + str);
+            
+            // 🌟 3. 极其重要：写出一个结束标记！打破双端死锁僵局
+            socket.shutdownOutput();
+            
+            // 4. 接收服务端回写的反馈数据
+            InputStream is = socket.getInputStream();
+            InputStreamReader isr = new InputStreamReader(is);
+            
+            System.out.print("收到服务端反馈 -> ");
+            int b;
+            while ((b = isr.read()) != -1) {
+                System.out.print((char) b);
+            }
+            System.out.println(); // 换行
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+#### 2. 服务端（接收数据 $\rightarrow$ 打印 $\rightarrow$ 回写反馈）
+
+
+```java
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class TcpServerExercise {
+    public static void main(String[] args) {
+        System.out.println("====== 服务端已启动，监听 10000 端口... ======");
+        
+        // 1. 创建 ServerSocket 对象并绑定 10000 端口
+        try (ServerSocket ss = new ServerSocket(10000)) {
+            
+            // 2. 等待客户端连接（阻塞）
+            Socket socket = ss.accept();
+            
+            // 3. 从 socket 中获取输入流读取数据
+            InputStream is = socket.getInputStream();
+            InputStreamReader isr = new InputStreamReader(is);
+            
+            System.out.print("收到客户端数据 -> ");
+            int b;
+            // 因为客户端写了 shutdownOutput()，这里读完数据后能正常拿到 -1 并跳出循环
+            while ((b = isr.read()) != -1) {
+                System.out.print((char) b);
+            }
+            System.out.println(); // 换行
+            
+            // 4. 回写数据给客户端
+            String feedback = "到底有多开心？";
+            OutputStream os = socket.getOutputStream();
+            os.write(feedback.getBytes());
+            os.flush();
+            System.out.println("给客户端反馈成功 -> " + feedback);
+            
+            // 5. 释放当前会话资源
+            socket.close();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 运行效果演示
+
+1. 首先右键运行 **`TcpServerExercise`**，服务端进入死等守门状态。
+    
+2. 随后右键运行 **`TcpClientExercise`**。
+    
+
+两个控制台会瞬间完成交火，打印出完美的交互日志：
+
+**客户端控制台输出：**
+
+```Plaintext
+====== 客户端已启动 ======
+客户端发送成功 -> 见到你很高兴！
+收到服务端反馈 -> 到底有多开心？
+```
+
+**服务端控制台输出：**
+
+```Plaintext
+====== 服务端已启动，监听 10000 端口... ======
+收到客户端数据 -> 见到你很高兴！
+给客户端反馈成功 -> 到底有多开心？
+```
+
+
+
+### 核心避坑指南：为什么必须要写 `socket.shutdownOutput()`？
+
+客户端在写完数据后，特意调用了一行：`socket.shutdownOutput();`。这行代码是整个程序能跑通的绝对核心！
+
+- **不写会怎样？（双端死锁假死）**：
+    
+    1. 客户端用 `os.write()` 顺着管道给服务器发了“见到你很高兴”。
+        
+    2. 服务器用 `while((b = isr.read()) != null)` 循环读取。
+        
+    3. **灾难发生**：因为 TCP 是面向字节流的，服务器根本不知道你这句话到底发完没有。只要客户端不挂电话、也不关闭输出流，服务器的 `read()` 就会**一直卡在循环里，死等下一段数据，根本无法走到下面的第 4 步（回写数据）**。
+        
+    4. 与此同时，客户端发完后，立刻兴冲冲地走到后面去 `read()` 服务器的反馈。
+        
+    5. 结果就是：**服务器在等客户端说再见，客户端在等服务器回话。两个人都在死等对方，程序瞬间卡死，形同死锁！**
+        
+- **作用**：`shutdownOutput()` 的本质是给服务器发送一个 **“结束标记（FIN包）”**。告诉服务器：“我的正文说完了，但我没挂电话！我的耳朵还听着呢，你现在可以向我回话了。” 这样服务器的 `read()` 读到 `-1` 就能顺利跳出循环，继续往下执行回写。
+
+
+
+通过这个练习，你已经彻底掌握了 TCP 双向通信的核心奥义。下次在线上遇到微服务调用或者 HttpClient 请求假死时，别忘了第一时间去检查这个“结束标记”哦！
+
+
+---
+---
+
