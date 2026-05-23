@@ -15994,6 +15994,116 @@ main 正在处理任务【9】                   <-- 【触发拒绝策略】主
 ---
 
 
+## InetAddress类
+
+
+在 Java 中，官方为了方便我们操作和管理上面学到的 IP 地址，在 `java.net` 包下专门提供了一个核心工具类——**`InetAddress`**。
+
+它不仅代表了一个 IP 地址对象，还封装了大量与网络域名解析（DNS）、主机名获取、网络连通性测试相关的硬核方法。在写网络编程的客户端和服务器端代码时，它是我们打交道最多的类之一。
+
+#### 一、 核心特点：没有构造方法
+
+`InetAddress` 有一个非常特殊的点：**它没有公开的构造方法（不能 `new InetAddress()`）**。
+
+为了获取它的对象，Java 为我们提供了几个静态工厂方法。这种设计是因为 IP 地址需要通过操作系统底层的网络栈或 DNS 服务器去实时查询解析，不能让我们在内存里瞎 new。
+
+#### 二、 最常用的静态工厂方法（怎么获取对象）
+
+| **方法名称**                                        | **作用说明**                                                                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
+| **`static InetAddress getLocalHost()`**         | 获取**当前自己这台电脑**的 IP 地址对象。                                                    |
+| **`static InetAddress getByName(String host)`** | **最强大**。传入**主机名**、**域名**（如 `www.baidu.com`）或 **IP 字符串**，底层自动解析并返回对应的 IP 对象。 |
+
+#### 三、 核心成员方法（对象能干什么）
+
+拿到 `InetAddress` 对象后，我们可以调用以下方法来榨取它的网络信息：
+
+- **`String getHostName()`**：获取该 IP 对象对应的**主机名**（如果是域名解析出来的，就返回域名）。
+    
+- **`String getHostAddress()`**：获取纯数字的 **IP 地址字符串**（例如 `192.168.1.5`）。
+    
+- **`boolean isReachable(int timeout)`**：测试在指定毫秒内，这台电脑**能不能连通（类似于在命令行打 ping 命令）**。
+    
+
+#### 四、 纯闭环实战代码示例
+
+我们通过一段代码，同时演示“获取本地IP”、“把百度域名解析成真实IP”以及“测试网络连通性”：
+
+
+```java
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+public class InetAddressDemo {
+    public static void main(String[] args) {
+        try {
+            // 1. 获取本地电脑的 IP 对象
+            InetAddress localIp = InetAddress.getLocalHost();
+            System.out.println("本地计算机名: " + localIp.getHostName());
+            System.out.println("本地局域网IP: " + localIp.getHostAddress());
+            System.out.println("--------------------------------------------");
+
+            // 2. 传入域名，让 Java 自动调用底层 DNS 解析出真实的 IP 对象
+            InetAddress baiduIp = InetAddress.getByName("www.baidu.com");
+            System.out.println("百度的域名/主机名: " + baiduIp.getHostName());
+            System.out.println("百度服务器真实的IPv4地址: " + baiduIp.getHostAddress());
+            System.out.println("--------------------------------------------");
+
+            // 3. 检测本地到百度服务器的网络连通性（测试 ping 连不连得通）
+            System.out.println("正在尝试连接百度服务器，请稍候...");
+            // 发送检测包，设置超时时间为 3000 毫秒（3秒）
+            boolean isConnect = baiduIp.isReachable(3000); 
+            System.out.println("网络连通性测试结果: " + (isConnect ? "【通了！网速良好】" : "【断了/超时】"));
+
+        } catch (UnknownHostException e) {
+            // 如果填错域名或者没联网，DNS 解析失败会报这个异常
+            System.err.println("找不到对应的主机，请检查域名或网络连接！");
+            e.printStackTrace();
+        } catch (IOException e) {
+            // isReachable 方法可能会引发 IO 异常
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+#### 运行结果解析
+
+在联网状态下运行这段代码，控制台会输出如下信息：
+
+Plaintext
+
+```
+本地计算机名: MyMacbookPro.local
+本地局域网IP: 192.168.31.45
+--------------------------------------------
+百度的域名/主机名: www.baidu.com
+百度服务器真实的IPv4地址: 110.242.68.4
+--------------------------------------------
+正在尝试连接百度服务器，请稍候...
+网络连通性测试结果: 【通了！网速良好】
+```
+
+#### 深度避坑与底层原理说明
+
+1. **DNS 缓存问题**：
+    
+    当你第一次调用 `InetAddress.getByName("www.baidu.com")` 时，Java 会向你的运营商 DNS 服务器发起请求。一旦成功拿回 IP，**Java 会在 JVM 内部把这个结果缓存起来**。在程序运行期间再次获取，它会直接走缓存，而不会重复发起网络请求。
+    
+2. **为什么 `isReachable` 有时候不准？**
+    
+    在实际开发中，你会发现有时候用电脑命令行 `ping www.baidu.com` 是通的，但是 Java 代码的 `isReachable()` 却返回 `false`。
+    
+    - **底层幕后黑手**：操作系统的权限限制。传统的 `ping` 使用的是网络层的 **ICMP 协议**。而 Java 的 `isReachable()` 在普通权限运行下，如果操作系统不给开 ICMP 权限，它就会退而求其次，尝试去连接对方服务器的 **7号端口（Echo 端口）**。
+        
+    - **结果**：绝大多数公网服务器（如百度、阿里）为了防止被黑客攻击，**默认都会关闭 7 号端口并防火墙拦截 ICMP 包**。所以如果代码返回 `false`，不一定是网络真断了，很可能是对方服务器的安全策略把 Java 的探测包给无情拒绝了。
+
+
+
+---
+---
+
 ## 三要素——IP
 
 
@@ -16115,6 +16225,26 @@ main 正在处理任务【9】                   <-- 【触发拒绝策略】主
 ---
 ---
 
+
+
+## 三要素——端口
+
+
+
+
+
+
+
+
+
+
+
+
+---
+---
+
+
+## 三要素——协议
 
 
 
