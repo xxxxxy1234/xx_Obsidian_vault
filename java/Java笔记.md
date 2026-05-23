@@ -16787,7 +16787,147 @@ public class UdpMulticastSend {
 
 
 
+从 UDP 切换到 **TCP 协议**，我们的编程思路需要发生一个 180 度的大转变。
 
+前面我们反复强调，**TCP 协议就像打视频电话**：必须在发数据前通过“三次握手”建立严格的连接。如果对方不在线（服务器没启动），客户端在连接时就会直接报错。
+
+在 Java 中，官方为 TCP 的双端架设提供了两个完全不同的核心类：
+
+1. **`ServerSocket`**：架设在**服务端（接收端）**。专职在大门口死等、监听有没有客户端打电话进来。
+    
+2. **`Socket`**：架设在**客户端（发送端）**。创建它的时候就需要指定服务器的 IP 和端口，一旦创建成功，底层自动完成“三次握手”建立通道。
+    
+
+由于 TCP 是**面向字节流**的，所以建立连接后，两端的交互完全依赖于 Java 中最纯粹的 **IO 流（输入流/输出流）**。
+
+### 1. 接收端（服务端：必须先启动，在门口死等连接）
+
+服务端利用 `ServerSocket` 的 `accept()` 方法来拦截客户端的电话。
+
+```java
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
+
+public class TcpReceiveDemo {
+    public static void main(String[] args) {
+        System.out.println("====== TCP 接收端（服务端）已启动，等待客户端连接... ======");
+
+        // 1. 创建服务端的 ServerSocket，并绑定固定端口 10010
+        try (ServerSocket serverSocket = new ServerSocket(10010)) {
+
+            // 2. 监听端口。注意：如果没有客户端连进来，这里会一直死等（阻塞）
+            // 一旦连接成功，它会返回一个标准的 Socket 对象，这个对象代表了双方连通的管道
+            Socket socket = serverSocket.accept();
+            
+            // 打印一下是哪个幸运儿连进来了
+            String clientIp = socket.getInetAddress().getHostAddress();
+            System.out.println("【系统通知】客户端连接成功！对方 IP 架构为: " + clientIp);
+
+            // 3. 从 Socket 通道中获取“输入流”，用来读取客户端发过来的字节
+            InputStream is = socket.getInputStream();
+            
+            // 为了防止中文乱码并提高读取效率，我们用转换流和缓冲流包裹一下
+            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+
+            // 4. 一行一行地读取通道里的数据
+            String line;
+            while ((line = br.readLine()) != null) {
+                System.out.println("收到客户端消息 -> " + line);
+            }
+
+            // 5. 活干完了，关闭本次会话的 socket 管道
+            socket.close();
+            System.out.println("客户端已断开，服务端会话结束。");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 2. 发送端（客户端：创建即连接，用输出流泼水）
+
+客户端在 `new Socket` 的一瞬间，底层就会立刻去找服务器。如果服务器没开，这一行就会抛出 `ConnectException`（拒绝连接）。
+
+
+```java
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.Socket;
+
+public class TcpSendDemo {
+    public static void main(String[] args) {
+        System.out.println("====== TCP 发送端（客户端）启动 ======");
+
+        // 1. 创建客户端 Socket 对象
+        // 🌟【核心极其关键】：一创建就会立刻自动向 127.0.0.1:10010 发起三次握手建立连接
+        try (Socket socket = new Socket("127.0.0.1", 10010)) {
+
+            // 2. 从连通的 Socket 通道中获取“输出流”，用来往服务器写数据
+            OutputStream os = socket.getOutputStream();
+            
+            // 为了写字符串更爽，我们用打印流包装一下输出流
+            PrintStream ps = new PrintStream(os);
+
+            // 3. 往通道里疯狂输出数据（相当于顺着管道给服务器倒水）
+            ps.println("你好呀，TCP 接收端！");
+            ps.println("这是来自客户端的第二句话：TCP 确实比 UDP 靠谱多了。");
+            ps.println("数据发完了，我准备挂电话了，再见！");
+            
+            // 刷新缓冲区，确保数据全部冲进网卡
+            ps.flush();
+            System.out.println("数据已全部成功写入通道并发出！");
+
+        } catch (IOException e) {
+            System.err.println("连接服务器失败，请确保接收端（服务端）已经提前启动！");
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 运行与测试（TCP 铁律）
+
+测试 TCP 代码时，**必须严格遵守先后顺序**，因为“没人接的电话是拨不通的”：
+
+1. **第一步**：首先运行 **`TcpReceiveDemo`（接收端）**。控制台会卡在 `等待客户端连接...`，此时 `serverSocket.accept()` 正在操作系统底层死死监听网卡。
+    
+2. **第二步**：运行 **`TcpSendDemo`（发送端）**。你会看到客户端一闪而过弹出 `数据已全部成功写入通道并发出！` 并优雅退出。
+    
+3. **第三步**：切回接收端的控制台，你会发现由于客户端连接并发送了数据，接收端瞬间被激活，完整、不漏字地打印出了所有内容：
+    
+
+
+```Plaintext
+====== TCP 接收端（服务端）已启动，等待客户端连接... ======
+【系统通知】客户端连接成功！对方 IP 架构为: 127.0.0.1
+收到客户端消息 -> 你好呀，TCP 接收端！
+收到客户端消息 -> 这是来自客户端的第二句话：TCP 确实比 UDP 靠谱多了。
+收到客户端消息 -> 数据发完了，我准备挂电话了，再见！
+客户端已断开，服务端会话结束。
+```
+
+### 核心点拨与经典面试大坑
+
+通过上面简单的 TCP 练习，有三个关于 IO 流与网络交互的致命底层细节需要你牢牢吃透：
+
+1. **`br.readLine()` 怎么判定读完了？**
+    
+    在接收端代码中，我们用 `while((line = br.readLine()) != null)` 来循环读取客户端发来的话。接收端之所以能判断出 `null`（知道客户端发完了），是因为客户端在执行完 `try-with-resources` 后触发了自动关闭，**客户端关闭 Socket 的动作，会在底层向服务端发送一个 TCP 的结束信号（FIN包）**。这时候服务端的输入流才会读到 `-1` 或者 `null` 从而跳出循环。如果客户端不死，也不关闭流，接收端就会卡在 `readLine()` 这一行永远等下去！
+    
+2. **为什么发送端用 `ps.println()` 而不是 `ps.print()`？**
+    
+    因为接收端用的是 `readLine()`（读取一行），它是**以换行符（`\n` 或 `\r\n`）作为一段话的结束标志的**。如果你在客户端手抖写成了 `ps.print("你好")`，由于没有发换行符，服务端的 `readLine()` 会认为你这句话还没说完，于是死卡在界面上，发生极其诡异的“数据发了，但对方死活收不到”的假死Bug！
+
+
+---
+---
 
 
 
