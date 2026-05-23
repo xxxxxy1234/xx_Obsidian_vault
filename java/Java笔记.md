@@ -17751,7 +17751,259 @@ public class AnatomyDemo {
 ---
 
 
+## 动态代理的代码实现
 
+
+
+既然你已经掌握了动态代理的底层拦截思想，接下来我们就正式进入代码落地的硬核战场。
+
+在 Java 中，官方提供的动态代理机制是基于**接口**的，通常被称为 **JDK 动态代理**。
+
+为了让你彻底看懂、闭环运行，我们用最经典的“明星唱歌，经纪人收费”案例，从无到有实现一套极为详细的动态代理代码，并在关键位置为你做最通俗的代码级解剖。
+
+### 第一步：定义契约（接口）与真实实现类
+
+前面聊过，代理人和被代理人必须实现同一个接口。我们先写接口和真正的明星类：
+
+#### 1. 接口类：`Star`
+
+
+```java
+package com.test.proxy;
+
+// 共同的契约：必须都会唱歌、会跳舞
+public interface Star {
+    String sing(String songName);
+    void dance();
+}
+```
+
+#### 2. 真实业务类（被代理人）：`BigStar`
+
+
+```java
+package com.test.proxy;
+
+public class BigStar implements Star {
+    private String name;
+
+    public BigStar(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String sing(String songName) {
+        System.out.println("【明星本人】" + this.name + " 正在深情演唱: 《" + songName + "》");
+        return "谢谢大家！(鞠躬)";
+    }
+
+    @Override
+    public void dance() {
+        System.out.println("【明星本人】" + this.name + " 正在舞台上大跳热舞...");
+    }
+}
+```
+
+### 第二步：核心大管家（创建代理对象的工具类）
+
+这是最关键的一步。我们需要写一个工具类，利用反射包下的 `Proxy.newProxyInstance()` 在内存中硬生生揉出一个代理对象。
+
+
+```java
+package com.test.proxy;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+public class ProxyUtil {
+
+    /**
+     * 🌟 核心方法：传入一个真正的明星对象，返回一个被外壳包裹的代理明星对象
+     */
+    public static Star createProxy(BigStar bigStar) {
+        
+        /*
+         * java.lang.reflect.Proxy 类的静态方法 newProxyInstance 用于在内存中创建代理对象。
+         * 它需要严格接收三个参数（三大金刚）：
+         * * 1. ClassLoader loader : 类加载器。因为代理类是在内存中动态生成的，需要指定一个类加载器把它加载到JVM中。
+         * 通常直接用“真实实现类”的类加载器即可。
+         * * 2. Class<?>[] interfaces : 真实实现类所实现的所有接口的字节码数组。
+         * 代理类需要知道自己该伪装成什么样子（实现什么接口）。
+         * * 3. InvocationHandler h : 【灵魂参数】调用处理器（小秘书）。
+         * 这是一个接口，所有发给代理对象的方法请求，都会被无条件拦截并路由到这个接口的 invoke() 方法里！
+         */
+        
+        Star proxyStar = (Star) Proxy.newProxyInstance(
+                ProxyUtil.class.getClassLoader(), // 参数 1
+                new Class[]{Star.class},          // 参数 2
+                new InvocationHandler() {         // 参数 3：这里直接使用匿名内部类
+                    
+                    /**
+                     * 🌟 只要外部调用了代理对象的任何方法，都会强行走到这个 invoke 方法里！
+                     * @param proxy  代理对象本体（一般极少用到）
+                     * @param method 外部当前正在调用的那个方法对象（反射）
+                     * @param args   外部当前调用方法时传进来的实际参数数组
+                     */
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        
+                        // 1. 获取当前正在被调用的方法名字
+                        String methodName = method.getName();
+                        
+                        // 2. 根据方法名，动态进行“功能增强（经纪人加戏）”
+                        if ("sing".equals(methodName)) {
+                            System.out.println("【经纪人拦截】[前置增强] 收到唱歌请求。先过来把 50 万出场费结一下！");
+                            System.out.println("【经纪人拦截】[前置增强] 正在布置舞台，音响设备调音中...");
+                            
+                            // 🌟【核心突破】：经纪人收完钱、干完杂事，利用反射真正去触发大明星本人的唱歌方法！
+                            // args[0] 就是外面传进来的歌名
+                            Object result = method.invoke(bigStar, args); 
+                            
+                            System.out.println("【经纪人拦截】[后置增强] 明星唱完了。正在护送明星坐保姆车安全撤离...\n");
+                            return result; // 代理对象把明星唱歌的返回值（谢谢大家）原封不动地返回给消费者
+                            
+                        } else if ("dance".equals(methodName)) {
+                            System.out.println("【经纪人拦截】[前置增强] 收到跳舞请求。清场！前排观众往后退三米！");
+                            
+                            // 反射触发本人跳舞（dance没有参数，args传过去为空或null）
+                            method.invoke(bigStar, args);
+                            
+                            System.out.println("【经纪人拦截】[后置增强] 跳舞结束，灯光师关灯。\n");
+                            return null; // dance方法在接口里是 void，所以这里返回 null
+                        }
+                        
+                        // 如果调用了其他没有拦截的方法，直接放行
+                        return method.invoke(bigStar, args);
+                    }
+                }
+        );
+        
+        return proxyStar; // 返回内存中揉出来的纯天然代理对象
+    }
+}
+```
+
+### 第三步：消费端（测试运行）
+
+看看我们在完全没有修改 `BigStar` 源码的情况下，它的功能被放大了多少倍：
+
+
+```java
+package com.test.proxy;
+
+public class TestProxy {
+    public static void main(String[] args) {
+        // 1. 创建大明星本人（张杰）
+        BigStar targetStar = new BigStar("张杰");
+
+        // 2. 把张杰送进工厂，动态制造一个代理外壳（经纪人）
+        // 🌟 核心注意：面向接口编程，左边接收的类型必须是共同的接口 Star，不能写 BigStar
+        Star proxyStar = ProxyUtil.createProxy(targetStar);
+
+        // 3. 消费者开始调用方法（注意：我们此时调用的全是 proxyStar 代理对象！）
+        System.out.println("--- 场景一：请明星唱歌 ---");
+        String returnValue = proxyStar.sing("逆战");
+        System.out.println("消费者在台下听到的最终反馈: " + returnValue);
+
+        System.out.println("--- 场景二：请明星跳舞 ---");
+        proxyStar.dance();
+    }
+}
+```
+
+### 令人震撼的控制台日志
+
+运行测试类，你会看到业务逻辑和切面逻辑完美交织在一起：
+
+
+```Plaintext
+--- 场景一：请明星唱歌 ---
+【经纪人拦截】[前置增强] 收到唱歌请求。先过来把 50 万出场费结一下！
+【经纪人拦截】[前置增强] 正在布置舞台，音响设备调音中...
+【明星本人】张杰 正在深情演唱: 《逆战》
+【经纪人拦截】[后置增强] 明星唱完了。正在护送明星坐保姆车安全撤离...
+
+消费者在台下听到的最终反馈: 谢谢大家！(鞠躬)
+--- 场景二：请明星跳舞 ---
+【经纪人拦截】[前置增强] 收到跳舞请求。清场！前排观众往后退三米！
+【明星本人】张杰 正在舞台上大跳热舞...
+【经纪人拦截】[后置增强] 跳舞结束，灯光师关灯。
+```
+
+
+
+
+### 补充：关于代理对象怎么实现接口的
+
+
+在 JDK 动态代理中，内存中的代理人（代理对象）并不是通过写 `.java` 源码文件去 `implements Star` 的，它的实现方式非常硬核：
+
+#### 1. 纯靠字节码“凭空捏造”
+
+在运行时，当你调用 `Proxy.newProxyInstance()` 并把 `new Class[]{Star.class}` 传进去时，Java 底层（JVM）的代理工厂会直接在**内存中拼接一段符合 class 文件的二进制字节码（Bytecode）**。
+
+这段在内存中凭空生成的字节码，在结构上被强制加上了硬性指标：**“必须实现你传进来的那个接口”**。
+
+#### 2. 生成的代理人长什么样？
+
+如果把内存中那个动态生成的类（JVM 通常将其命名为 `$Proxy0`）翻译成我们看得懂的 Java 代码，它的核心结构长这样：
+
+
+```java
+// 🌟 JVM 在内存中动态生成的类，直接实现了 Star 接口
+public final class $Proxy0 extends Proxy implements Star {
+    
+    // 构造方法：把我们写的“小秘书”（InvocationHandler）传给父类保存起来
+    public $Proxy0(InvocationHandler h) {
+        super(h);
+    }
+
+    // 🌟 自动实现接口里的 sing 方法
+    @Override
+    public final String sing(String songName) {
+        try {
+            // 通过反射拿到接口的 sing 方法对象
+            Method m = Star.class.getMethod("sing", String.class);
+            // 🌟 核心：直接把请求转发给小秘书（h）的 invoke 方法！
+            return (String) this.h.invoke(this, m, new Object[]{songName});
+        } catch (Throwable e) {
+            throw new UndeclaredThrowableException(e);
+        }
+    }
+
+    // 🌟 自动实现接口里的 dance 方法
+    @Override
+    public final void dance() {
+        try {
+            Method m = Star.class.getMethod("dance");
+            // 🌟 同样直接转发给小秘书（h）
+            this.h.invoke(this, m, null);
+        } catch (Throwable e) {
+            throw new UndeclaredThrowableException(e);
+        }
+    }
+}
+```
+
+#### 极简总结
+
+它实现接口的方式是：**JVM 在运行期间直接在内存里画了一张写着 `implements Star` 的伪造字节码蓝图，并在方法内部把所有活儿都打包重定向给了你的 `InvocationHandler`**。这也是为什么它不需要你手动写实现类，却能完美伪装成接口实现对象的原因。
+
+
+
+
+### 代码落地后的致命细节与复盘
+
+看懂了上面的代码，你对 JDK 动态代理的理解就已经跨越了分水岭。这几个最核心的细节，是你在后续看 Spring 源码时必须具备的底层素养：
+
+1. **左边为什么必须声明为 `Star` 接口，而不能是 `BigStar`？**
+    
+    因为动态代理在内存中生成的那个代理类（我们可以把它想象成名字叫 `$Proxy0` 的类），它是通过**实现 `Star` 接口**被捏出来的。也就是说，`$Proxy0` 和 `BigStar` 是**同门师兄弟**的关系，它们俩没有任何继承关系！所以代理对象根本无法强转成 `BigStar`，它们唯一的共同纽带就是 `Star` 接口（多态的体现）。
+    
+2. **`method.invoke(bigStar, args)` 里的第一个参数为什么是 `bigStar`？**
+    
+    在匿名内部类里，`method` 代表的是接口上的方法（一个空壳）。如果你写 `method.invoke(proxy, args)`，就会导致方法再次去触发代理对象的执行，代理对象又会触发 `invoke`，从而导致无限死循环、直接内存溢出（StackOverflowError）。所以，在增强逻辑做完后，必须把真正的“幕后苦力”——真实被代理对象（`bigStar`）塞进去，让它去干核心的活。
 
 
 
