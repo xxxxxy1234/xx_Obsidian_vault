@@ -17461,7 +17461,7 @@ method.invoke(stuInstance, (Object) new String[]{"A", "B", "C"});
 ## 补充：更细节的解剖
 
 
-![[Java笔记.png]]
+![[Java SE笔记.png]]
 
 
 这张图可以说是整个 Java 反射体系的“终极全景解剖图”。
