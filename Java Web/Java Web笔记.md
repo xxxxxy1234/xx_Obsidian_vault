@@ -222,7 +222,7 @@ document.getElementById("myBtn").onclick = function() {
 
 
 
-## 标题—排版
+## 央视新闻—标题—排版
 
 
 ![[Java Web笔记.png]]
@@ -294,7 +294,7 @@ document.getElementById("myBtn").onclick = function() {
 ---
 
 
-## 标题—样式
+## 央视新闻—标题—样式
 
 
 ![[Java Web笔记-1.png]]
@@ -423,7 +423,7 @@ document.getElementById("myBtn").onclick = function() {
 ---
 
 
-## 标题—样式（选择器）
+## 央视新闻—标题—样式（选择器）
 
 
 ![[Java Web笔记-2.png]]
@@ -549,7 +549,7 @@ CSS 有一套权重计算规则，简单来说：
 ---
 
 
-## 正文—排版
+## 央视新闻—正文—排版
 
 
 ![[Java Web笔记-3.png]]
@@ -670,7 +670,7 @@ CSS 有一套权重计算规则，简单来说：
 
 
 
-## 正文—样式
+## 央视新闻—正文—样式
 
 
 ![[Java Web笔记-4.png|697]]
@@ -797,7 +797,7 @@ CSS 有一套权重计算规则，简单来说：
 ---
 ---
 
-## 整体布局
+## 央视新闻—整体布局
 
 
 ![[Java Web笔记-5.png]]
@@ -955,3 +955,149 @@ CSS 有一套权重计算规则，简单来说：
 ```
 
 这段代码跑起来，在浏览器里看，就已经是一个**完全可以上线商用的、极其规范的高级新闻网页**了。当你通过写盒子的边距和宽高把它们安排得整整齐齐时，恭喜你，你的前端基础已经过关了！
+
+---
+---
+
+
+
+## tlias练习案例—顶部导航栏
+
+
+
+![[Java Web笔记-6.png]]
+
+
+
+![[Java Web笔记-7.png]]
+
+
+
+绝了！你已经肝到现代前端排版的超级大招——**Flex 布局（弹性盒子布局）**，并且开始做后台管理系统（tlias 智能学习辅助系统）的实战案例了。
+
+对于 Java 后端开发者来说，**Flex 布局是全栈路上性价比最高的技术**。过去用 `float`（浮动）做对齐能让人抓狂到头秃，而现代开发的导航栏、工具栏，基本全靠 Flex **一键对齐**。
+
+根据你发的两张新图，我们直接来攻克这个“顶部导航栏”。
+
+### 核心武器：Flex 布局的三板斧
+
+Flex 布局的核心逻辑是：**给父容器发号施令，控制里面所有子元素的排布。** 要搞定顶部导航栏，你只需要掌握这三个属性：
+
+1. **`display: flex;`**
+    
+    - **大招激活：** 只要给父盒子（比如导航栏的大 `div`）加上这句话，里面原本要“独占一行”的子元素们，瞬间就会像听话的士兵一样，**全都在同一行并排站好**。
+        
+2. **`flex-direction`（决定主轴方向）**
+    
+    - 默认是 `row`（水平从左到右）。导航栏里的 Logo 和文字需要横着排，所以用默认的就行。
+        
+3. **`justify-content`（子元素在主轴上的对齐/分发方式）** 🌟【核心】
+    
+    - 看管理系统的原型图：左边是系统名字 “tlias 智能学习辅助系统”，右边是 “退出登录”。它们一个死贴着最左，一个死贴着最右。
+        
+    - 这正是图里对应的 **`space-between`（先两边贴边，再平分剩余空间）** 的完美使用场景！
+        
+
+### 实战演练：完整还原 tlias 顶部导航栏
+
+为了让你彻底吃透，我们把“盒子模型”和“Flex 布局”结合起来。下面是纯正的 **tlias 顶部导航栏** 还原代码：
+
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias智能学习辅助系统-顶部导航栏</title>
+    <style>
+        /* 全局初始化，清除浏览器自带的边距 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box; /* 让 border 和 padding 不撑大盒子，后端开发极力推荐 */
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        /* 1. 顶部导航栏父容器 */
+        .header {
+            /* 激活 Flex 弹性布局 */
+            display: flex;
+            /* 核心对齐：让左边的标题和右边的退出登录分别贴紧两头 */
+            justify-content: space-between;
+            /* 辅助属性：让子元素在垂直方向上居中对齐 */
+            align-items: center; 
+
+            /* 导航栏的尺寸与皮肤样式 */
+            height: 60px;
+            background-color: #7bc3a1; /* 对应原型图上的标志性青绿色 */
+            padding: 0 20px;           /* 左右留出 20px 边距，防止内容死贴屏幕边缘 */
+            color: white;
+        }
+
+        /* 2. 左侧系统名称样式 */
+        .header .logo-title {
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 1px; /* 字间距拉开一点显得更专业 */
+        }
+
+        /* 3. 右侧用户信息与操作区 */
+        .header .user-actions {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        /* 退出登录按钮样式 */
+        .logout-btn {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            margin-left: 20px; /* 与前面的用户名拉开距离 */
+            padding: 4px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 4px; /* 微微圆角 */
+            transition: all 0.3s; /* 鼠标悬停动画 */
+        }
+
+        /* 鼠标悬停在退出登录上的视觉反馈 */
+        .logout-btn:hover {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        
+        <div class="logo-title">
+            tlias 智能学习辅助系统
+        </div>
+        
+        <div class="user-actions">
+            <span>欢迎你，管理员</span>
+            <a href="/logout" class="logout-btn">退出登录</a>
+        </div>
+
+    </div>
+
+</body>
+</html>
+```
+
+### 后端大局观提示：
+
+注意看右侧“退出登录”的超链接我写的是 `href="/logout"`。
+
+以后当你学到 Java Web 的高级框架（如 Spring Security 或 Shiro）时，当用户点击这个按钮，前端就会向后端发送一个 `/logout` 请求。你的 Java 后端会立刻销毁当前用户的 `Session`（清空登录状态），然后让页面重定向（跳转）回 `login.html` 登录页。
+
+把代码跑起来，拉伸一下浏览器的宽度，你会发现不管屏幕多宽，左边的标题和右边的退出按钮都会雷打不动地贴在两边。这就是 Flex 布局的魅力！
+
+
+---
+---
+
