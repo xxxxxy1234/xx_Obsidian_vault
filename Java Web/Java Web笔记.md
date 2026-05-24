@@ -960,6 +960,180 @@ CSS 有一套权重计算规则，简单来说：
 ---
 
 
+## 表单标签
+
+
+![[Java Web笔记-8.png]]
+
+
+
+之前学的排版（文字、视频、布局）都是后端往前端“发数据”（只读）；而表单，是**前端往后端“收数据”**（交互）。用户注册、登录、修改密码、发布评论，全部都要走表单。
+
+我们直接用纯正的 **Java 后端视角**，把这三个核心标签和两个致命属性彻底剥离出来：
+
+### 一、 后端管家：`<form>` 表单大容器
+
+`<form>` 标签在网页上默认是看不见的，它像一个“快递打包盒”，把盒子里所有用户填的数据打包，然后寄给后台。它有两个决定命运的属性（见图属性栏）：
+
+#### 1. `action` 属性
+
+- **干嘛的：** 规定当用户点击提交时，数据要发给远方的**哪个接口 URL**。
+    
+- **后端视角：** 这里写的就是你未来写的 Java 控制器（Controller/Servlet）的路由地址。
+    
+    - 比如：`action="/login"`。
+        
+
+#### 2. `method` 属性 🌟【面试必问】
+
+规定用什么方式发送数据，最核心的就是 `GET` 和 `POST`：
+
+- **`GET`：** 顺风车。数据会**直接暴露在浏览器的网址栏后面**（形如 `/search?username=admin&pwd=123`）。
+    
+    - _致命缺点：_ 极不安全（密码全看见了）、传输数据量很小。一般只用于**搜索、查询**数据。
+        
+- **`POST`：** 押运车。数据会被包裹在 **HTTP 请求体（Request Body）** 里面。
+    
+    - _巨大优势：_ 网址栏干净，相对安全；能传输海量数据（比如上传头像、发长博文）。所以**登录、注册、提交敏感数据必须用 `POST`**。
+        
+
+### 二、 核心表单项组件
+
+#### 1. `<input>` 标签（全能百变怪）
+
+它通过修改 `type` 属性的值，能瞬间变成完全不同的长相：
+
+- `type="text"`：普通文本框。
+    
+- `type="password"`：密码框（输入的字会自动变成小黑点 ）。
+    
+- `type="radio"`：单选框（比如选性别 男/女，需要设置相同的 `name` 属性才能实现互斥）。
+    
+- `type="checkbox"`：多选框（比如选兴趣爱好 篮球/足球/编程）。
+    
+- `type="submit"`：**提交按钮**。点击它就会立刻触发 `<form>` 的打包寄件。
+    
+
+#### 2. `<select>` 标签（下拉列表）
+
+用于省市区选择、职位选择等，配合内部的 `<option>` 标签使用。
+
+#### 3. `<textarea>` 标签（文本域）
+
+可以拉伸的多行文本框，用于发评论、填备注等长文字。
+
+### 后端开发天条：没有 `name` 属性，后端直接“抓瞎”
+
+这是初学者 99% 都会踩的惊天巨坑。
+
+在表单项（如 `<input>`）中，**必须写 `name` 属性**！
+
+- **为什么：** 假设用户在文本框里输入了 `admin`。如果你的标签只写了 `<input type="text">`，点击提交后，你的 Java 后端确实收到了一个 `admin`。但 Java 会崩溃：“这 `admin` 到底是个啥？是用户名？还是密码？还是邮箱？”
+    
+- **正确做法：** 必须写上 `<input type="text" name="username">`。这样打包发送时，数据就会变成键值对：`username=admin`。你的 Java 代码就能通过 `request.getParameter("username")` 极其优雅地把数据拿出来了！
+    
+
+### 实战演练：完整还原“账号/短信登录”表单结构
+
+我们参考“账号登录”弹窗原型，亲手写一个标准的、符合后端接收规范的表单页面。
+
+新建 `login_form.html` 体验：
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias系统-用户登录表单</title>
+    <style>
+        .login-box {
+            width: 380px;
+            margin: 100px auto;
+            padding: 30px;
+            background-color: #ffffff;
+            border: 1px solid #e5e5e5;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        .form-item {
+            margin-bottom: 20px;
+        }
+        .form-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+        /* 批量美化所有的输入框和下拉框 */
+        .form-item input[type="text"], 
+        .form-item input[type="password"],
+        .form-item select,
+        .form-item textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            outline: none;
+        }
+        /* 美化提交按钮 */
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #7bc3a1; /* tlias 经典绿 */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .submit-btn:hover {
+            background-color: #69b390;
+        }
+    </style>
+</head>
+<body style="background-color: #f4f4f4;">
+
+    <div class="login-box">
+        <h2 style="margin-bottom: 25px; text-align: center; color: #333;">tlias 账号登录</h2>
+        
+        <form action="/login" method="POST">
+            
+            <div class="form-item">
+                <label>用户名 / 手机号 / 邮箱：</label>
+                <input type="text" name="username" placeholder="请输入您的账号" required>
+            </div>
+            
+            <div class="form-item">
+                <label>登录密码：</label>
+                <input type="password" name="password" placeholder="请输入密码" required>
+            </div>
+
+            <div class="form-item">
+                <label>登录角色：</label>
+                <select name="role">
+                    <option value="admin">系统管理员</option>
+                    <option value="teacher">授课讲师</option>
+                    <option value="student">学员</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="submit-btn">登 录</button>
+            
+        </form>
+    </div>
+
+</body>
+</html>
+```
+
+当你把这个表单跑起来，尝试在框里输入一些内容并点击“登录”按钮，虽然因为还没有写 Java 后端会报一个 `404` 错误，但你会发现浏览器的地址栏依然非常干净。因为我们使用了 `method="POST"`！
+
+
+
+
+
+---
+---
 
 ## tlias练习案例—顶部导航栏
 
