@@ -15528,21 +15528,26 @@ public class Cook implements Runnable {
     @Override
     public void run() {
         while (true) {
-            // 1. 先检查吃货是不是吃饱了
+            // 把 终止判断 + 生产前校验 完整包进锁
             synchronized (Desk.COUNT_LOCK) {
+                // 1. 先检查吃货是不是吃饱了
                 if (Desk.count >= 10) {
                     System.out.println("厨师：吃货吃饱了，我下班了！");
                     break;
                 }
-            }
-
-            try {
+                
+                try {
                 // 2. 生产面条并塞进队列。如果队列满了，这一行代码会自动阻塞，直到队列空出来
                 Desk.queue.put("香喷喷的面条");
                 System.out.println("厨师做了一碗香喷喷的面条放到了传送带上！");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+                
+                
+            }
+
+            
         }
     }
 }
@@ -15577,6 +15582,14 @@ public class Foodie implements Runnable {
     }
 }
 ```
+
+
+>[!attention]
+>为什么 take 不放进 synchronized 里？
+  >如果把`take()`也放进锁里：
+  >- 线程会一直拿着 COUNT_LOCK 去阻塞 take，生产者永远拿不到锁，**直接死锁**！
+  >- 正确分工：take 阻塞等待任务 → 出队后再加锁更新全局状态
+
 
 #### 4. 测试类（MainTest）
 
