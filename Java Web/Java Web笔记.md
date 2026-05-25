@@ -1101,6 +1101,7 @@ CSS 有一套权重计算规则，简单来说：
             <div class="form-item">
                 <label>用户名 / 手机号 / 邮箱：</label>
                 <input type="text" name="username" placeholder="请输入您的账号" required>
+            //placeholder代表输入框里面没有东西时的提示词
             </div>
             
             <div class="form-item">
@@ -1134,6 +1135,14 @@ CSS 有一套权重计算规则，简单来说：
  >   不用精准点小圆圈 / 小方框，点旁边的文字就能操作，用起来更方便。
  >- **提升无障碍性**
  >  屏幕阅读器能识别文字和表单的对应关系，方便视障用户使用
+ >
+ >```html
+ ><!-- 绑定方式1：for 属性对应 input 的 id -->
+ > <input type="radio" id="male" name="gender"> 
+ > <label for="male">男</label> 
+ > <!-- 绑定方式2：直接把 input 包在 label 里 --> 
+ > <label> <input type="checkbox"> 同意协议 </label>
+ >```
 
 
 
