@@ -15468,116 +15468,125 @@ System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle +
 
 
 
-
-
 ---
 
 
-### 六、核心代码实现——改进后的阻塞队列机制
-
-
-#### 改进方法思想（eg吃货）：
-
-```java
-// 1. 拿面条（此时还没打印，吃货可能会在这里阻塞住）
-String noodle = Desk.queue.take(); 
-
-// 2. 只要一旦拿到了面条，立刻进入这把锁
-synchronized (Desk.COUNT_LOCK) {
-    Desk.count++;
-    // 【核心关键】：把打印语句和 count++ 死死捆绑在同一把锁里！
-    System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
-    System.out.println("----------------------------------------");
-}
-```
-
-
-- 阻塞队列自身的机制保证了：`put` 成功后，`take` 才能拿到。所以**动作的先后顺序是绝对没问题的**。
-    
-- 只要吃货一从队列里拿到面条（`take()` 成功执行），它会瞬间**咬死 `COUNT_LOCK` 这把锁**。
-    
-- 在大括号里面，它慢条斯理地让 `count++` 然后再执行 `System.out.println`。因为有这把锁罩着，**在它打印完之前，任何其他吃货或者厨师线程都绝对进不来**，CPU 就算中途切走线程，别人由于没有 `COUNT_LOCK` 钥匙也只能在外面干等。
-    
-- 这就保证了 **“拿到面条 $\rightarrow$ 碗数增加 $\rightarrow$ 打印控制台”** 变成了一个不可分割的整体（原子性）。
-    
+### 六、核心代码实现——改进后的阻塞队列机制（synchronized+notifyAll）
 
 
 
-#### 1. 共享的传送带
+#### 1. 共享的传送带（Desk 类）
 
+保持简单，只需要定义一个锁对象、队列和计数器。
 
 ```java
+package com.itheima.a14waitandnotify;
+
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 public class Desk {
-    // 创建一个容量为 1 的阻塞队列（传送带上只能放一碗面）
+    // 创建一个容量为 1 的阻塞队列
     public static final BlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
     
-    // 依然需要计数器来记录总数
+    // 计数器记录总数
     public static int count = 0;
-    // 定义一个锁专门用来保护 count 计数器的安全（注意：跟队列本身的阻塞无关）
-    public static final Object COUNT_LOCK = new Object();
+    
+    // 定义这把唯一的“大锁”，用来保护 queue 的存取和 count 的修改
+    public static final Object LOCK = new Object();
 }
 ```
 
-#### 2. 生产者（厨师）
+#### 2. 生产者（Cook 类）
+
+**改进核心**：厨师抢到锁后，如果发现队列是满的，不能硬等，必须调用 `Desk.LOCK.wait()` **挂起并释放锁**，把机会留给吃货。
+
 
 ```java
+package com.itheima.a14waitandnotify;
+
 public class Cook implements Runnable {
     @Override
     public void run() {
         while (true) {
-            // 把 终止判断 + 生产前校验 完整包进锁
-            synchronized (Desk.COUNT_LOCK) {
+            // 一进循环，立刻拿锁
+            synchronized (Desk.LOCK) {
                 // 1. 先检查吃货是不是吃饱了
                 if (Desk.count >= 10) {
                     System.out.println("厨师：吃货吃饱了，我下班了！");
-                    break;
+                    break; 
                 }
-                
-                try {
-                // 2. 生产面条并塞进队列。如果队列满了，这一行代码会自动阻塞，直到队列空出来
-                Desk.queue.put("香喷喷的面条");
-                System.out.println("厨师做了一碗香喷喷的面条放到了传送带上！");
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-                
-                
-            }
 
-            
+                // 2. 如果吃货没饱，但【传送带是满的】，厨师必须等（用 while 防止虚假唤醒）
+                while (Desk.queue.size() == 1) {
+                    try {
+                        // 核心：进入等待，并【释放】Desk.LOCK 锁，让吃货有机会进来吃
+                        Desk.LOCK.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // 3. 走到这里，说明吃货没饱，且传送带空了，可以放面
+                try {
+                    Desk.queue.put("香喷喷的面条");
+                    System.out.println("厨师做了一碗香喷喷的面条放到传送带上！");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                // 4. 放完面后，立刻唤醒可能在等待的吃货
+                Desk.LOCK.notifyAll();
+            } // 出锁
         }
     }
 }
 ```
 
-#### 3. 消费者（吃货）
+#### 3. 消费者（Foodie 类）
+
+**改进核心**：吃货把 `queue.take()` 拿到了锁的**内部**。如果发现队列是空的，吃货也会调用 `wait()` 挂起并释放锁，把机会留给厨师。
 
 ```java
+package com.itheima.a14waitandnotify;
+
 public class Foodie implements Runnable {
     @Override
     public void run() {
         while (true) {
-            try {
-                // 1. 从队列中取面条。如果队列是空的，这一行代码会自动阻塞死等，直到厨师放面条进来
-                String noodle = Desk.queue.take();
+            // 一进循环，立刻拿锁
+            synchronized (Desk.LOCK) {
                 
-                // 2. 改变计数器
-                synchronized (Desk.COUNT_LOCK) {
-                    Desk.count++;
-                    System.out.println(Thread.currentThread().getName() + " 吃掉了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
-                    System.out.println("----------------------------------------");
-                    
-                    if (Desk.count == 10) {
-                        System.out.println("吃货：饱了饱了，实在吃不下了！");
-                        break;
+                // 1. 如果【传送带是空的】，吃货必须等
+                while (Desk.queue.size() == 0) {
+                    try {
+                        // 核心：进入等待，并【释放】Desk.LOCK 锁，让厨师有机会进来做面
+                        Desk.LOCK.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                 }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+
+                // 2. 走到这里，说明传送带有面，吃货开始吃
+                try {
+                    String noodle = Desk.queue.take();
+                    // 吃完立刻改计数器（在同一把锁内，绝对线程安全）
+                    Desk.count++;
+                    System.out.println(Thread.currentThread().getName() + " 吃了【" + noodle + "】！这是第 " + Desk.count + " 碗。");
+                    System.out.println("------------------------------------------------");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                // 3. 吃完面，传送带空了，立刻唤醒可能在等待的厨师
+                Desk.LOCK.notifyAll();
+
+                // 4. 检查自己是不是吃饱了，饱了就退出循环
+                if (Desk.count == 10) {
+                    System.out.println("吃货：饱了饱了，实在吃不下了！");
+                    break;
+                }
+            } // 出锁
         }
     }
 }
@@ -15604,14 +15613,165 @@ public class MainTest {
 
 
 
-#### 核心总结
 
-阻塞队列不仅写起来简单，最厉害的是它实现了**解耦**。在大型分布式系统中（比如天猫双十一），著名的**消息队列（MQ，如 RocketMQ/RabbitMQ）**，其本质就是把这个单机版的 `BlockingQueue` 放大到了分布式服务器上，用来实现系统之间的“生产者与消费者”削峰填谷。
+#### 为什么这个方案彻底安全了？
+
+1. **绝对不会死锁**：当厨师抢到锁但队列满时，他执行 `Desk.LOCK.wait()`。这一步会**解开身上的锁**。吃货此时就能顺利拿到 `Desk.LOCK` 进入临界区，把面 `take` 走，然后再通过 `notifyAll()` 把厨师叫醒。
+    
+2. **打印绝对不会错乱**：因为 `queue.put()` / `queue.take()` 和 `System.out.println` 全都在同一个 `synchronized(Desk.LOCK)` 块内部。也就是说，一个线程在做面、打印、唤醒整套动作完成之前，另一个线程**绝无可能**插进来提前打印，控制台的日志顺序会非常漂亮、非常严格。
+
+
 
 
 ---
 
-### 七、 两种方式对比
+
+### 七、核心代码实现——改进后的阻塞队列机制（AtomicInteger原子类）
+
+
+#### 什么是 AtomicInteger？
+
+在理解 `AtomicInteger` 之前，我们需要先明白为什么普通的 `int count` 在多线程下是不安全的。
+
+当我们写 `count++` 时，在 CPU 底层实际上分成了 **3 步**执行：
+
+1. **读取**当前 `count` 的值。
+    
+2. 在寄存器中给这个值 **+1**。
+    
+3. 把新值**写回**内存。
+    
+
+如果两个线程同时执行 `count++`，它们可能同时读取到了相同的值，加完后写回，就会导致本该自增 2 次的计数器只增加了 1 次。这就是**线程不安全**。
+
+`AtomicInteger` 是 Java 在 `java.util.concurrent.atomic` 包下提供的一个**原子性整型类**。它底层的核心是 **CAS 机制（Compare And Swap，比较并交换）**。
+
+CAS 是一种无锁（Lock-Free）的乐观锁策略：当它要修改值时，会先看一眼内存里的值是不是刚才读到的旧值，如果是，就一口气原子性地换成新值；如果不是（说明被别人偷跑改过了），它就宣告失败，并自动重试（自旋）。
+
+因为不需要借助于传统的 `synchronized` 锁，`AtomicInteger` 的执行效率非常高，在并发计数、限流等场景下被极为广泛地应用。
+
+
+#### 1. 共享的传送带（Desk 类）
+
+由于 `ArrayBlockingQueue` 内部本身就是线程安全的，而 `AtomicInteger` 也是线程安全的，所以我们**不再需要任何 `synchronized` 锁**。
+
+
+```java
+package com.itheima.a14waitandnotify;
+
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class Desk {
+    // 1. 创建一个容量为 1 的阻塞队列（内部自带锁，生产消费天然安全）
+    public static final BlockingQueue<String> queue = new ArrayBlockingQueue<>(1);
+    
+    // 2. 使用 AtomicInteger 代替普通的 int
+    // 初始值为 0，用来线程安全地记录总共吃/做了多少碗面
+    public static final AtomicInteger count = new AtomicInteger(0);
+}
+```
+
+#### 2. 生产者（Cook 类）
+
+
+```java
+package com.itheima.a14waitandnotify;
+
+public class Cook implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            // 1. 先用 get() 方法看看吃货是不是已经吃够 10 碗了
+            if (Desk.count.get() >= 10) {
+                System.out.println("厨师：吃货吃饱了，我下班了！");
+                break;
+            }
+
+            try {
+                // 2. 核心：直接调用 put()，如果队列慢了，这里会自动阻塞等待，不需要外层加锁
+                Desk.queue.put("香喷喷的面条");
+                System.out.println("厨师做了一碗香喷喷的面条放到传送带上！");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+#### 3. 消费者（Foodie 类）
+
+
+```java
+package com.itheima.a14waitandnotify;
+
+public class Foodie implements Runnable {
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                // 1. 核心：直接调用 take()，如果队列空了会自动阻塞等待
+                String noodle = Desk.queue.take();
+                
+                // 2. 核心：使用 incrementAndGet() 替代 count++
+                // 这一步等价于 ++count，它是绝对原子性的，并且会返回自增后的最新值
+                int currentCount = Desk.count.incrementAndGet();
+                
+                System.out.println(Thread.currentThread().getName() + " 吃了【" + noodle + "】！这是第 " + currentCount + " 碗。");
+                System.out.println("------------------------------------------------");
+
+                // 3. 判断是否吃饱
+                if (currentCount == 10) {
+                    System.out.println("吃货：饱了饱了，实在吃不下了！");
+                    break;
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+```
+
+#### 4. 测试类（MainTest）
+
+
+```java
+package com.itheima.a14waitandnotify;
+
+public class MainTest {
+    public static void main(String[] args) {
+        new Thread(new Cook(), "厨师线程").start();
+        new Thread(new Foodie(), "吃货线程").start();
+    }
+}
+```
+
+#### 总结
+
+这是非常现代化且标准的现代 Java 并发写法，在实际后端开发中，只要能用并发容器和原子类搞定的，基本不会去手动写 `synchronized`。
+
+- **优点**：
+    
+    - **极其高效**：没有了 `synchronized` 重量级锁的上下文切换和阻塞，完全基于底层的硬件原子指令（CAS）和 AQS 队列，性能拉满。
+        
+    - **代码极简**：没有了繁琐的锁嵌套、`wait/notifyAll` 和 `while` 条件判断。
+        
+- **缺点**：
+    
+    - **日志顺序可能产生瞬时偏差**：因为没有“全局大锁”把“拿面”和“打印日志”框死在同一个原子操作里。比如吃货刚拿走面（`take` 成功），还没来得及打印，厨师就瞬间塞入新面并打印了。所以控制台偶尔会看到连续两句“厨师放了面”。但请放心，**业务底层的核心逻辑（面条数量、消费总数）是百分之百精确无误的**。
+
+
+
+
+
+
+
+---
+
+### 八、 管程（Monitor）机制 VS 阻塞队列（BlockingQueue）机制
 
 
 在之前那个“不完美代码”的修正版中，为了同时保护队列和计数器，代码在执行 `Desk.queue.take()` 时（其底层已经带了一把队列锁），随后又进入了 `synchronized (Desk.COUNT_LOCK)`。从动作的连续性来看，**它在宏观逻辑上确实形成了一种“嵌套锁”或者说“双重锁”的局面。**
@@ -15622,15 +15782,14 @@ public class MainTest {
 
 #### 传统方式 vs 阻塞队列方式 对比表
 
-| **对比维度**                          | **传统方式 (synchronized + wait/notifyAll)**                                             | **阻塞队列方式 (BlockingQueue)**                                                                    |
-| --------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| **底层核心机制**                        | **管程机制（Monitor）**<br><br>  <br><br>通过操作系统的原生锁和线程等待队列实现。                              | **队列容器机制（基于 AQS）**<br><br>  <br><br>把锁和条件队列直接封装在容器内部。                                         |
-| 数据缓冲区<br><br>  <br><br>（桌子）       | **需要程序员自己写**。<br><br>  <br><br>必须自己定义一个共享变量（如 `flag`）来标记有没有面条。                       | **JDK 自带的高效容器**。<br><br>  <br><br>直接使用 `ArrayBlockingQueue` 等有界队列，自带容量上限。                     |
-| 线程协同逻辑<br><br>  <br><br>（怎么等、怎么换） | **手动挡** <br><br>  <br><br>必须手动写 `while(条件)` 判断，手动写 `wait()` 挂起，手动写 `notifyAll()` 唤醒。 | **自动挡** <br><br>  <br><br>只需一行 `put()` 或 `take()`，队列满了或者空了，**底层自动阻塞和唤醒**。                     |
-| 控制业务变量<br><br>  <br><br>（如吃够10碗）  | **自然融合**。<br><br>  <br><br>因为本来就套在 `synchronized` 里面，可以直接把 `count++` 和打印捆死在一起，锁很纯粹。  | **需要额外处理（你的敏锐发现）**。<br><br>  <br><br>由于队列只管自己内部安全，要控制外部变量和打印，**必须额外加锁（形成嵌套锁）** 或 **改用无锁原子类**。 |
-| **高并发下的性能**                       | 锁的粒度较粗，所有线程都在抢同一把大锁，高并发下线程切换频繁，性能较差。                                                 | 锁的粒度极细（内部读写分离或分段锁），多产多销场景下**吞吐量远超传统方式**。                                                      |
-| **企业级应用场景**                       | 现在极少直接用来写业务，主要出现在底层框架开发，或者多线程面试的原理考核中。                                               | **绝对的主流**！Java 线程池的核心、大数据框架、各大消息中间件（MQ）的单机缩影。                                                 |
-
+| **对比维度**                          | **传统方式 (synchronized + wait/notifyAll)**                                             | **阻塞队列方式 (BlockingQueue)**                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| **底层核心机制**                        | **管程机制（Monitor）**<br><br>  <br><br>通过操作系统的原生锁和线程等待队列实现。                              | **队列容器机制（基于 AQS）**<br><br>  <br><br>把锁和条件队列直接封装在容器内部。                                 |
+| 数据缓冲区<br><br>  <br><br>（桌子）       | **需要程序员自己写**。<br><br>  <br><br>必须自己定义一个共享变量（如 `flag`）来标记有没有面条。                       | **JDK 自带的高效容器**。<br><br>  <br><br>直接使用 `ArrayBlockingQueue` 等有界队列，自带容量上限。             |
+| 线程协同逻辑<br><br>  <br><br>（怎么等、怎么换） | **手动挡** <br><br>  <br><br>必须手动写 `while(条件)` 判断，手动写 `wait()` 挂起，手动写 `notifyAll()` 唤醒。 | **自动挡** <br><br>  <br><br>只需一行 `put()` 或 `take()`，队列满了或者空了，**底层自动阻塞和唤醒**。             |
+| 控制业务变量<br><br>  <br><br>（如吃够10碗）  | **自然融合**。<br><br>  <br><br>因为本来就套在 `synchronized` 里面，可以直接把 `count++` 和打印捆死在一起，锁很纯粹。  | **需要额外处理**。<br><br>  <br><br>由于队列只管自己内部安全，要控制外部变量和打印，**必须额外加锁（形成嵌套锁）** 或 **改用无锁原子类**。 |
+| **高并发下的性能**                       | 锁的粒度较粗，所有线程都在抢同一把大锁，高并发下线程切换频繁，性能较差。                                                 | 锁的粒度极细（内部读写分离或分段锁），多产多销场景下**吞吐量远超传统方式**。                                              |
+| **企业级应用场景**                       | 现在极少直接用来写业务，主要出现在底层框架开发，或者多线程面试的原理考核中。                                               | **绝对的主流**！Java 线程池的核心、大数据框架、各大消息中间件（MQ）的单机缩影。                                         |
 
 
 #### 核心复盘：为什么阻塞队列需要升级？
@@ -15641,6 +15800,11 @@ public class MainTest {
     
 2. **加上外部锁（嵌套锁）或原子类**：是为了保证“吃货吃面的日志打印，绝对不会颠倒错乱”。
     
+
+
+阻塞队列不仅写起来简单，最厉害的是它实现了**解耦**。在大型分布式系统中（比如天猫双十一），著名的**消息队列（MQ，如 RocketMQ/RabbitMQ）**，其本质就是把这个单机版的 `BlockingQueue` 放大到了分布式服务器上，用来实现系统之间的“生产者与消费者”削峰填谷。
+
+
 
 在以后真实的架构设计中，高性能的系统往往会彻底放弃 `synchronized` 这种重锁，改用 **`BlockingQueue` + `AtomicInteger`（原子类）** 的组合。这样既不用写出臃肿的嵌套锁，又能像跑车一样享受极速的并发性能！
 
