@@ -1496,3 +1496,527 @@ select * from emp
 这也是开发中的黄金标准！因为在 MySQL 数据库里，为了节省空间和提高索引效率，我们通常会用数字 `tinyint` 来存储状态（比如 `1` 代表男，`2` 代表女，`1` 代表班主任...）。前端通过 `value` 属性，把文字直接翻译成了后端数据库最喜欢的数字，前后端的默契就在这里！
 
 把代码跑起来，在里面随便填几个条件点击查询，观察一下浏览器地址栏上的参数变化吧！
+
+
+---
+---
+
+
+## tlias练习案例—表格数据展示区域
+
+
+![[Java Web笔记-9.png]]
+
+
+
+作为 Java 后端开发者，如果你去翻看你的商业项目或者大厂代码，你会发现数据库里通过 `SELECT * FROM emp` 查出来的 `List<Emp>` 集合数据，到了前端**100% 都是通过这个 `<table >` 标签（或者基于它封装的组件）渲染出来的**。
+
+结合图片，我们用后端视角来解构表格的核心骨架和“潜规则”。
+
+### 1. 表格标签的“四层嵌套”骨架
+
+表格的结构非常严密，就像是一个多维数组。它的嵌套层级是这样的：
+
+- **`<table>`：** 整个表格的最外层大壳子。
+    
+- **`<thead>`（表头）：** 用来放第一行（姓名、性别、职位等列名）。
+    
+    - **`<tr>` (Table Row)：** 代表**一行**。
+        
+    - **`<th>` (Table Header Cell)：** 代表表头里的**加粗单元格**。
+        
+- **`<tbody>`（表体）：** 用来放真正的业务数据。
+    
+    - **`<tr>` (Table Row)：** 每一条员工记录就是一行。
+        
+    - **`<td>` (Table Data Cell)：** 这一行里的**普通数据单元格**。
+        
+
+### 2. 后端开发者的“循环渲染”视角
+
+为什么后端必须要懂 `<tbody>` 里的 `<tr>` 和 `<td>`？
+
+因为在实际开发中，这些员工数据（如风清扬、赵敏）绝对不是在 HTML 里死记硬背硬写出来的。
+
+未来你会用前端模板（如 Thymeleaf）或者主流前端框架（如 Vue/React），你的前端代码会通过 **`v-for` 或 `th:each` 标签**，对着后端传过来的 `List` 集合进行**循环遍历**。
+
+> **后端动态渲染伪代码：**
+
+```HTML
+<tr v-for="emp in employees">
+    <td>{{ emp.name }}</td>
+    <td>{{ emp.gender == 1 ? '男' : '女' }}</td>
+    <td><img :src="emp.avatar"></td>
+    <td>{{ emp.job }}</td>
+    <td>{{ emp.entryDate }}</td>
+</tr>
+```
+
+所以，掌握了基础的 `<tr>` 和 `<td>` 结构，你才能一眼看懂前端框架到底是怎么把你的 Java 对象变成网页表格的。
+
+### 实战演练：完整还原 tlias 员工表格数据区
+
+我们来写一段干净的、符合原型图样式的原生 HTML 表格代码。这里融入了**隔行变色**、**边框合并**等企业后台常用的美化 CSS。
+
+你可以直接新建一个 `employee_list.html` 文件运行体验：
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-员工表格数据展示区域</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        /* 1. 表格整体美化 */
+        .emp-table {
+            width: 100%;
+            /* 核心技巧：合并传统的双线边框为单线边框 */
+            border-collapse: collapse; 
+            background-color: #ffffff;
+            font-size: 14px;
+            text-align: center; /* 让表格内的文字和图片全部居中对齐 */
+        }
+
+        /* 2. 表头样式管理 */
+        .emp-table thead {
+            background-color: #e2f0d9; /* 对应原型图上的淡绿色表头背景 */
+        }
+        
+        .emp-table th {
+            padding: 12px 10px;
+            border: 1px solid #d9d9d9; /* 淡淡的灰色边框 */
+            color: #333333;
+            font-weight: bold;
+        }
+
+        /* 3. 表体单元格样式 */
+        .emp-table td {
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            color: #666666;
+            vertical-align: middle; /* 让单元格里的图片和文字垂直居中 */
+        }
+
+        /* 头像图片微调 */
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        /* 4. 高级小技巧：隔行变色（让奇数行背景变成浅灰，提高表格阅读体验） */
+        .emp-table tbody tr:nth-child(odd) {
+            background-color: #fafafa;
+        }
+
+        /* 鼠标悬停在某一行时，整行变色提示（Hover反馈） */
+        .emp-table tbody tr:hover {
+            background-color: #f1f8e9;
+        }
+
+        /* 5. 操作按钮样式 */
+        .action-link {
+            text-decoration: none;
+            font-size: 13px;
+            margin: 0 5px;
+        }
+        .edit-btn { color: #ff9900; } /* 编辑按钮橙色 */
+        .del-btn { color: #ff3300; }  /* 删除按钮红色 */
+    </style>
+</head>
+<body>
+
+    <table class="emp-table">
+        <thead>
+            <tr>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>头像</th>
+                <th>所属部门</th>
+                <th>职位</th>
+                <th>入职日期</th>
+                <th>最后操作时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        
+        <tbody>
+            <tr>
+                <td>赵敏</td>
+                <td>女</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-female-circle.png" alt="头像"></td>
+                <td>学工部</td>
+                <td>班主任</td>
+                <td>2008-12-18</td>
+                <td>2023-07-22 12:05:20</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+
+            <tr>
+                <td>风清扬</td>
+                <td>男</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-male-circle.png" alt="头像"></td>
+                <td>教研部</td>
+                <td>讲师</td>
+                <td>2015-07-22</td>
+                <td>2022-07-22 15:00:00</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+
+            <tr>
+                <td>风清扬</td>
+                <td>男</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-male-circle.png" alt="头像"></td>
+                <td>教研部</td>
+                <td>讲师</td>
+                <td>2015-07-22</td>
+                <td>2022-07-22 15:00:00</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
+
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-员工表格数据展示区域</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        /* 1. 表格整体美化 */
+        .emp-table {
+            width: 100%;
+            /* 核心技巧：合并传统的双线边框为单线边框 */
+            border-collapse: collapse; 
+            background-color: #ffffff;
+            font-size: 14px;
+            text-align: center; /* 让表格内的文字和图片全部居中对齐 */
+        }
+
+        /* 2. 表头样式管理 */
+        .emp-table thead {
+            background-color: #e2f0d9; /* 对应原型图上的淡绿色表头背景 */
+        }
+        
+        .emp-table th {
+            padding: 12px 10px;
+            border: 1px solid #d9d9d9; /* 淡淡的灰色边框 */
+            color: #333333;
+            font-weight: bold;
+        }
+
+        /* 3. 表体单元格样式 */
+        .emp-table td {
+            padding: 10px;
+            border: 1px solid #d9d9d9;
+            color: #666666;
+            vertical-align: middle; /* 让单元格里的图片和文字垂直居中 */
+        }
+
+        /* 头像图片微调 */
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        /* 4. 高级小技巧：隔行变色（让奇数行背景变成浅灰，提高表格阅读体验） */
+        .emp-table tbody tr:nth-child(odd) {
+            background-color: #fafafa;
+        }
+
+        /* 鼠标悬停在某一行时，整行变色提示（Hover反馈） */
+        .emp-table tbody tr:hover {
+            background-color: #f1f8e9;
+        }
+
+        /* 5. 操作按钮样式 */
+        .action-link {
+            text-decoration: none;
+            font-size: 13px;
+            margin: 0 5px;
+        }
+        .edit-btn { color: #ff9900; } /* 编辑按钮橙色 */
+        .del-btn { color: #ff3300; }  /* 删除按钮红色 */
+    </style>
+</head>
+<body>
+
+    <table class="emp-table">
+        <thead>
+            <tr>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>头像</th>
+                <th>所属部门</th>
+                <th>职位</th>
+                <th>入职日期</th>
+                <th>最后操作时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        
+        <tbody>
+            <tr>
+                <td>赵敏</td>
+                <td>女</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-female-circle.png" alt="头像"></td>
+                <td>学工部</td>
+                <td>班主任</td>
+                <td>2008-12-18</td>
+                <td>2023-07-22 12:05:20</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+
+            <tr>
+                <td>风清扬</td>
+                <td>男</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-male-circle.png" alt="头像"></td>
+                <td>教研部</td>
+                <td>讲师</td>
+                <td>2015-07-22</td>
+                <td>2022-07-22 15:00:00</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+
+            <tr>
+                <td>风清扬</td>
+                <td>男</td>
+                <td><img class="avatar" src="https://img.icons8.com/illustrations/lex/112/user-male-circle.png" alt="头像"></td>
+                <td>教研部</td>
+                <td>讲师</td>
+                <td>2015-07-22</td>
+                <td>2022-07-22 15:00:00</td>
+                <td>
+                    <a href="#" class="action-link edit-btn">编辑</a>
+                    <a href="#" class="action-link del-btn">删除</a>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
+```
+
+跑起来之后，你会看到一个带高亮响应、隔行交替背景色、完美还原黑马原型的企业级员工数据表。拿下这一课，整个 tlias 系统的核心展示层你就彻底啃下来了！
+
+
+---
+---
+
+
+## tlias练习案例—底部导航区域
+
+
+拿下这最后一个“底部版权区域（底部导航区域）”，整个 tlias 员工管理系统的页面大骨架就彻底宣告通关了！
+
+在各类管理系统或企业官网上，底部区域通常用来展示**版权信息（Copyright）、公司名称、备案号以及一些辅助链接**。虽然它的内容通常不多，但在排版上却有特定的“潜规则”和细节。
+
+结合前面的布局逻辑，我们来把最后一块拼图完美补齐。
+
+### 核心技术点与排版规范
+
+#### 1. 结构与文本设计（HTML）
+
+- **标签选择：** 通常使用无语义的 `<div>` 作为大容器，或者使用 HTML5 语义化标签 `<footer>`（表示页脚）。
+    
+- **字符实体应用：** 看到原型图上的 **`©`**（版权符号）了吗？在 HTML 中，我们不能直接打出这个标准的版权标，必须使用它的转义字符：**`&copy;`**。
+    
+- **换行控制：** 原型图上有两行淡淡的文字。我们可以用两个 `<p>` 标签来分行，或者在一个盒子内使用 `<br>` 进行强制换行。
+    
+
+#### 2. 视觉与对齐（CSS）
+
+- **文本水平居中：** 底部版权通常都是居中对齐的，直接一行 CSS 搞定：`text-align: center;`。
+    
+- **字体微调：** 作为页脚，它的地位是辅助性的，所以字号一般会设得比较小（如 `12px` 或 `13px`），颜色通常使用淡淡的灰色（如 `#999` 或 `#888`），不能抢了主体表格的风头。
+    
+- **间距控制：** 利用 `padding`（内边距）把上下撑开一定的距离，让页面看起来更加透气、不紧绷。
+    
+
+### 实战演练：完整还原 tlias 底部版权区域
+
+我们严格参照原型图的浅绿色样式，编写一段干净的标准代码。
+
+你可以将以下代码作为一个独立的模块，或者直接拼接到你之前写的 `header`（顶部导航）、`search-area`（搜索表单）和 `table`（表格展示） 的最下方：
+
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-底部版权区域</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f4f4;
+            /* 模拟页面主体内容，把底部推到屏幕下方 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 主体内容占位（实际开发中这里放搜索区域和表格） */
+        .main-content {
+            flex: 1; 
+            padding: 20px;
+            text-align: center;
+            color: #ccc;
+            font-size: 24px;
+        }
+
+        /* ================= 底部版权区域核心 CSS ================= */
+        .footer {
+            background-color: #7bc3a1; /* 对应原型图底部的标志性青绿色 */
+            padding: 15px 0;           /* 上下留出 15px 的内边距 */
+            text-align: center;        /* 全局文字水平居中 */
+        }
+
+        /* 页脚内的段落文字样式 */
+        .footer p {
+            font-size: 13px;           /* 辅助信息字号偏小 */
+            color: rgba(255, 255, 255, 0.85); /* 柔和的白色，看久了不刺眼 */
+            line-height: 1.6;          /* 设置行高，防止两行字挤在一起 */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-content">
+        （页面主体内容区）
+    </div>
+
+    <footer class="footer">
+        <p>江苏传智播客教育科技股份有限公司</p>
+        <p>版权所有&copy;Copyright 2006-2024. All Rights Reserved</p>
+    </footer>
+
+</body>
+</html>
+
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-底部版权区域</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            background-color: #f4f4f4;
+            /* 模拟页面主体内容，把底部推到屏幕下方 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* 主体内容占位（实际开发中这里放搜索区域和表格） */
+        .main-content {
+            flex: 1; 
+            padding: 20px;
+            text-align: center;
+            color: #ccc;
+            font-size: 24px;
+        }
+
+        /* ================= 底部版权区域核心 CSS ================= */
+        .footer {
+            background-color: #7bc3a1; /* 对应原型图底部的标志性青绿色 */
+            padding: 15px 0;           /* 上下留出 15px 的内边距 */
+            text-align: center;        /* 全局文字水平居中 */
+        }
+
+        /* 页脚内的段落文字样式 */
+        .footer p {
+            font-size: 13px;           /* 辅助信息字号偏小 */
+            color: rgba(255, 255, 255, 0.85); /* 柔和的白色，看久了不刺眼 */
+            line-height: 1.6;          /* 设置行高，防止两行字挤在一起 */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-content">
+        （页面主体内容区）
+    </div>
+
+    <footer class="footer">
+        <p>江苏传智播客教育科技股份有限公司</p>
+        <p>版权所有&copy;Copyright 2006-2024. All Rights Reserved</p>
+    </footer>
+
+</body>
+</html>
+```
+
+### 全栈大局观提示：
+
+注意看上面的代码中，我给 `body` 加上了 `min-height: 100vh; display: flex; flex-direction: column;`。
+
+- **为什么：** 在实际的企业项目里，有时候数据库查出来的员工数据是空的（表格只有一行）。如果不用这个布局技巧，底部版权大盒子就会因为上面没有内容支撑，**死死地贴在屏幕正中间**，下面留出一大片死白，非常难看。
+    
+- **效果：** 加上这三行 Flex 属性后，即使表格里一条数据都没有，底部版权也会**雷打不动地乖乖呆在浏览器最底部**；而当表格数据成百上千条时，它又会自然地被推到网页的最下方，随着滚动条滚动才出现。
+    
+
+---
+---
+
+
+# JS
