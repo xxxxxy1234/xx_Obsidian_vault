@@ -3477,3 +3477,150 @@ module.exports = { name: '张三' };
 ---
 
 
+## 常用指令——v-for
+
+
+### 什么是 Vue 指令？
+
+**指令（Directives）是带有 `v-` 前缀的特殊属性**。它们被写在 HTML 标签上，不同的指令能赋予标签不同的神秘力量（比如控制显示隐藏、绑定事件等）。
+
+
+![[Java Web笔记-15.png]]
+
+
+
+在传统原生 JS 里，如果我们从 Java 后端拿到一个包含 10 个员工的数组，想要渲染到表格里，得痛苦地写 `for` 循环、用字符串拼接 `<tr><td>`，再疯狂操作 DOM 塞进去。
+
+而 Vue 提供的 `v-for` 的专属力量就是：**列表渲染（遍历容器的元素或者对象的属性）**，为了干碎这种重复劳动力而生的。它能让你在 HTML 标签上**直接写循环**，一句话就能把整个表格动态渲染出来！
+
+
+![[Java Web笔记-16.png]]
+
+
+### 标准语法骨架
+
+```HTML
+<tr v-for="(item, index) in items" :key="item.id">
+    <td>{{ item }}</td>
+</tr>
+```
+
+### 参数逐字拆解：
+
+- **`items`**：你在 `data()` 中定义好、从后端查出来的**源数据数组**。
+    
+- **`item`**：从数组里**当前遍历出来的单个元素实例**（类似于 Java 增强 for 循环 `for(Object item : items)` 里的元素名）。
+    
+- **`index`**：当前循环的**索引/下标**，从 `0` 开始。
+    
+    - _提示：如果开发中你不需要用到下标，括号和 index 都可以直接省略，直接写成 `v-for="item in items"`_。
+        
+
+### `:key` 的作用是什么？
+
+`:key` 是给循环出来的每一个 HTML 元素添加的**唯一身份证标识**。有了这个唯一标识，Vue 底层的虚拟 DOM 在进行页面数据更新排序时，就能**准确、高效地复用和提升渲染性能**。
+
+### 核心避坑铁律：
+
+- 🌟 **推荐使用数据的 id 作为 key**：因为数据库里每条记录的 id 是绝对唯一的，不会随着前端翻页或删除而改变。
+    
+- ❌ **极其不推荐使用 index 作为 key**：因为 index（0, 1, 2）是会随着你删除某一行而动态变化的。一旦混淆，Vue 底层在复用输入框等组件时就会产生莫名其妙的样式和数据错位 Bug。
+    
+
+### 实战演练：一句话渲染出整个 tlias 员工表格
+
+我们直接以“表格数据展示区”作为舞台。假设我们已经通过 Ajax 从 Java 后端拿到了员工的 List 集合，现在用 Vue 3 的 `v-for` 完美渲染它：
+
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 员工表格——v-for 实战</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th, td { border: 1px solid #e8e8e8; padding: 12px; }
+        th { background-color: #fafafa; }
+        .gender-tag { padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <h2>tlias 智能学习辅助系统 - 员工管理</h2>
+        <br>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>姓名</th>
+                    <th>性别</th>
+                    <th>职位</th>
+                    <th>入职日期</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(emp, index) in empList" :key="emp.id">
+                    
+                    <td>{{ emp.name }}</td>
+                    
+                    <td>{{ emp.gender }}</td>
+                    
+                    <td>{{ emp.job }}</td>
+                    
+                    <td>{{ emp.entryDate }}</td>
+                    
+                    <td>
+                        <button @click="editEmp(emp.id)">编辑</button>
+                        <button @click="deleteEmp(emp.id, index)">删除</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    // 🚨 注意警告：遍历的数组，必须提前在 data 中定义好！
+                    empList: [
+                        { id: 1, name: "赵敏", gender: "女", job: "班主任", entryDate: "2008-12-18" },
+                        { id: 2, name: "风清扬", gender: "男", job: "讲师", entryDate: "2015-07-22" },
+                        { id: 3, name: "张无忌", gender: "男", job: "讲师", entryDate: "2018-09-01" }
+                    ]
+                }
+            },
+            methods: {
+                editEmp(id) {
+                    alert(`准备编辑 id 为 ${id} 的员工数据...`);
+                },
+                deleteEmp(id, index) {
+                    // 模拟前端点击删除后，同步更新视图
+                    if(confirm(`确定要删除此员工吗？`)) {
+                        // 利用 JS 数组方法删除当前行，Vue 会自动感知并刷新表格！
+                        this.empList.splice(index, 1);
+                        alert(`成功通知 Java 后端将数据库中 id 为 ${id} 的员工抹去！`);
+                    }
+                }
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+### 核心全栈思维提示：
+
+**遍历的数组，必须提前在 `data` 中定义！**
+
+在未来真实项目里，页面刚打开时，`empList` 往往初始化是一个**空数组 `[]`**。紧接着 Vue 的 `mounted()` 生命周期钩子会自动触发，向你的 Spring Boot 发送一个 Ajax 网络请求。Java 接口从 MySQL 里将 List 查出来并转成 JSON 传回给前端，前端直接一句 `this.empList = response.data;` 赋值，表格瞬间就会唰地一下全部展示出来。
+
+这就是现代前后端分离项目里，**数据动态列表渲染** 的无缝全闭环流程！
+
+---
+---
