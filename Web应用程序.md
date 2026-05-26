@@ -2657,3 +2657,2029 @@ private void BindData()
 
 ---
 ---
+
+
+
+# 第二章 ASP.NET 网站文件、jQuery 和 Bootstrap
+
+---
+
+## 2.1 .html 文件和 XHTML5
+
+### 2.1.1 .html 文件结构
+
+一个标准的 HTML5 / XHTML5 文件由以下部分构成：
+
+```html
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>页面标题</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- 页面内容 -->
+    <h1>Hello World</h1>
+</body>
+</html>
+```
+
+**关键点：**
+
+- `<!DOCTYPE html>`：声明文档类型为 HTML5，必须位于第一行
+- `<html>`：根元素，XHTML5 需加 `xmlns` 属性
+- `<head>`：头部，包含元信息、标题、样式、脚本引用等（不显示在页面中）
+- `<body>`：主体，所有可见内容写在这里
+- XHTML5 要求所有标签**小写**、必须**正确闭合**、属性值必须用**引号**括起
+
+---
+
+### 2.1.2 常用的 XHTML5 元素
+
+#### 文本与标题
+
+|元素|说明|
+|---|---|
+|`<h1>`~`<h6>`|标题，h1 最大 h6 最小|
+|`<p>`|段落|
+|`<span>`|行内容器，用于局部样式|
+|`<div>`|块级容器，用于布局|
+|`<br />`|换行（自闭合）|
+|`<hr />`|水平分割线（自闭合）|
+|`<strong>`|加粗（语义化）|
+|`<em>`|斜体（语义化）|
+
+#### 链接与图片
+
+```html
+<!-- 超链接 -->
+<a href="https://www.example.com" target="_blank">访问示例</a>
+
+<!-- 图片（XHTML5 必须有 alt 属性和自闭合斜杠）-->
+<img src="images/photo.jpg" alt="描述文字" width="200" height="150" />
+```
+
+#### 列表
+
+```html
+<!-- 无序列表 -->
+<ul>
+    <li>苹果</li>
+    <li>香蕉</li>
+</ul>
+
+<!-- 有序列表 -->
+<ol>
+    <li>第一步</li>
+    <li>第二步</li>
+</ol>
+```
+
+#### 表格
+
+```html
+<table border="1">
+    <thead>
+        <tr>
+            <th>姓名</th>
+            <th>年龄</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>张三</td>
+            <td>20</td>
+        </tr>
+    </tbody>
+</table>
+```
+
+#### 表单
+
+```html
+<form action="process.aspx" method="post">
+    <label for="name">姓名：</label>
+    <input type="text" id="name" name="name" />
+
+    <input type="password" name="pwd" placeholder="请输入密码" />
+    <input type="radio"   name="gender" value="M" /> 男
+    <input type="checkbox" name="hobby" value="music" /> 音乐
+    <select name="city">
+        <option value="bj">北京</option>
+        <option value="sh">上海</option>
+    </select>
+    <textarea name="remark" rows="4" cols="40"></textarea>
+    <input type="submit" value="提交" />
+</form>
+```
+
+#### HTML5 语义化元素
+
+```html
+<header>   <!-- 页头 -->
+<nav>      <!-- 导航 -->
+<main>     <!-- 主内容 -->
+<section>  <!-- 内容区块 -->
+<article>  <!-- 独立文章 -->
+<aside>    <!-- 侧边栏 -->
+<footer>   <!-- 页脚 -->
+```
+
+### 实例 2-1：认识常用的 XHTML5 元素
+
+综合使用标题、段落、图片、链接、列表、表单等元素，构建一个完整的静态 HTML 页面，熟悉各元素的语法规范。
+
+---
+
+## 2.2 .aspx 文件
+
+ASP.NET WebForms 的页面文件扩展名为 `.aspx`，它是在 HTML 基础上加入了**服务器端控件**和**代码逻辑**的动态页面。
+
+### 2.2.1 单文件页模型（Single-File Page Model）
+
+HTML 标记和 C# 代码写在**同一个 `.aspx` 文件**中，代码块用 `<script runat="server">` 包裹。
+
+```aspx
+<%@ Page Language="C#" %>
+<html>
+<head runat="server">
+    <title>单文件页示例</title>
+</head>
+<body>
+    <form id="form1" runat="server">
+        <asp:Label ID="lblMsg" runat="server" Text=""></asp:Label>
+        <asp:Button ID="btnClick" runat="server" Text="点击" OnClick="btnClick_Click" />
+    </form>
+
+    <script runat="server">
+        protected void btnClick_Click(object sender, EventArgs e)
+        {
+            lblMsg.Text = "Hello, ASP.NET!";
+        }
+    </script>
+</body>
+</html>
+```
+
+**特点：** 简单直观，适合小型页面，但代码和界面混合不利于维护。
+
+### 实例 2-2：熟悉单文件页模型
+
+创建一个按钮，点击后在 Label 中显示问候语，理解服务器控件事件的触发机制。
+
+---
+
+### 2.2.2 代码隐藏页模型（Code-Behind Page Model）
+
+将 HTML/控件标记（`.aspx`）和 C# 逻辑代码（`.aspx.cs`）**分离**到两个文件，是 ASP.NET 项目的主流方式。
+
+**`.aspx` 文件（界面）：**
+
+```aspx
+<%@ Page Language="C#" AutoEventWireup="true"
+         CodeBehind="Default.aspx.cs"
+         Inherits="MyApp.Default" %>
+<html>
+<head runat="server"><title>示例</title></head>
+<body>
+    <form id="form1" runat="server">
+        <asp:TextBox ID="txtName" runat="server"></asp:TextBox>
+        <asp:Button  ID="btnOK"   runat="server" Text="确定"
+                     OnClick="btnOK_Click" />
+        <asp:Label   ID="lblResult" runat="server"></asp:Label>
+    </form>
+</body>
+</html>
+```
+
+**`.aspx.cs` 文件（逻辑）：**
+
+```csharp
+using System;
+using System.Web.UI;
+
+namespace MyApp
+{
+    public partial class Default : Page
+    {
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!IsPostBack)
+            {
+                // 页面首次加载时执行
+            }
+        }
+
+        protected void btnOK_Click(object sender, EventArgs e)
+        {
+            lblResult.Text = "你好，" + txtName.Text;
+        }
+    }
+}
+```
+
+**优点：** 界面与逻辑分离，结构清晰，便于团队协作和维护。
+
+### 实例 2-3：熟悉代码隐藏页模型
+
+创建一个包含文本框和按钮的页面，在 `.aspx.cs` 中处理按钮点击事件，体验界面与逻辑分离的开发模式。
+
+---
+
+## 2.3 .css 文件和 CSS 常识
+
+### 2.3.1 定义 CSS3 样式
+
+CSS（层叠样式表）控制页面的外观，CSS3 是最新版本，新增了圆角、阴影、动画等特性。
+
+#### 选择器
+
+```css
+/* 元素选择器 */
+p { color: red; }
+
+/* 类选择器 */
+.highlight { background-color: yellow; }
+
+/* ID 选择器 */
+#header { font-size: 24px; }
+
+/* 组合选择器 */
+h1, h2, h3 { font-family: Arial, sans-serif; }
+
+/* 后代选择器 */
+div p { margin: 10px; }
+
+/* 伪类选择器 */
+a:hover { color: blue; text-decoration: none; }
+```
+
+#### 常用属性
+
+```css
+/* 文字 */
+font-family: "微软雅黑", Arial, sans-serif;
+font-size: 16px;
+font-weight: bold;
+color: #333333;
+text-align: center;
+line-height: 1.5;
+
+/* 盒模型 */
+width: 300px;
+height: 200px;
+padding: 10px 20px;    /* 内边距 上下10 左右20 */
+margin: 0 auto;        /* 外边距 居中 */
+border: 1px solid #ccc;
+border-radius: 8px;    /* CSS3 圆角 */
+box-shadow: 2px 2px 5px rgba(0,0,0,0.3); /* CSS3 阴影 */
+
+/* 背景 */
+background-color: #f5f5f5;
+background-image: url("bg.png");
+
+/* 定位 */
+position: relative;   /* / absolute / fixed */
+top: 10px;
+left: 20px;
+
+/* 弹性布局 CSS3 */
+display: flex;
+justify-content: center;
+align-items: center;
+```
+
+---
+
+### 2.3.2 CSS3 样式位置
+
+CSS 样式有三种引入方式，优先级由高到低：
+
+|方式|位置|语法|优先级|
+|---|---|---|---|
+|内联样式|标签的 `style` 属性|`<p style="color:red">`|最高|
+|内部样式表|`<head>` 中的 `<style>` 标签|`<style> p{color:red} </style>`|中|
+|外部样式表|独立的 `.css` 文件|`<link rel="stylesheet" href="style.css">`|最低但最推荐|
+
+### 实例 2-4：运用页面样式
+
+在 `<head>` 中使用 `<style>` 标签定义内部样式，设置页面字体、颜色、布局等，观察效果。
+
+### 实例 2-5：运用外部样式表
+
+创建独立的 `style.css` 文件，在 `.aspx` 页面通过 `<link>` 引入，体验样式与内容分离的优势。
+
+---
+
+## 2.4 .js 文件和 JavaScript 常识
+
+### 2.4.1 JavaScript 代码位置
+
+JavaScript 有三种位置可以编写：
+
+#### 位置一：`<head>` 中
+
+```html
+<head>
+    <script type="text/javascript">
+        function sayHello() {
+            alert("Hello!");
+        }
+    </script>
+</head>
+```
+
+#### 位置二：`<body>` 中（推荐放在 `</body>` 前）
+
+```html
+<body>
+    <button onclick="showMsg()">点我</button>
+
+    <script type="text/javascript">
+        function showMsg() {
+            document.getElementById("msg").innerHTML = "已点击";
+        }
+    </script>
+</body>
+```
+
+#### 位置三：独立的 `.js` 文件（最佳实践）
+
+```html
+<head>
+    <script src="scripts/myScript.js"></script>
+</head>
+```
+
+### 实例 2-6：熟悉 `<head>` 元素中的 JavaScript 代码
+
+在 `<head>` 中定义函数，在按钮的 `onclick` 事件中调用，理解函数定义与调用的顺序。
+
+### 实例 2-7：熟悉 `<body>` 元素中的 JavaScript 代码
+
+将脚本放在 `</body>` 前，页面 DOM 元素已加载完毕再执行，避免找不到元素的错误。
+
+### 实例 2-8：运用独立的 `.js` 文件
+
+将 JavaScript 提取到单独的 `.js` 文件，通过 `<script src="">` 引入，实现代码复用。
+
+---
+
+### 2.4.2 JavaScript 运用实例
+
+#### JavaScript 基础语法
+
+```javascript
+// 变量
+var x = 10;
+let y = "hello";   // ES6，块级作用域
+const PI = 3.14;   // 常量
+
+// 函数
+function add(a, b) {
+    return a + b;
+}
+
+// 箭头函数（ES6）
+const multiply = (a, b) => a * b;
+
+// 条件
+if (x > 5) {
+    console.log("大于5");
+} else {
+    console.log("不大于5");
+}
+
+// 循环
+for (let i = 0; i < 5; i++) {
+    console.log(i);
+}
+
+// DOM 操作
+document.getElementById("myDiv").innerHTML = "新内容";
+document.getElementById("myDiv").style.color = "red";
+```
+
+### 实例 2-9：实现图片动态变化效果
+
+```javascript
+// 鼠标悬停切换图片
+function changeImg(src) {
+    document.getElementById("imgBanner").src = src;
+}
+
+// 也可用 setInterval 实现轮播
+let index = 0;
+const imgs = ["img1.jpg", "img2.jpg", "img3.jpg"];
+
+setInterval(function () {
+    index = (index + 1) % imgs.length;
+    document.getElementById("imgBanner").src = imgs[index];
+}, 2000);
+```
+
+### 实例 2-10：实现一个简易时钟
+
+```javascript
+function showTime() {
+    let now = new Date();
+    let h = now.getHours().toString().padStart(2, '0');
+    let m = now.getMinutes().toString().padStart(2, '0');
+    let s = now.getSeconds().toString().padStart(2, '0');
+    document.getElementById("clock").innerHTML = h + ":" + m + ":" + s;
+}
+
+// 每秒更新一次
+setInterval(showTime, 1000);
+window.onload = showTime; // 页面加载时立即执行一次
+```
+
+---
+
+## 2.5 jQuery
+
+jQuery 是一个快速、简洁的 JavaScript 库，封装了大量 DOM 操作、事件处理、动画和 AJAX 功能。
+
+### 引入 jQuery
+
+```html
+<!-- 使用 CDN -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- 或使用本地文件 -->
+<script src="Scripts/jquery-3.6.0.min.js"></script>
+```
+
+### 2.5.1 jQuery 基础语法
+
+```javascript
+// 基本语法：$(selector).action()
+// $ 是 jQuery 的别名
+
+// 文档就绪函数（DOM 加载完后执行）
+$(document).ready(function () {
+    // 代码写在这里
+});
+// 简写形式
+$(function () {
+    // 代码写在这里
+});
+```
+
+#### 选择器
+
+```javascript
+$("#myId")        // ID 选择器
+$(".myClass")     // 类选择器
+$("p")            // 元素选择器
+$("div.box")      // 组合：class=box 的 div
+$("ul li:first")  // 伪类：第一个 li
+$("[name='user']")// 属性选择器
+```
+
+#### DOM 操作
+
+```javascript
+// 获取/设置内容
+$("#div1").html("<b>新内容</b>");   // 设置 HTML
+$("#div1").text("纯文本");          // 设置纯文本
+$("#input1").val("默认值");          // 设置表单值
+
+// 获取/设置属性
+$("img").attr("src", "new.jpg");
+$("a").attr("href");               // 读取属性
+
+// 样式操作
+$("p").css("color", "red");
+$("p").addClass("highlight");
+$("p").removeClass("highlight");
+$("p").toggleClass("active");
+
+// 显示/隐藏
+$("#div1").show();
+$("#div1").hide();
+$("#div1").toggle();
+$("#div1").fadeIn(500);
+$("#div1").fadeOut(500);
+```
+
+#### 事件
+
+```javascript
+// 点击事件
+$("button").click(function () {
+    alert("按钮被点击了");
+});
+
+// 鼠标悬停
+$("div").hover(
+    function () { $(this).css("background", "yellow"); },  // 进入
+    function () { $(this).css("background", "white"); }    // 离开
+);
+
+// 键盘事件
+$("input").keyup(function () {
+    console.log($(this).val());
+});
+```
+
+### 2.5.2 jQuery 运用实例
+
+### 实例 2-11：利用 jQuery 管理 XHTML 元素
+
+```javascript
+$(function () {
+    // 点击按钮，动态添加列表项
+    $("#btnAdd").click(function () {
+        let text = $("#txtItem").val();
+        if (text !== "") {
+            $("ul").append("<li>" + text + "</li>");
+            $("#txtItem").val(""); // 清空输入框
+        }
+    });
+
+    // 点击列表项，删除该项
+    $(document).on("click", "li", function () {
+        $(this).remove();
+    });
+});
+```
+
+### 实例 2-12：利用 jQuery 实现时间数据来源于服务器端的时钟
+
+```javascript
+// 前端每秒向服务器请求当前时间（使用 jQuery AJAX）
+function updateClock() {
+    $.ajax({
+        url: "GetTime.aspx",   // 服务器端处理页面
+        type: "GET",
+        success: function (data) {
+            $("#clock").text(data);
+        }
+    });
+}
+
+setInterval(updateClock, 1000);
+```
+
+服务器端 `GetTime.aspx.cs`：
+
+```csharp
+protected void Page_Load(object sender, EventArgs e)
+{
+    Response.Clear();
+    Response.Write(DateTime.Now.ToString("HH:mm:ss"));
+    Response.End();
+}
+```
+
+---
+
+## 2.6 .xml 文件和 XML 常识
+
+XML（可扩展标记语言）用于存储和传输结构化数据，格式严格，自描述性强。
+
+### XML 语法规则
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<breakfast_menu>
+    <food category="主食">
+        <name>豆浆油条</name>
+        <price>5.00</price>
+        <description>传统早餐搭配</description>
+    </food>
+    <food category="饮品">
+        <name>牛奶</name>
+        <price>3.00</price>
+        <description>新鲜全脂牛奶</description>
+    </food>
+</breakfast_menu>
+```
+
+**XML 规则：**
+
+- 必须有且仅有一个根元素
+- 所有标签必须正确闭合
+- 标签名区分大小写
+- 属性值必须加引号
+- 特殊字符需转义：`&amp;` `&lt;` `&gt;` `&quot;`
+
+### 实例 2-13：表达一个 XML 格式的早餐菜单
+
+按照上述格式，用 XML 文件表达多种早餐食品的名称、价格、分类等信息，并在 ASP.NET 中读取展示。
+
+---
+
+## 2.7 Web.config
+
+`Web.config` 是 ASP.NET 项目的**配置文件**（XML 格式），存储应用程序级别的配置信息。
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+
+    <!-- 连接字符串 -->
+    <connectionStrings>
+        <add name="MyDB"
+             connectionString="Data Source=...;Initial Catalog=MyDB;Integrated Security=True"
+             providerName="System.Data.SqlClient"/>
+    </connectionStrings>
+
+    <!-- 应用程序设置 -->
+    <appSettings>
+        <add key="SiteName" value="我的网站" />
+        <add key="MaxUploadSize" value="10240" />
+    </appSettings>
+
+    <system.web>
+        <!-- 编译配置 -->
+        <compilation debug="true" targetFramework="4.8" />
+
+        <!-- 身份验证 -->
+        <authentication mode="Forms">
+            <forms loginUrl="~/Login.aspx" timeout="30" />
+        </authentication>
+
+        <!-- 全球化（语言/编码） -->
+        <globalization culture="zh-CN" uiCulture="zh-CN" />
+    </system.web>
+
+</configuration>
+```
+
+**在 C# 中读取配置：**
+
+```csharp
+// 读取 appSettings
+string siteName = System.Web.Configuration.WebConfigurationManager
+                        .AppSettings["SiteName"];
+
+// 读取 connectionStrings
+string connStr = System.Web.Configuration.WebConfigurationManager
+                        .ConnectionStrings["MyDB"].ConnectionString;
+```
+
+---
+
+## 2.8 Global.asax
+
+`Global.asax` 是 ASP.NET 的**全局应用程序文件**，处理应用程序级别和会话级别的事件。
+
+```csharp
+public class Global : System.Web.HttpApplication
+{
+    // 应用程序首次启动时触发（只执行一次）
+    void Application_Start(object sender, EventArgs e)
+    {
+        Application["OnlineCount"] = 0; // 初始化在线人数
+    }
+
+    // 每个新会话开始时触发
+    void Session_Start(object sender, EventArgs e)
+    {
+        Application.Lock();
+        Application["OnlineCount"] = (int)Application["OnlineCount"] + 1;
+        Application.UnLock();
+    }
+
+    // 每个会话结束时触发
+    void Session_End(object sender, EventArgs e)
+    {
+        Application.Lock();
+        Application["OnlineCount"] = (int)Application["OnlineCount"] - 1;
+        Application.UnLock();
+    }
+
+    // 应用程序关闭时触发
+    void Application_End(object sender, EventArgs e) { }
+
+    // 发生未处理错误时触发
+    void Application_Error(object sender, EventArgs e)
+    {
+        Exception ex = Server.GetLastError();
+        // 记录日志或跳转错误页
+    }
+}
+```
+
+**常用事件一览：**
+
+|事件|触发时机|
+|---|---|
+|`Application_Start`|应用启动（仅一次）|
+|`Application_End`|应用关闭|
+|`Application_Error`|未处理的错误|
+|`Session_Start`|新会话开始|
+|`Session_End`|会话超时或主动结束|
+|`Application_BeginRequest`|每次 HTTP 请求开始|
+|`Application_EndRequest`|每次 HTTP 请求结束|
+
+---
+
+## 2.9 Bootstrap
+
+Bootstrap 是 Twitter 开发的开源前端框架，提供响应式布局、预设样式和 UI 组件，极大简化前端开发。
+
+### 引入 Bootstrap
+
+```html
+<head>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+</head>
+<body>
+    <!-- ... -->
+
+    <!-- Bootstrap JS（需先引入 jQuery） -->
+    <script src="Scripts/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+</body>
+```
+
+### 网格系统（Grid System）
+
+Bootstrap 将页面分为 **12 列**，通过 `.col-` 类实现响应式布局：
+
+```html
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">左侧（4列宽）</div>
+        <div class="col-md-8">右侧（8列宽）</div>
+    </div>
+</div>
+```
+
+|类前缀|适用屏幕|
+|---|---|
+|`col-`|全部屏幕（< 576px）|
+|`col-sm-`|≥ 576px|
+|`col-md-`|≥ 768px|
+|`col-lg-`|≥ 992px|
+|`col-xl-`|≥ 1200px|
+
+### 常用组件
+
+```html
+<!-- 按钮 -->
+<button class="btn btn-primary">主要按钮</button>
+<button class="btn btn-danger btn-sm">小红按钮</button>
+
+<!-- 导航栏 -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="#">Logo</a>
+</nav>
+
+<!-- 卡片 -->
+<div class="card" style="width: 18rem;">
+    <img src="..." class="card-img-top" alt="..." />
+    <div class="card-body">
+        <h5 class="card-title">标题</h5>
+        <p class="card-text">内容描述。</p>
+    </div>
+</div>
+
+<!-- 警告框 -->
+<div class="alert alert-success">操作成功！</div>
+<div class="alert alert-danger">发生错误！</div>
+
+<!-- 徽章 -->
+<span class="badge badge-primary">New</span>
+```
+
+### 实例 2-14：利用 Bootstrap 设计表单
+
+```html
+<div class="container mt-4">
+    <h2>用户注册</h2>
+    <form>
+        <div class="form-group">
+            <label for="email">邮箱地址</label>
+            <input type="email" class="form-control" id="email"
+                   placeholder="请输入邮箱" />
+        </div>
+        <div class="form-group">
+            <label for="password">密码</label>
+            <input type="password" class="form-control" id="password"
+                   placeholder="请输入密码" />
+        </div>
+        <div class="form-group form-check">
+            <input type="checkbox" class="form-check-input" id="agree" />
+            <label class="form-check-label" for="agree">我同意服务条款</label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">注册</button>
+    </form>
+</div>
+```
+
+---
+
+## 2.10 小结
+
+|文件类型|作用|
+|---|---|
+|`.html` / `.aspx`|页面结构与内容|
+|`.css`|页面样式|
+|`.js`|客户端交互逻辑|
+|`.xml`|数据存储与传输|
+|`Web.config`|应用程序配置|
+|`Global.asax`|全局事件处理|
+
+**关键点回顾：**
+
+- XHTML5 比 HTML 更严格，所有标签必须小写且正确闭合
+- `.aspx` 有单文件和代码隐藏两种模型，推荐代码隐藏
+- CSS 三种引入方式中，外部样式表最利于维护
+- jQuery 用 `$` 符号简化 DOM 操作，`$(document).ready()` 是入口
+- Bootstrap 基于 12 列网格，通过 `col-md-*` 实现响应式布局
+- `Web.config` 集中管理连接字符串和应用配置
+- `Global.asax` 处理应用程序和会话的生命周期事件
+
+---
+
+## 2.11 习题
+
+1. XHTML5 与 HTML4 的主要区别是什么？
+2. 单文件页模型和代码隐藏页模型各有什么优缺点？
+3. CSS 三种引入方式的优先级顺序是什么？
+4. jQuery 的 `$(document).ready()` 与 `window.onload` 有何区别？
+5. Bootstrap 的网格系统是如何工作的？如何实现一个左1/3右2/3的两栏布局？
+6. `Web.config` 中 `<appSettings>` 和 `<connectionStrings>` 分别用于存储什么信息？
+
+
+---
+---
+
+
+
+# 第三章 C# 和 ASP.NET 的结合
+
+---
+
+## 3.1 C# 概述
+
+C#（读作 "C Sharp"）是微软为 .NET 平台开发的**强类型、面向对象**的编程语言，是 ASP.NET Web 开发的首选语言。
+
+**主要特点：**
+
+- 完全面向对象（封装、继承、多态）
+- 强类型，编译时检查类型错误
+- 支持泛型、LINQ、async/await 等现代特性
+- 与 .NET Framework / .NET Core 深度集成
+- 语法类似 Java 和 C++，易于学习
+
+---
+
+## 3.2 .NET Framework 命名空间
+
+命名空间（Namespace）用于**组织和管理类**，避免类名冲突，类似文件系统中的文件夹。
+
+### 常用命名空间
+
+|命名空间|说明|
+|---|---|
+|`System`|基础类型（int, string, DateTime 等）|
+|`System.Collections.Generic`|泛型集合（List, Dictionary 等）|
+|`System.IO`|文件和流操作|
+|`System.Web`|ASP.NET Web 应用核心|
+|`System.Web.UI`|页面和控件|
+|`System.Web.UI.WebControls`|服务器控件|
+|`System.Data`|数据访问基础（DataSet, DataTable）|
+|`System.Data.SqlClient`|SQL Server 数据访问|
+|`System.Linq`|LINQ 查询|
+|`System.Text`|文本处理（StringBuilder）|
+
+### 引用命名空间
+
+```csharp
+// 在代码文件顶部 using 引入
+using System;
+using System.Collections.Generic;
+using System.Web.UI;
+
+// 或在 .aspx 页面指令中
+<%@ Import Namespace="System.IO" %>
+```
+
+### 自定义命名空间
+
+```csharp
+namespace MyApp.Models
+{
+    public class Student
+    {
+        public string Name { get; set; }
+        public int Age  { get; set; }
+    }
+}
+```
+
+---
+
+## 3.3 编程规范
+
+### 3.3.1 程序注释
+
+良好的注释是代码可维护性的基础。
+
+```csharp
+// 单行注释
+
+/* 多行注释
+   第二行
+   第三行 */
+
+/// <summary>
+/// XML 文档注释（用于生成 API 文档，出现在 IntelliSense 中）
+/// </summary>
+/// <param name="x">第一个参数</param>
+/// <param name="y">第二个参数</param>
+/// <returns>两数之和</returns>
+public int Add(int x, int y)
+{
+    return x + y;
+}
+```
+
+---
+
+### 3.3.2 命名规则
+
+|类型|规范|示例|
+|---|---|---|
+|类名|PascalCase|`StudentInfo`, `OrderDetail`|
+|方法名|PascalCase|`GetStudentById`, `SaveData`|
+|属性名|PascalCase|`FirstName`, `TotalPrice`|
+|局部变量|camelCase|`studentName`, `totalCount`|
+|参数名|camelCase|`userId`, `maxCount`|
+|私有字段|`_` + camelCase|`_name`, `_connectionString`|
+|常量|全大写 + 下划线|`MAX_SIZE`, `PI_VALUE`|
+|接口|`I` + PascalCase|`IRepository`, `IService`|
+
+**其他规范：**
+
+- 一个文件只定义一个类
+- 花括号独占一行（Allman 风格）
+- 方法不超过 30 行，单一职责
+- 避免魔法数字，使用具名常量
+
+---
+
+## 3.4 常量与变量
+
+### 3.4.1 常量声明
+
+常量在声明时必须初始化，之后不可更改。
+
+```csharp
+// const：编译时常量（值在编译时确定）
+const int MAX_SCORE = 100;
+const double TAX_RATE = 0.13;
+const string APP_NAME = "MyWebApp";
+
+// readonly：运行时常量（可在构造函数中赋值）
+readonly DateTime CreatedAt = DateTime.Now;
+```
+
+---
+
+### 3.4.2 变量声明
+
+```csharp
+// 显式类型声明
+int age = 20;
+double price = 9.99;
+string name = "张三";
+bool isActive = true;
+char grade = 'A';
+decimal salary = 5000.00m;  // m 后缀表示 decimal
+
+// 隐式类型（var，编译器推断类型）
+var count = 10;          // 推断为 int
+var message = "Hello";   // 推断为 string
+var list = new List<int>();
+
+// 可空类型（Nullable）
+int? nullableInt = null;   // ? 表示可为 null
+if (nullableInt.HasValue)
+{
+    Console.WriteLine(nullableInt.Value);
+}
+// 合并运算符
+int result = nullableInt ?? 0; // 为 null 时取 0
+```
+
+---
+
+### 3.4.3 修饰符
+
+#### 访问修饰符
+
+|修饰符|可访问范围|
+|---|---|
+|`public`|任何地方|
+|`private`|仅当前类内部（默认）|
+|`protected`|当前类及其子类|
+|`internal`|同一程序集内|
+|`protected internal`|同一程序集 或 子类|
+
+#### 其他修饰符
+
+```csharp
+static   // 静态，属于类本身而非实例
+abstract // 抽象，必须在子类中实现
+virtual  // 虚方法，可在子类中重写
+override // 重写父类的虚方法/抽象方法
+sealed   // 密封，阻止继承或重写
+readonly // 只读，只能在声明或构造函数中赋值
+```
+
+---
+
+### 3.4.4 局部变量作用范围
+
+```csharp
+public void Example()
+{
+    int x = 10;              // x 的作用域：整个 Example 方法
+
+    if (x > 5)
+    {
+        int y = 20;          // y 的作用域：if 块内部
+        Console.WriteLine(y);
+    }
+    // Console.WriteLine(y); // 错误！y 已超出作用域
+
+    for (int i = 0; i < 3; i++)
+    {
+        int temp = i * 2;    // temp 的作用域：每次循环迭代
+    }
+    // i 和 temp 在此处不可访问
+}
+```
+
+**规则：** 变量的作用域从声明处开始，到包含它的最近一对 `{}` 结束。
+
+---
+
+## 3.5 数据类型
+
+C# 是强类型语言，数据类型分为**值类型**和**引用类型**。
+
+### 3.5.1 值类型
+
+值类型存储在**栈（Stack）**上，赋值时复制值本身。
+
+#### 整数类型
+
+|类型|大小|范围|别名|
+|---|---|---|---|
+|`byte`|1字节|0 ~ 255|`System.Byte`|
+|`short`|2字节|-32768 ~ 32767|`System.Int16`|
+|`int`|4字节|-2¹ ~ 2³¹-1|`System.Int32`|
+|`long`|8字节|-2⁶³ ~ 2⁶³-1|`System.Int64`|
+
+#### 浮点类型
+
+|类型|精度|适用场景|
+|---|---|---|
+|`float`|7位有效数字|图形计算（后缀 `f`）|
+|`double`|15-16位有效数字|一般浮点计算（默认）|
+|`decimal`|28-29位有效数字|财务金融计算（后缀 `m`）|
+
+#### 其他值类型
+
+```csharp
+bool   flag = true;    // true / false
+char   c    = 'A';     // Unicode 字符（单引号）
+```
+
+#### 枚举类型（enum）
+
+枚举是一组命名的整型常量。
+
+```csharp
+enum Weekday
+{
+    Monday = 1,
+    Tuesday,    // 自动为 2
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+    Sunday
+}
+
+// 使用
+Weekday today = Weekday.Friday;
+Console.WriteLine((int)today);   // 输出 5
+Console.WriteLine(today.ToString()); // 输出 "Friday"
+```
+
+### 实例 3-1：运用枚举类型变量
+
+```csharp
+enum Season { Spring = 1, Summer, Autumn, Winter }
+
+protected void Page_Load(object sender, EventArgs e)
+{
+    Season current = Season.Summer;
+    switch (current)
+    {
+        case Season.Spring: lblResult.Text = "春天"; break;
+        case Season.Summer: lblResult.Text = "夏天"; break;
+        case Season.Autumn: lblResult.Text = "秋天"; break;
+        case Season.Winter: lblResult.Text = "冬天"; break;
+    }
+}
+```
+
+---
+
+### 3.5.2 引用类型
+
+引用类型存储在**堆（Heap）**上，变量保存的是对象的内存地址（引用），赋值时复制引用。
+
+#### string（字符串）
+
+```csharp
+// 字符串是不可变的引用类型
+string s1 = "Hello";
+string s2 = s1;     // s2 和 s1 指向同一对象
+s1 = "World";       // s1 重新指向新对象，s2 不变
+
+// 字符串常用方法
+string str = "  Hello, World!  ";
+str.Length             // 长度：15
+str.ToUpper()          // "  HELLO, WORLD!  "
+str.ToLower()          // "  hello, world!  "
+str.Trim()             // "Hello, World!"
+str.TrimStart()        // "Hello, World!  "
+str.TrimEnd()          // "  Hello, World!"
+str.Replace("World", "C#")    // "  Hello, C#!  "
+str.Contains("Hello")         // true
+str.StartsWith("  Hello")     // true
+str.Substring(2, 5)           // "Hello"
+str.Split(',')                // ["  Hello", " World!  "]
+str.IndexOf("World")          // 8
+
+// 字符串拼接
+string result = "Name: " + name + ", Age: " + age;
+// 推荐：字符串插值（C# 6+）
+string result2 = $"Name: {name}, Age: {age}";
+// 大量拼接推荐 StringBuilder
+var sb = new System.Text.StringBuilder();
+sb.Append("Part1");
+sb.AppendLine("Part2");
+string final = sb.ToString();
+
+// 字符串转换
+int n = int.Parse("123");
+int n2 = Convert.ToInt32("456");
+bool ok = int.TryParse("abc", out int val); // ok=false，安全转换
+string s = 100.ToString();
+```
+
+#### 数组
+
+```csharp
+// 一维数组
+int[] scores = new int[5];            // 声明并分配空间
+int[] scores2 = { 90, 85, 92, 78, 88 }; // 初始化赋值
+scores[0] = 100;                      // 赋值
+Console.WriteLine(scores.Length);     // 5
+
+// 遍历
+foreach (int score in scores2)
+    Console.WriteLine(score);
+
+// 二维数组
+int[,] matrix = new int[3, 4];
+int[,] matrix2 = { {1,2,3,4}, {5,6,7,8}, {9,10,11,12} };
+Console.WriteLine(matrix2[1, 2]); // 7
+
+// 常用数组操作
+Array.Sort(scores2);     // 排序
+Array.Reverse(scores2);  // 反转
+int max = scores2.Max(); // 需 using System.Linq
+```
+
+---
+
+### 3.5.3 装箱和拆箱
+
+装箱（Boxing）和拆箱（Unboxing）是值类型与引用类型（object）之间的转换。
+
+```csharp
+// 装箱（Boxing）：值类型 → object（隐式）
+int i = 42;
+object obj = i;   // 装箱，在堆上创建 int 对象
+
+// 拆箱（Unboxing）：object → 值类型（显式，需强制转换）
+int j = (int)obj; // 拆箱，必须与原类型一致
+
+// 注意：装拆箱有性能开销，频繁使用会降低性能
+// 解决方案：使用泛型 List<int> 代替 ArrayList
+```
+
+|操作|方向|性能|
+|---|---|---|
+|装箱|值类型 → object|有开销（堆分配）|
+|拆箱|object → 值类型|有开销（类型检查）|
+
+---
+
+## 3.6 运算符
+
+### 算术运算符
+
+```csharp
+int a = 10, b = 3;
+Console.WriteLine(a + b);  // 13  加
+Console.WriteLine(a - b);  // 7   减
+Console.WriteLine(a * b);  // 30  乘
+Console.WriteLine(a / b);  // 3   除（整除）
+Console.WriteLine(a % b);  // 1   取余
+Console.WriteLine(a++);    // 10  后置自增（先用后加）
+Console.WriteLine(++a);    // 12  前置自增（先加后用）
+```
+
+### 比较运算符
+
+```csharp
+a == b   // 等于 → false
+a != b   // 不等于 → true
+a > b    // 大于 → true
+a < b    // 小于 → false
+a >= b   // 大于等于 → true
+a <= b   // 小于等于 → false
+```
+
+### 逻辑运算符
+
+```csharp
+true && false  // 与（AND）→ false，短路求值
+true || false  // 或（OR）→ true，短路求值
+!true          // 非（NOT）→ false
+```
+
+### 赋值运算符
+
+```csharp
+a += 5;   // a = a + 5
+a -= 3;   // a = a - 3
+a *= 2;   // a = a * 2
+a /= 4;   // a = a / 4
+a %= 3;   // a = a % 3
+```
+
+### 三元运算符
+
+```csharp
+int max = (a > b) ? a : b; // 如果 a > b，取 a，否则取 b
+string status = age >= 18 ? "成年" : "未成年";
+```
+
+### 空合并运算符（C# 专有）
+
+```csharp
+string name = null;
+string displayName = name ?? "匿名用户"; // name 为 null 时取右值
+
+// 空条件运算符（?.）
+int? length = name?.Length; // name 为 null 时不抛异常，返回 null
+```
+
+---
+
+## 3.7 流程控制
+
+### 3.7.1 选择结构
+
+#### if-else
+
+```csharp
+int score = 85;
+
+if (score >= 90)
+{
+    lblGrade.Text = "优秀";
+}
+else if (score >= 80)
+{
+    lblGrade.Text = "良好";
+}
+else if (score >= 60)
+{
+    lblGrade.Text = "及格";
+}
+else
+{
+    lblGrade.Text = "不及格";
+}
+```
+
+#### switch
+
+```csharp
+switch (day)
+{
+    case 1:
+        lblDay.Text = "星期一";
+        break;
+    case 2:
+        lblDay.Text = "星期二";
+        break;
+    // ...
+    case 6:
+    case 7:
+        lblDay.Text = "周末";  // 多个 case 共用逻辑
+        break;
+    default:
+        lblDay.Text = "未知";
+        break;
+}
+```
+
+### 实例 3-2：运用 switch 语句
+
+根据输入的数字（1-7）显示对应的星期名称，体会 switch 相对 if-else 的简洁性。
+
+---
+
+### 3.7.2 循环结构
+
+#### while 循环
+
+```csharp
+int i = 1, sum = 0;
+while (i <= 100)
+{
+    sum += i;
+    i++;
+}
+// sum = 5050
+```
+
+### 实例 3-3：运用 while 语句
+
+用 while 循环计算 1 到 100 的整数之和并显示在页面上。
+
+#### for 循环
+
+```csharp
+// 基本 for
+for (int i = 0; i < 10; i++)
+{
+    Console.WriteLine(i);
+}
+
+// 嵌套 for（打印乘法表）
+for (int i = 1; i <= 9; i++)
+{
+    for (int j = 1; j <= i; j++)
+    {
+        Console.Write($"{j}×{i}={i*j}\t");
+    }
+    Console.WriteLine();
+}
+```
+
+### 实例 3-4：运用 for 语句
+
+用 for 循环输出 1~9 的九九乘法表，显示在 ASP.NET 页面中。
+
+#### foreach 循环
+
+```csharp
+string[] fruits = { "苹果", "香蕉", "橙子" };
+
+foreach (string fruit in fruits)
+{
+    Console.WriteLine(fruit);
+}
+
+// 配合 List<T>
+List<int> numbers = new List<int> { 1, 2, 3, 4, 5 };
+foreach (int num in numbers)
+{
+    Console.WriteLine(num * num);
+}
+```
+
+### 实例 3-5：运用 foreach 语句
+
+遍历字符串数组，将每个元素以列表形式展示在 ASP.NET 页面。
+
+#### 循环控制关键字
+
+```csharp
+// break：立即退出循环
+for (int i = 0; i < 10; i++)
+{
+    if (i == 5) break; // 退出整个 for 循环
+    Console.WriteLine(i); // 输出 0,1,2,3,4
+}
+
+// continue：跳过当前迭代
+for (int i = 0; i < 10; i++)
+{
+    if (i % 2 == 0) continue; // 跳过偶数
+    Console.WriteLine(i); // 输出 1,3,5,7,9
+}
+```
+
+---
+
+### 3.7.3 异常处理
+
+异常处理用于捕获和处理程序运行时可能出现的错误，保证程序的健壮性。
+
+```csharp
+try
+{
+    // 可能抛出异常的代码
+    int x = int.Parse(txtInput.Text);
+    int result = 100 / x;
+    lblResult.Text = result.ToString();
+}
+catch (FormatException ex)
+{
+    // 捕获格式异常（如输入"abc"）
+    lblError.Text = "输入格式错误：" + ex.Message;
+}
+catch (DivideByZeroException ex)
+{
+    // 捕获除零异常
+    lblError.Text = "不能除以零：" + ex.Message;
+}
+catch (Exception ex)
+{
+    // 捕获所有其他异常（放在最后）
+    lblError.Text = "发生错误：" + ex.Message;
+}
+finally
+{
+    // 无论是否发生异常，都会执行（常用于释放资源）
+    // 例如关闭数据库连接
+    lblStatus.Text = "处理完成";
+}
+```
+
+### 实例 3-6：运用 throw 语句
+
+手动抛出异常，用于业务逻辑验证：
+
+```csharp
+public void SetAge(int age)
+{
+    if (age < 0 || age > 150)
+    {
+        throw new ArgumentOutOfRangeException("age", "年龄必须在 0~150 之间");
+    }
+    this._age = age;
+}
+
+// 调用处
+try
+{
+    SetAge(-5);
+}
+catch (ArgumentOutOfRangeException ex)
+{
+    lblError.Text = ex.Message;
+}
+```
+
+### 实例 3-7：运用 try…catch…finally 结构
+
+```csharp
+SqlConnection conn = null;
+try
+{
+    conn = new SqlConnection(connString);
+    conn.Open();
+    // 执行数据库操作
+    SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Students", conn);
+    int count = (int)cmd.ExecuteScalar();
+    lblResult.Text = $"共有 {count} 名学生";
+}
+catch (SqlException ex)
+{
+    lblError.Text = "数据库错误：" + ex.Message;
+}
+finally
+{
+    // 无论是否出错，确保连接被关闭
+    if (conn != null && conn.State == ConnectionState.Open)
+    {
+        conn.Close();
+    }
+}
+```
+
+---
+
+## 3.8 自定义 ASP.NET 类
+
+### 3.8.1 类的常识
+
+类是面向对象的核心，是对象的模板。
+
+```csharp
+// 类的基本结构
+public class Account
+{
+    // 字段（私有）
+    private decimal _balance;
+    private string  _owner;
+
+    // 属性（公开）
+    // 方法
+    // 构造函数
+    // 事件
+}
+```
+
+---
+
+### 3.8.2 属性（Property）
+
+属性是对字段的封装，提供受控的读/写访问。
+
+```csharp
+public class Account
+{
+    private decimal _balance;
+    private string  _owner;
+
+    // 完整属性
+    public decimal Balance
+    {
+        get { return _balance; }
+        set
+        {
+            if (value < 0)
+                throw new ArgumentException("余额不能为负数");
+            _balance = value;
+        }
+    }
+
+    // 只读属性
+    public string Owner
+    {
+        get { return _owner; }
+    }
+}
+```
+
+### 实例 3-8：定义 Account 类的属性
+
+为 Account 类添加 `Balance`（余额）和 `Owner`（账户持有人）属性，并在 ASP.NET 页面中实例化并显示属性值。
+
+---
+
+### 3.8.3 构造函数（Constructor）
+
+构造函数在创建对象时自动调用，用于初始化对象状态。
+
+```csharp
+public class Account
+{
+    private decimal _balance;
+    private string  _owner;
+
+    // 无参构造函数
+    public Account()
+    {
+        _balance = 0;
+        _owner   = "未命名账户";
+    }
+
+    // 带参构造函数
+    public Account(string owner, decimal initialBalance)
+    {
+        _owner   = owner;
+        _balance = initialBalance;
+    }
+}
+
+// 使用
+Account acc1 = new Account();
+Account acc2 = new Account("张三", 1000.00m);
+```
+
+### 实例 3-9：定义 Account 类的构造函数
+
+创建无参和有参两个构造函数，演示通过不同方式实例化 Account 对象并显示初始状态。
+
+---
+
+### 3.8.4 方法（Method）
+
+方法封装了类的行为逻辑。
+
+```csharp
+public class Account
+{
+    private decimal _balance;
+
+    // 存款方法
+    public void Deposit(decimal amount)
+    {
+        if (amount <= 0)
+            throw new ArgumentException("存款金额必须大于 0");
+        _balance += amount;
+    }
+
+    // 取款方法（带返回值）
+    public bool Withdraw(decimal amount)
+    {
+        if (amount <= 0 || amount > _balance)
+            return false;
+        _balance -= amount;
+        return true;
+    }
+
+    // 查询余额
+    public decimal GetBalance() => _balance;
+}
+```
+
+### 实例 3-10：定义 Account 类的存款和取款方法
+
+实现 `Deposit()` 和 `Withdraw()` 方法，在 ASP.NET 页面上通过按钮触发存取款操作并更新余额显示。
+
+### 实例 3-11：结合 Account 类和 ASP.NET 页面
+
+```csharp
+// Default.aspx.cs
+public partial class Default : Page
+{
+    // 使用 Session 保存账户对象，跨回发保持状态
+    private Account CurrentAccount
+    {
+        get
+        {
+            if (Session["account"] == null)
+                Session["account"] = new Account("测试用户", 1000m);
+            return (Account)Session["account"];
+        }
+    }
+
+    protected void btnDeposit_Click(object sender, EventArgs e)
+    {
+        decimal amount = decimal.Parse(txtAmount.Text);
+        CurrentAccount.Deposit(amount);
+        lblBalance.Text = CurrentAccount.GetBalance().ToString("C");
+    }
+
+    protected void btnWithdraw_Click(object sender, EventArgs e)
+    {
+        decimal amount = decimal.Parse(txtAmount.Text);
+        bool success = CurrentAccount.Withdraw(amount);
+        lblMsg.Text = success ? "取款成功" : "余额不足";
+        lblBalance.Text = CurrentAccount.GetBalance().ToString("C");
+    }
+}
+```
+
+---
+
+### 3.8.5 事件（Event）
+
+事件是一种特殊的委托机制，允许一个类通知其他类某件事已发生。
+
+```csharp
+public class AccountEvent
+{
+    private decimal _balance;
+
+    // 1. 定义事件委托
+    public delegate void InsufficientFundsHandler(object sender, EventArgs e);
+
+    // 2. 声明事件
+    public event InsufficientFundsHandler InsufficientFunds;
+
+    // 3. 在方法中触发事件
+    public bool Withdraw(decimal amount)
+    {
+        if (amount > _balance)
+        {
+            // 触发事件（先检查是否有订阅者）
+            InsufficientFunds?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+        _balance -= amount;
+        return true;
+    }
+}
+```
+
+### 实例 3-12：在 AccountEvent 类中增加账户金额不足事件并运用事件
+
+```csharp
+// 在页面中订阅事件
+protected void Page_Load(object sender, EventArgs e)
+{
+    AccountEvent acc = new AccountEvent();
+    // 订阅事件（+=）
+    acc.InsufficientFunds += Acc_InsufficientFunds;
+    acc.Withdraw(9999); // 触发事件
+}
+
+// 事件处理方法
+private void Acc_InsufficientFunds(object sender, EventArgs e)
+{
+    lblMsg.Text = "警告：账户余额不足！";
+}
+```
+
+---
+
+### 3.8.6 继承（Inheritance）
+
+继承使子类拥有父类的成员，实现代码复用和扩展。
+
+```csharp
+// 父类（基类）
+public class Animal
+{
+    public string Name { get; set; }
+
+    public Animal(string name)
+    {
+        Name = name;
+    }
+
+    public virtual string Speak()
+    {
+        return $"{Name} 发出了声音";
+    }
+}
+
+// 子类（派生类）：使用 : 继承
+public class Dog : Animal
+{
+    public string Breed { get; set; }
+
+    public Dog(string name, string breed) : base(name)  // 调用父类构造函数
+    {
+        Breed = breed;
+    }
+
+    // override 重写父类虚方法
+    public override string Speak()
+    {
+        return $"{Name}（{Breed}）：汪汪汪！";
+    }
+
+    // 子类新增方法
+    public string Fetch()
+    {
+        return $"{Name} 去捡球了！";
+    }
+}
+
+// 使用
+Dog dog = new Dog("旺财", "柴犬");
+Console.WriteLine(dog.Speak());   // 旺财（柴犬）：汪汪汪！
+Console.WriteLine(dog.Fetch());   // 旺财去捡球了！
+
+// 多态：父类引用指向子类对象
+Animal a = new Dog("小黑", "拉布拉多");
+Console.WriteLine(a.Speak()); // 调用的是 Dog 的 Speak（多态）
+```
+
+### 实例 3-13：实现继承类
+
+创建 `SavingsAccount`（储蓄账户）继承自 `Account`，新增 `InterestRate`（利率）属性和 `AddInterest()`（加息）方法，并重写 `ToString()` 方法。
+
+---
+
+## 3.9 ASP.NET 页面调试
+
+Visual Studio 提供了强大的调试工具：
+
+**常用调试手段：**
+
+- **断点（Breakpoint）**：在代码行左侧点击设置断点，程序运行到此处暂停
+- **F5**：启动调试模式运行
+- **F10**：逐过程（Step Over），不进入函数内部
+- **F11**：逐语句（Step Into），进入函数内部
+- **Shift+F11**：跳出当前函数
+- **监视窗口（Watch）**：在调试时查看变量的实时值
+- **即时窗口（Immediate）**：调试时执行表达式
+- **调用堆栈（Call Stack）**：查看函数调用链
+
+**在代码中输出调试信息：**
+
+```csharp
+// 写入 Visual Studio 输出窗口
+System.Diagnostics.Debug.WriteLine($"当前值：{variable}");
+System.Diagnostics.Trace.WriteLine("日志信息");
+
+// 页面内显示（开发阶段）
+Response.Write($"<p>DEBUG: {variable}</p>");
+```
+
+---
+
+## 3.10 C# 其他重要特性
+
+### 3.10.1 自动属性（Auto-Implemented Property）
+
+简化属性的写法，编译器自动生成后台字段。
+
+```csharp
+// 传统写法
+private string _name;
+public string Name
+{
+    get { return _name; }
+    set { _name = value; }
+}
+
+// 自动属性（等价）
+public string Name { get; set; }
+
+// 只读自动属性
+public int Age { get; private set; }
+
+// 带默认值（C# 6+）
+public string Country { get; set; } = "中国";
+```
+
+---
+
+### 3.10.2 隐含类型局部变量（var）
+
+`var` 让编译器根据右侧表达式**推断变量类型**，类型在编译时确定（不是动态类型）。
+
+```csharp
+var i      = 10;                     // int
+var s      = "hello";                // string
+var list   = new List<string>();     // List<string>
+var dict   = new Dictionary<string, int>(); // Dictionary<string, int>
+
+// LINQ 中 var 几乎必须使用（匿名类型）
+var result = from s in students
+             select new { s.Name, s.Score };
+```
+
+---
+
+### 3.10.3 匿名类型（Anonymous Type）
+
+无需事先定义类，在使用时临时创建类型，常与 LINQ 配合。
+
+```csharp
+// 创建匿名类型对象
+var person = new { Name = "张三", Age = 20, Score = 95.5 };
+
+Console.WriteLine(person.Name);  // "张三"
+Console.WriteLine(person.Age);   // 20
+
+// LINQ 投影中常用
+var students = db.Students
+    .Select(s => new { s.Name, s.Score })
+    .ToList();
+
+foreach (var stu in students)
+    Console.WriteLine($"{stu.Name}: {stu.Score}");
+```
+
+---
+
+### 3.10.4 对象与集合初始化器
+
+```csharp
+// 对象初始化器（Object Initializer）
+var student = new Student
+{
+    Name    = "李四",
+    Age     = 21,
+    Score   = 88.5,
+    Country = "中国"
+};
+
+// 集合初始化器（Collection Initializer）
+var list = new List<string> { "苹果", "香蕉", "橙子" };
+
+var dict = new Dictionary<string, int>
+{
+    { "语文", 90 },
+    { "数学", 85 },
+    { "英语", 92 }
+};
+```
+
+---
+
+### 3.10.5 扩展方法（Extension Method）
+
+扩展方法允许在不修改原有类的情况下，为其添加新方法。
+
+```csharp
+// 定义扩展方法：必须在静态类中，第一个参数以 this 修饰
+public static class StringExtensions
+{
+    // 为 string 类添加 IsNullOrEmpty 的扩展
+    public static bool IsEmpty(this string str)
+    {
+        return string.IsNullOrEmpty(str);
+    }
+
+    // 为 string 类添加截断方法
+    public static string Truncate(this string str, int maxLength)
+    {
+        if (str == null || str.Length <= maxLength) return str;
+        return str.Substring(0, maxLength) + "...";
+    }
+}
+
+// 像调用实例方法一样调用
+string s = "Hello, World!";
+bool empty = s.IsEmpty();              // false
+string truncated = s.Truncate(5);      // "Hello..."
+```
+
+---
+
+### 3.10.6 Lambda 表达式
+
+Lambda 是匿名方法的简化写法，广泛用于 LINQ、事件处理等场景。
+
+```csharp
+// 基本语法：(参数) => 表达式 或 (参数) => { 语句块 }
+
+// 无参
+Action greet = () => Console.WriteLine("Hello!");
+
+// 单参（括号可省略）
+Action<string> print = name => Console.WriteLine($"Hi, {name}!");
+
+// 多参
+Func<int, int, int> add = (x, y) => x + y;
+Console.WriteLine(add(3, 4)); // 7
+
+// 语句块 Lambda
+Func<int, string> classify = score =>
+{
+    if (score >= 90) return "优秀";
+    if (score >= 60) return "及格";
+    return "不及格";
+};
+
+// LINQ 中的 Lambda（最常见用法）
+var list = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+
+var evens  = list.Where(x => x % 2 == 0).ToList();      // 偶数
+var squares = list.Select(x => x * x).ToList();           // 平方
+var sum    = list.Where(x => x > 5).Sum(x => x);         // 大于5的求和
+
+// 与事件处理结合
+btnSubmit.Click += (sender, e) =>
+{
+    lblMsg.Text = "表单已提交";
+};
+```
+
+---
+
+## 3.11 小结
+
+|知识点|核心要点|
+|---|---|
+|数据类型|值类型存栈，引用类型存堆；装拆箱有性能开销|
+|流程控制|if-else / switch 选择；for / while / foreach 循环；try-catch-finally 异常|
+|面向对象|封装（属性）、继承（:）、多态（virtual/override）|
+|C# 新特性|var 推断类型、Lambda 简化代码、自动属性减少冗余|
+
+**关键点回顾：**
+
+- `const` 编译时常量，`readonly` 运行时常量
+- `string` 是不可变的，大量拼接用 `StringBuilder`
+- 异常处理中 `finally` 块一定会执行，适合释放资源
+- 继承用 `:` 语法，`base` 调用父类成员，`override` 重写虚方法
+- Lambda `=>` 是匿名函数，配合 LINQ 使用极为强大
+- `var` 是静态类型推断，不是 JavaScript 的动态类型
+
+---
+
+## 3.12 习题
+
+1. 值类型和引用类型的本质区别是什么？举例说明装箱和拆箱。
+2. `const` 和 `readonly` 有什么区别？
+3. 编写一个 `try-catch-finally` 结构，处理用户输入非数字时的异常。
+4. 定义一个 `Rectangle` 类，包含长和宽属性、计算面积和周长的方法，并在页面中使用。
+5. 什么是继承？`virtual` 和 `override` 在多态中分别起什么作用？
+6. 用 Lambda 表达式改写以下代码：
+    
+    ```csharp
+    List<int> nums = new List<int> { 3, 1, 4, 1, 5, 9, 2, 6 };// 找出所有大于4的数，按降序排列
+    ```
+    
+7. 解释自动属性和完整属性的区别，并说明何时需要使用完整属性。

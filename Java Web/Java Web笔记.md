@@ -3855,3 +3855,164 @@ module.exports = { name: '张三' };
 ---
 ---
 
+## 常用指令——v-model和v-on
+
+
+
+在开发 tlias 系统的**搜索表单区域**时，这两个指令是绝对的黄金搭档：一个负责在输入框和下拉列表里**实时采集用户输入的数据**（`v-model`）；另一个负责在点击“查询”或“清空”按钮时**触发后台逻辑**（`v-on`）。
+
+
+### 1.  `v-model`（表单数据的“数据传送门”）
+
+`v-model` 的核心作用是：**在表单元素上使用，创建双向数据绑定**。它可以让我们极其方便地 **获取 或 设置 表单项数据**。
+
+
+![[Java Web笔记-19.png]]
+
+
+#### 什么是“双向绑定”？
+
+- **方向一（内存 ➡️ 页面）**：你在 `data()` 里把变量改了，网页输入框里的文本会自动跟着变。
+    
+- **方向二（页面 ➡️ 内存）🌟后端最爱**：用户在网页输入框里敲了字，**你不需要写任何 DOM 操作去抓取，`data()` 里对应的变量已经瞬间自动同步拿到了新值**！
+    
+
+#### 语法与规范要求
+
+```HTML
+v-model="变量名"
+```
+
+- **警告**：**`v-model` 中绑定的变量，必须提前在 `data` 中定义好**！
+    
+- **后端优雅写法律感**：在采集表单时，不要把变量散着写。强烈推荐像截图里一样，在 `data` 里封装一个 `searchForm` 或 `pojo` 对象，把所有的输入项收拢进去：
+
+    ```HTML
+    <input type="text" v-model="searchForm.name">
+    ```
+
+
+### 2. `v-on`（网页动作的“神经末梢”）
+
+`v-on` 的作用是：**为 HTML 标签绑定事件（添加事件监听）**。它彻底取代了我们之前学过的原生 `addEventListener` 这种臃肿的写法。
+
+
+![[Java Web笔记-20.png]]
+
+#### 语法与极简“语法糖”
+
+- **标准语法**：`v-on:事件名="methods中的方法名"`
+    
+- **简化语法（语法糖）🌟**：**直接把 `v-on:` 缩写为一个艾特符号 `@`**！
+    
+
+```HTML
+<button v-on:click="handle">点我</button>
+<button @click="handle">再点我</button>
+```
+
+- **方法栖息地**：绑定的方法，必须规规矩矩地写在 Vue 实例的 **`methods`** 属性里。
+    
+
+### 终极联手实战：全面还原 tlias 条件搜索区域
+
+现在，我们把 `v-model` 数据采集和 `@click` 事件触发完美结合，直接在前端还原你朝思暮想的 **tlias 员工搜索表单区域功能**！
+
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 搜索栏——v-model与v-on实战</title>
+    <style>
+        .search-container { background-color: #fcf0e7; padding: 20px; border-radius: 4px; display: flex; gap: 15px; align-items: center; }
+        .input-item { padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .btn-query { background-color: #00bcd4; color: white; border: none; padding: 6px 15px; cursor: pointer; border-radius: 4px; }
+        .btn-clear { background-color: #9e9e9e; color: white; border: none; padding: 6px 15px; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="app" style="padding: 30px;">
+        <h2>tlias 智能学习辅助系统</h2>
+        <br>
+
+        <div class="search-container">
+            <label>姓名：</label>
+            <input type="text" class="input-item" placeholder="请输入员工姓名" v-model="searchForm.name">
+
+            <label>性别：</label>
+            <select class="input-item" v-model="searchForm.gender">
+                <option value="">请选择</option>
+                <option value="1">男</option>
+                <option value="2">女</option>
+            </select>
+
+            <label>职位：</label>
+            <select class="input-item" v-model="searchForm.job">
+                <option value="">请选择</option>
+                <option value="1">班主任</option>
+                <option value="2">讲师</option>
+                <option value="3">学工主管</option>
+            </select>
+
+            <button class="btn-query" @click="handleQuery">查询</button>
+            <button class="btn-clear" @click="handleClear">清空</button>
+        </div>
+
+        <p style="margin-top: 20px; color: #888;">
+            【后端调试视窗】当前 searchForm 里面的实时 JSON 数据：{{ searchForm }}
+        </p>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    // 🚨 天条：v-model中绑定的变量，必须在data中提前定义
+                    searchForm: {
+                        name: '',
+                        gender: '',
+                        job: ''
+                    }
+                }
+            },
+            methods: {
+                // 点击查询按钮触发
+                handleQuery() {
+                    // 校验一下拿到的数据
+                    if (this.searchForm.name === '' && this.searchForm.gender === '' && this.searchForm.job === '') {
+                        alert("请至少选择一个条件再进行检索！");
+                        return;
+                    }
+                    
+                    // 震撼全栈的一刻：直接打印数据，用户填的所有值全在里面！
+                    console.log("准备打包发送给 Spring Boot 的条件参数：", this.searchForm);
+                    alert(`正在向 Java 接口发送异步请求... \n条件：姓名=${this.searchForm.name}, 性别=${this.searchForm.gender}, 职位=${this.searchForm.job}`);
+                    // 以后这里直接写 axios.get('/emp/page', { params: this.searchForm })
+                },
+                
+                // 点击清空按钮触发
+                handleClear() {
+                    // 利用数据驱动视图思想，直接重置 data 里的对象，页面上的表单框会自动清空！
+                    this.searchForm.name = '';
+                    this.searchForm.gender = '';
+                    this.searchForm.job = '';
+                    console.log("表单已重置复位");
+                }
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+
+
+当你把上面这段代码跑起来，在输入框里敲字、切换下拉框时，盯着那个“后端调试视窗”里的 JSON 字符串跟着实时缩放变动，你会由衷地发现：**DOM 操作的时代彻底过去了**。利用 `v-model` + `v-on`，你只用关注数据的状态，繁琐的底层交互全部被框架接管了。
+
+---
+---
