@@ -1028,9 +1028,9 @@ CSS 有一套权重计算规则，简单来说：
 
 在表单项（如 `<input>`）中，**必须写 `name` 属性**！
 
-- **为什么：** 假设用户在文本框里输入了 `admin`。如果你的标签只写了 `<input type="text">`，点击提交后，你的 Java 后端确实收到了一个 `admin`。但 Java 会崩溃：“这 `admin` 到底是个啥？是用户名？还是密码？还是邮箱？”
+- **为什么：** 假设用户在文本框里输入了 `admin`。如果你的标签只写了 `<input type="text">`，点击提交后，你的 Java 后端确实收到了一个 `admin`。但 Java 会崩溃：“这 `admin` 到底是个啥？是用户名？还是密码？还是邮箱？”浏览器提交表单时，只会把**有 name 属性**的控件按 `name=值` 发给服务器
     
-- **正确做法：** 必须写上 `<input type="text" name="username">`。这样打包发送时，数据就会变成键值对：`username=admin`。你的 Java 代码就能通过 `request.getParameter("username")` 极其优雅地把数据拿出来了！
+- **正确做法：** 必须写上 `<input type="text" name="username">`。这样打包发送时，数据就会变成键值对：`username=admin`发给服务器。你的 Java 代码就能通过 `request.getParameter("username")` 极其优雅地把数据拿出来了！
     
 
 ### 实战演练：完整还原“账号/短信登录”表单结构
