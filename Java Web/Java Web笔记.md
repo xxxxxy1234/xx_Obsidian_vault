@@ -3057,3 +3057,302 @@ queryBtn.addEventListener('click', () => {
 
 
 ## 事件监听
+
+
+在上一节认识 DOM 的时候，我们提到了交互的“核心三部曲”：**找人 ➡️ 盯着他 ➡️ 揍他**。这中间的第二步——“盯着他”，就是我们今天要深度解密的**事件监听（Event Listening）**。
+
+如果把 DOM 元素比作硬件（比如一个实体按钮），那么事件监听就是**驱动程序**。它让浏览器知道，当用户的鼠标、键盘或者屏幕发生变化时，后台该执行哪段 JS 代码。
+
+### 一、 事件监听的标准语法
+
+在现代 JavaScript（ES6 标准）中，我们统一使用 **`addEventListener`** 方法来绑定事件。
+
+#### 规范语法骨架
+
+```JavaScript
+target.addEventListener('type', listener);
+```
+
+- **`target`（元素对象）：** 绑定的主体。也就是你用 `document.querySelector` 抓出来的那个 HTML 标签。
+    
+- **`'type'`（事件类型）：** 字符串格式。比如点击事件 `'click'`、鼠标移入 `'mouseenter'`（**注意：前面千万不要加 "on"**）。
+    
+- **`listener`（监听器/回调函数）：** 当事件发生时要触发执行的函数。实际开发中，**100% 推荐使用箭头函数**。
+    
+
+#### 基础代码演练
+
+我们让 tlias 系统顶部的“退出登录”按钮具有点击反馈：
+
+```JavaScript
+// 1. 抓取按钮
+const logoutBtn = document.querySelector('.logout-btn');
+
+// 2. 绑定点击事件
+logoutBtn.addEventListener('click', () => {
+    // 3. 事件触发后的业务逻辑
+    alert("正在安全退出 tlias 系统...");
+});
+```
+
+### 二、 核心考点：事件对象 `e` 是个啥？
+
+在写事件监听时，你经常会看到别人在箭头函数的括号里写一个 **`e`**（或者 `event`）：
+
+
+```JavaScript
+btn.addEventListener('click', (e) => { ... });
+```
+
+#### 直白解释
+
+**`e` 就是“案发现场的记录仪”**。当事件被触发的瞬间，浏览器会自动产生一个名为 `e` 的对象，塞进你的函数参数里。这个对象里装满了**当时发生这个动作时的所有细节数据**。
+
+#### 两个最常用的爆款属性：
+
+1. **`e.target`：** 告诉你是**谁**触发了这个事件（在复杂页面里极其有用）。
+    
+2. **`e.preventDefault()` 🌟【后端高频防御】**
+    
+    - **作用：** 拦截（阻止）标签的默认行为。
+        
+    - **全栈场景：** 原型图上的 `<a href="/logout">` 标签点击后默认会刷新跳转网页，或者表单 `<button type="submit">` 会默认刷新页面提交。如果我们想在跳转前先做个表单格式验证，或者改用 Ajax 异步发数据，就必须在函数第一行写上 `e.preventDefault()`，死死拦住浏览器的默认刷新！
+        
+
+### 三、 企业级 Web 开发常见事件大沙盘
+
+在写管理系统或者前端组件时，以下这四类事件是日常搬砖的绝对主力：
+
+#### 1. 鼠标事件（Mouse Events）
+
+- **`'click'`（点击）：** 触发频次之王。查询、清空、删除、编辑按钮全部走它。
+    
+- **`'mouseenter'`（鼠标移入）/ `'mouseleave'`（鼠标移出）：**
+    
+    - **开发场景：** 鼠标悬停在表格某一行时，整行变色提示（Hover 反馈），或者鼠标放到头像上时弹出一个下拉菜单。
+        
+
+#### 2. 键盘事件（Keyboard Events）
+
+- **`'keydown'`（键盘按下）：**
+    
+    - **全栈场景：** 极佳的用户体验优化。当用户在 tlias 系统的“姓名”输入框里敲完名字后，**懒得去点“查询”按钮**，直接在键盘上敲了个 **回车键（Enter）**。你的 JS 就可以通过监听 `keydown` 并判断 `e.key === 'Enter'`，直接自动触发查询接口！
+        
+
+#### 3. 表单事件（Form Events）—— 校验主力 🌟
+
+- **`'focus'`（获得焦点）：** 鼠标点进输入框内部，框子变蓝。
+    
+- **`'blur'`（失去焦点）：** 鼠标从输入框里移出来，点到了别的地方。
+    
+    - **后端安全前哨：** **前端表单异步校验的黄金时机**。当用户刚输完“手机号”，鼠标移出输入框的瞬间触发 `blur`。JS 立刻去校验手机号是不是 11 位数字。如果不合法，直接在框子下面弹红字报错，把垃圾数据直接拦截在前端，**根本不需要去麻烦后端的 Java 接口**，极大地节省了服务器的带宽和算力！
+        
+
+#### 4. 页面加载事件（Layout/Load Events）
+
+- **`'DOMContentLoaded'`：**
+    
+    - **直白解释：** 当 HTML 纯骨架加载完毕后立刻执行。
+        
+    - **用途：** 如果你的 `<script>` 脚本不小心写在了 HTML 的顶部，这时候 DOM 树还没生成，直接 `querySelector` 会抓到 `null` 导致报错。把代码包裹在 `DOMContentLoaded` 事件里，就能确保代码在安全的时机执行。
+        
+
+### 综合实战：打造智能键盘提交与失去焦点验证
+
+我们直接把上面的**事件对象拦截、键盘监听、失去焦点（blur）验证**融会贯通，应用到 tlias 的登录/搜索场景中：
+
+
+```HTML
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-高级事件监听实战</title>
+    <style>
+        .input-box { padding: 8px; border: 1px solid #ccc; outline: none; }
+        .error-border { border: 2px solid #ff4d4f; background-color: #fff2f0; }
+        .error-tip { color: #ff4d4f; font-size: 12px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div style="padding: 40px;">
+        <h3>员工账号注册（前端防御验证）</h3>
+        <br>
+        <input type="text" id="username" class="input-box" placeholder="请输入用户名（少于4位报错）">
+        <div id="tip-area" class="error-tip"></div>
+        <br><br>
+        <button id="reg-btn" style="padding: 8px 16px;">提交注册</button>
+    </div>
+
+    <script>
+        const usernameInput = document.querySelector('#username');
+        const tipArea = document.querySelector('#tip-area');
+        const regBtn = document.querySelector('#reg-btn');
+
+        // 🔥 实战场景一：失去焦点（blur）时自动触发格式检查（不打扰用户输入）
+        usernameInput.addEventListener('blur', () => {
+            let val = usernameInput.value.trim();
+            if (val.length < 4 && val.length > 0) {
+                usernameInput.classList.add('error-border');
+                tipArea.innerText = "❌ 警告：用户名长度不能少于 4 位！";
+            } else {
+                usernameInput.classList.remove('error-border');
+                tipArea.innerText = ""; // 清空报错
+            }
+        });
+
+        // 🔥 实战场景二：监听键盘（keydown），按下回车键直接触发注册按钮的逻辑
+        usernameInput.addEventListener('keydown', (e) => {
+            // 通过事件对象 e 的 key 属性，精准锁定是不是回车键
+            if (e.key === 'Enter') {
+                alert("检测到您按下了回车键，正在为您自动提交...");
+                regBtn.click(); // 用代码去模拟点击提交按钮
+            }
+        });
+
+        // 🔥 实战场景三：点击事件与拦截默认行为
+        regBtn.addEventListener('click', (e) => {
+            let val = usernameInput.value.trim();
+            if (val === "") {
+                alert("表单不能为空！");
+                // 假设这在一个 form 表单里，这行可以阻止表单往 Java 后端发空数据刷新页面
+                e.preventDefault(); 
+            } else {
+                alert(`恭喜！数据验证合格，成功将 "${val}" 打包为 JSON 发往 Java 后端！`);
+            }
+        });
+    </script>
+</body>
+</html>
+```
+
+把这段代码跑起来，在里面输入 1 个字然后把鼠标点到空白处，或者在框里直接敲回车，感受一下事件监听带来的细腻交互体验。
+
+---
+---
+
+
+## JS的模块化
+
+
+![[Java Web笔记-13.png]]
+
+
+在写 Java 的时候，你对“模块化”一定深有体会：我们不可能把所有的业务代码都写在 `Main.class` 里。我们会用 `package` 把代码分层，需要用别处的类时，直接在文件顶部来一句 `import java.util.ArrayList;` 就可以了。
+
+但在 JavaScript 的早期历史中，**它根本没有“模块”的概念**。如果一个网页引入了 5 个不同的 JS 文件，它们全部都会暴露在同一个“全局作用域”下。这就导致如果小明和小红在各自的 JS 文件里都定义了一个 `let name = 'abc'`，页面运行时就会直接因为命名冲突而崩溃。
+
+为了解决这个痛点，JS 经历了几代演变，最终确立了现代的模块化规范。今天我们用**后端视角**，把最核心的现代模块化（ES6 Module）和一些常见的概念彻底理清。
+
+### 一、 现代 JS 模块化：ES6 Module (ESM) 
+
+这是自 2015 年（ES6）起，官方正式确立的模块化标准，也是现在全栈开发（尤其是 Vue / React 项目）中的**绝对主力**。它的思想和 Java 非常接近：**每个 JS 文件都是一个独立的保险箱（模块），外部无法直接访问；除非你主动“导出（export）”，别人才能“导入（import）”。**
+
+它的玩法主要分为两种：
+
+#### 1. 玩法 A：命名导出与导入（可以导出多个）
+
+适合一个模块里有很多独立的工具函数。
+
+- **导出端（`utils.js`）：** 谁想公开，就在谁前面加 `export`。
+    
+
+```JavaScript
+// 导出变量
+export const baseUrl = "http://localhost:8080/tlias";
+
+// 导出功能函数
+export function formatDate(date) {
+    return `2026年-${date.getMonth() + 1}月`;
+}
+```
+
+- **导入端（`main.js`）：** 使用 **大括号 `{}`** 挑选你需要的零件，名字必须对得上。
+    
+
+```JavaScript
+// 类似 Java 的 import
+import { baseUrl, formatDate } from './utils.js';
+
+console.log(baseUrl); // 输出接口基地址
+console.log(formatDate(new Date()));
+```
+
+#### 2. 玩法 B：默认导出与导入（每个文件只能有一个）
+
+当你的 JS 文件只负责干一件大事（比如定义一个完整的员工业务对象，或者一个核心类）时，用默认导出最合适。
+
+- **导出端（`empService.js`）：** 使用 `export default`。
+    
+
+```JavaScript
+const empService = {
+    // 模拟向 Java 后端查询员工列表
+    queryAllEmps() {
+        console.log("正在通过 Ajax 访问 tlias 系统的查询接口...");
+    },
+    deleteEmp(id) {
+        console.log(`正在删除 id 为 ${id} 的员工...`);
+    }
+};
+
+// 默认导出这个核心对象
+export default empService;
+```
+
+- **导入端（`index.js`）：** 导入时 **不需要加大括号**，而且你可以随便给它起名字（非常自由）！
+    
+```JavaScript
+// 导入默认模块，顺便起名叫 service
+import service from './empService.js';
+
+// 直接调用
+service.queryAllEmps();
+```
+
+### 二、 浏览器运行 ESM 的“致命天条”
+
+如果你想在原生的 HTML 页面里直接测试上面的 `import` 和 `export` 代码，你必须在引入 JS 时做一件至关重要的事：**在 `<script>` 标签上加上 `type="module"` 属性。**
+
+```HTML
+<script type="module" src="./index.js"></script>
+```
+
+- **后端提示：** 一旦加了 `type="module"`，浏览器就会把这个 JS 文件当成独立的模块运行。另外，出于网络安全考虑，带有模块化的 HTML 页面**不能直接双击用本地路径（File://）打开**，未来必须跑在本地服务器（比如用 VS Code 的 Live Server 插件，或者由你的 Tomcat/Spring Boot 托管）上。
+    
+
+### 三、 漏网之鱼：CommonJS (CJS) 规范是什么？
+
+在复习资料或者阅读一些老旧的 Node.js 后端代码时，你可能还会频繁看到另一种长相的模块化写法：
+
+```JavaScript
+// 它是用 require 导入，用 module.exports 导出的！
+const fs = require('fs'); 
+module.exports = { name: '张三' };
+```
+
+#### 别慌，一句话理清它们的区别：
+
+- **CommonJS：** 是在官方标准出台前，**Node.js 服务端（也就是用 JS 写后端服务器）** 自己搞出来的一套规范。它是同步加载的，非常适合服务器读取本地硬盘的文件。
+    
+- **ES6 Module：** 是 **ECMAScript 官方出品的现代标准**。它是异步加载的，专门针对网络传输进行了优化，是现代浏览器端（网页端、Vue/React 项目）的绝对标准。
+    
+
+### JS 模块化与 Java 模块化
+
+|**概念**|**Java 语言**|**JavaScript 语言 (ESM)**|
+|---|---|---|
+|**隔离基本单元**|`.class` 文件 / `package`|独立的 `.js` 文件|
+|**公开功能**|`public` 关键字|**`export`** 或 **`export default`**|
+|**引入功能**|`import java.util.List;`|**`import { List } from './module.js';`**|
+|**重命名防冲突**|只能写全限定名 `com.a.User`|极度优雅：`import { User as AUser } from './a.js';`|
+
+掌握了模块化，你就正式拿到了进入现代前端工程化（如 Vue 3、Vite、Webpack）的入场券。在以后的 Vue 实战里，你写的每一个组件、每一个 API 请求文件，底层全都是基于这个模块化标准来拼装的！
+
+---
+---
+
+
+
