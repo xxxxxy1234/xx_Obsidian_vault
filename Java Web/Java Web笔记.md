@@ -2934,6 +2934,8 @@ console.log(jsonToSend);
 
 ![[Java Web笔记-12.png]]
 
+[DOM对象的属性方法参考文档](https://www.w3school.com.cn/js/js_intro.asp)
+
 #### 1. 第一步：抓取对象（选择器 API）
 
 你想让哪个标签动，就必须先在内存里把它捞出来。现代 JS 淘汰了以前臃肿的方法，统一使用这两个神器（跟 CSS 选择器无缝衔接）：
@@ -3054,3 +3056,4 @@ queryBtn.addEventListener('click', () => {
 ---
 
 
+## 事件监听
