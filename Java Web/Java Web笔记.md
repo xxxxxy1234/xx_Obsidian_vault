@@ -3356,3 +3356,124 @@ module.exports = { name: '张三' };
 
 
 
+# Vue
+
+
+
+
+既然你已经解锁了 **JS 的模块化（ES6 Module）**，看到你在新上传的截图里引入了官方提供的 Vue 模块，这标志着你正式从“传统原生 JS 搬砖时代”**跨入了**“现代全栈工程化时代”！
+
+作为 Java 后端开发者，学 Vue 会让你有一种极其强烈的亲切感，因为它的核心设计思想，几乎就是后端玩得最转的 **MVC / MVVM 架构**。
+
+## 什么是 Vue？（为什么要淘汰原生 DOM 操作）
+
+**Vue.js** 是一款用于构建用户界面的 **渐进式 JavaScript 框架**。
+
+### 核心痛点：原生 DOM 操作太累了
+
+在传统原生开发里，我们要实现“修改用户名”的功能，代码是这样的：
+
+1. 用 `document.querySelector` 抓取输入框。
+    
+2. 监听输入事件拿到新值。
+    
+3. 再抓取展示名字的 `<h1>` 标签。
+    
+4. 修改 `innerText`。
+    
+
+这种“手动提线木偶”式的写法（DOM操作）在面对 tlias 系统这种复杂的表格和表单时，会导致代码极度臃肿且难以维护。
+
+### Vue 的终极魔法：数据驱动视图（MVVM）
+
+如你截图中所示，Vue 带来了解放全栈开发者的核心武器——**数据驱动视图**。
+
+- **你不需要再手动去抓标签、改内容了。**
+    
+- 你只需要在 JavaScript 里声明一个普通的变量（数据 Model）。
+    
+- Vue 会在后台帮你盯着这个变量，只要你在代码里修改了这个变量的值，**网页上所有绑定了该变量的标签会自动眨眼变脸（视图 View 自动刷新）**。
+    
+
+## 拆解 Vue 3 快速入门案例
+
+
+
+![[Java Web笔记-14.png]]
+
+
+我们直接对照你提供的截图中的官方模块化引入方式，写一个最纯正的 Vue 3 极简代码例子。
+
+### 完整示例代码：
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Vue3 快速入门——数据驱动视图</title>
+</head>
+<body>
+
+    <div id="app">
+        <h1>系统提示：{{ message }}</h1>
+        <p>当前登录账号：{{ loginUser.name }} (职位：{{ loginUser.job }})</p>
+        
+        <button @click="changeUser">切换体验账号</button>
+    </div>
+
+    <script type="module">
+        // 从官方提供的 CDN 加地址导入 createApp 核心函数
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        // 3. 创建 Vue 应用程序实例
+        createApp({
+            // data 方法：专门用来放你这页面的“活数据”（Model）
+            data() {
+                return {
+                    message: "Hello Vue",
+                    loginUser: {
+                        name: "赵敏",
+                        job: "班主任"
+                    }
+                }
+            },
+            // methods 属性：专门用来放页面上的交互函数（类似旧的JS函数）
+            methods: {
+                changeUser() {
+                    // ⚠️ 注意：在 Vue 内部访问 data 里的变量，必须加 this
+                    this.message = "欢迎进入 tlias 员工管理系统！";
+                    this.loginUser.name = "风清扬";
+                    this.loginUser.job = "教研主管";
+                    // 看到了吗？这里完全没有写任何 document.querySelector，网页自己就会变！
+                }
+            }
+        }).mount("#app"); // 4. 将这个 Vue 实例死死地挂载（绑定）到 id 为 app 的大盒子上
+    </script>
+    
+</body>
+</html>
+```
+
+## 核心代码深度解密
+
+### 1. `import { createApp } from '...'`
+
+利用了我们刚学过的 **ES6 模块化命名导入**。`createApp` 是 Vue 3 的总入口、总指挥官，负责创建一整台帮你管理网页的自动机器。
+
+### 2. 插值表达式 `{{ }}`（Mustache 语法）
+
+- **直白解释：** 在 HTML 标签中间，只要写上双大括号 `{{ 变量名 }}`，Vue 就会把 `data()` 里面返回的同名变量值**死死地钉在那个位置**。
+    
+- 它是前端动态渲染的核心。后续你从 Java 后端拿到一条员工姓名 JSON `"name": "赵敏"`，在前端只需要写 `<td>{{ emp.name }}</td>` 就能直接展现在表格里。
+    
+
+### 3. `.mount("#app")`
+
+- **直白解释：** 划定地盘。这句话告诉 Vue：你的超能力**只在 id 为 app 的这个 `<div>` 标签内部有效**。在这个大盒子外面的 HTML 标签，Vue 是管不到的。
+    
+
+---
+---
+
+
