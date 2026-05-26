@@ -2900,3 +2900,157 @@ console.log(jsonToSend);
 ## DOM
 
 
+在学 DOM 之前，很多后端同学最困惑的问题就是：“我在 JS 里定义了一个对象或者函数，浏览器怎么知道去改网页上的哪一行字？怎么知道哪个按钮被点击了？”
+
+答案全在 **DOM** 身上。
+
+### 一、 什么是 DOM？（网页的“提线木偶”）
+
+**DOM（Document Object Model，文档对象模型）**，直白点说，就是**浏览器专门为 JavaScript 准备的一套“网页操作说明书和控制手柄”**。
+
+当浏览器加载一个 HTML 页面时，它会在后台默默地做一件大事：**把干巴巴的 HTML 标签，全部翻译成内存中的 JavaScript 对象**。
+
+![[Java Web笔记-11.png]]
+
+#### 核心概念：DOM 树（Tree）
+
+在浏览器的内存里，网页不是一堆文本，而是一棵倒过来的“大树”：
+
+- **`document` 对象：** 树的**根部**。它是整个网页的“大老板”，在 JS 里只要输入 `document`，你就抓住了整个世界。
+    
+- **节点（Node）：** 树上的分支和树叶。网页里的每一个标签（`<div>`、`<h1>`、`<input>`）、每一个属性（`class`、`id`）、甚至标签里的每一段文字，在内存里都是一个独立的**节点对象**。
+    
+
+**后端大局观：** 所谓的“动态网页交互”，底层逻辑非常简单：**JS 代码 ➡️ 调用 DOM API ➡️ 修改内存中的 DOM 树 ➡️ 浏览器实时刷新 ➡️ 用户看到网页变了。**
+
+### 二、 DOM 操作的核心三部曲
+
+在开发 tlias 系统的搜索表单或者按钮交互时，JS 的操作永远逃不开这三个固定步骤：
+
+```
+1. 抓取对象 (找人) ➡️ 2. 绑定事件 (盯着他) ➡️ 3. 修改属性/内容 (揍他)
+```
+
+
+![[Java Web笔记-12.png]]
+
+#### 1. 第一步：抓取对象（选择器 API）
+
+你想让哪个标签动，就必须先在内存里把它捞出来。现代 JS 淘汰了以前臃肿的方法，统一使用这两个神器（跟 CSS 选择器无缝衔接）：
+
+- **`document.querySelector('CSS选择器')`**
+    
+    - **效果：** 极其精准，根据你写的 CSS 选择器，返回**第一个**匹配到的 HTML 标签对象。
+        
+    - `let btn = document.querySelector('#query-btn');`（抓取 id 为 query-btn 的查询按钮）
+        
+    - `let input = document.querySelector('.search-box input');`（后代选择器，抓取搜索框里的输入框）
+        
+- **`document.querySelectorAll('CSS选择器')`**
+    
+    - **效果：** 广撒网，返回一个**包含所有匹配标签的数组（伪数组）**。常用于批量控制（比如抓住表格里的所有 `<tr>` 行）。
+        
+
+#### 2. 第二步：绑定事件（监听用户动作）
+
+抓到人之后，要告诉浏览器：当用户对这个标签做什么动作时，去执行哪段 JS 函数。
+
+- **常用事件类型：** `click`（点击）、`focus`（获得焦点）、`blur`（失去焦点/表单验证常用）、`keydown`（键盘按下）。
+    
+- **企业级绑定规范：** 使用 `addEventListener('事件名', 回调函数)`。
+    
+
+```JavaScript
+let queryBtn = document.querySelector('#query-btn');
+
+// 监听“点击”动作，当被点击时，后面的箭头函数立刻爆发执行
+queryBtn.addEventListener('click', () => {
+    console.log("报告老板，用户点击了查询按钮！");
+});
+```
+
+#### 3. 第三步：修改属性和内容（真正的交互变脸）
+
+一旦事件触发，我们就可以在函数体里对标签对象“为所欲为”了。最常用的修改手段有三种：
+
+- **修改表单的值（`.value`）🌟【后端最关心】**
+    
+    - 获取或修改用户在输入框里敲的代码。
+        
+    - `let name = document.querySelector('#username').value;`（拿到用户输入的姓名）
+        
+- **修改标签中间的文字/HTML（`.innerText` / `.innerHTML`）**
+    
+    - `title.innerText = "数据加载中...";`（单纯改文字）
+        
+    - `tableBody.innerHTML = "<tr><td>新员工</td></tr>";`（直接往盒子里灌入新的 HTML 骨架）
+        
+- **修改 CSS 样式（`.style.属性名` 或 `.classList`）**
+    
+    - `box.style.backgroundColor = "red";`（直接改行内样式）
+        
+    - `box.classList.add("active");`（优雅写法：给标签追加一个写好样式的 class 类名）
+        
+
+### 实战连通：让 tlias 搜索区域真正活起来
+
+我们直接拿之前做过的 **tlias 搜索表单区域** 弹窗作为舞台。现在我们写一段纯正的 DOM 操作 JS 代码，实现：**点击“查询”拿到输入框的值，点击“清空”让样式变红复位。**
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias-DOM操作实战</title>
+    <style>
+        .search-area { background-color: #fcf0e7; padding: 20px; border-radius: 4px; }
+        .error-style { border: 2px solid red !important; background-color: #fce4e4; }
+    </style>
+</head>
+<body>
+
+    <div class="search-area">
+        <label>姓名：</label>
+        <input type="text" id="emp-name" placeholder="请输入员工姓名">
+        
+        <button id="btn-query">查询</button>
+        <button id="btn-clear">清空</button>
+    </div>
+
+    <script>
+        // 【第一步：找人】精确抓取网页上的输入框和两个按钮
+        const nameInput = document.querySelector('#emp-name');
+        const queryBtn = document.querySelector('#btn-query');
+        const clearBtn = document.querySelector('#btn-clear');
+
+        // 【第二步：盯着他】给“查询”按钮绑定点击事件
+        queryBtn.addEventListener('click', () => {
+            // 【第三步：拿值】获取用户到底在框里填了什么
+            let inputValue = nameInput.value;
+            
+            if (inputValue.trim() === "") {
+                alert("请输入姓名后再查询！");
+                // 动态修改 CSS：让输入框瞬间变成警告红
+                nameInput.classList.add('error-style');
+            } else {
+                alert(`正在为您向 Java 后端检索员工：${inputValue}`);
+                // 以后这里就是写 Ajax 把 inputValue 发给 Spring Boot 控制器
+            }
+        });
+
+        // 给“清空”按钮绑定事件
+        clearBtn.addEventListener('click', () => {
+            // 清空输入框里的文本
+            nameInput.value = "";
+            // 移除警告红色样式
+            nameInput.classList.remove('error-style');
+        });
+    </script>
+</body>
+</html>
+```
+
+---
+---
+
+
