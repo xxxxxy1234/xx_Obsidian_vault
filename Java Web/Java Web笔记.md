@@ -3624,3 +3624,234 @@ module.exports = { name: '张三' };
 
 ---
 ---
+
+
+
+## 常用指令——v-if和v-show
+
+
+在开发 **tlias 智能学习辅助系统** 的表格数据展示区时，你一定遇到过这种后端传回的“黑话”数据：性别字段传过来的是 `1` 或 `2`（1代表男，2代表女）；或者员工的头像图片地址，有的有值，有的直接返回了 `null`。
+
+如何让网页根据这些数据条件，智能地显示对应的文字、标签或者隐藏不需要的组件？
+
+这就需要用到你新上传的截图中介绍的两大经典“条件控制”指令：**`v-if`** 和 **`v-show`**。虽然它们最终呈现给用户的视觉效果都是“让一个东西显示或隐藏”，但作为后端开发者，我们必须死死抠住它们的**底层执行原理**，因为它们的性能开销完全不同。
+
+![[Java Web笔记-18.png]]
+
+### 1. `v-if` 家族 —— 条件渲染（对应 Java 的 `if-else`）
+
+
+![[Java Web笔记-17.png]]
+
+- **语法**：`v-if="表达式"`，可以配合 `v-else-if` 和 `v-else` 进行链式条件判断。
+    
+- **底层原理（硬核）**：**基于条件判断，来控制创建或移除元素节点**。如果表达式的值为 `false`，Vue 会直接残忍地**把整个 HTML 标签从 DOM 树上切掉、彻底销毁**；只有变为 `true` 时，才会重新动态创建这个标签。
+    
+- **警告**：`v-else-if` 必须紧跟在 `v-if` 之后，`v-else` 必须紧跟在 `v-if` 或 `v-else-if` 之后，否则浏览器直接报错罢工！
+    
+
+### 2. `v-show` —— 样式显示隐藏
+
+- **语法**：`v-show="表达式"`。
+    
+- **底层原理（硬核）**：**基于 CSS 样式 `display` 来控制显示与隐藏**。不管表达式是 `true` 还是 `false`，这个 HTML 标签**永远完好无损地躺在 DOM 树里**。当值为 `false` 时，Vue 只是自动给它加上了行内样式 `display: none;` 把它藏起来而已。
+    
+
+### 3. 两者对比
+
+|**维度**|**v-if / v-else-if / v-else**|**v-show**|
+|---|---|---|
+|**隐藏时的底层动作**|**销毁 / 移除 DOM 节点**|**仅修改 CSS 样式 `display: none;`**|
+|**初始渲染开销**|如果初始值为 `false`，则完全不渲染，初次加载极快|不管初始是什么，都会把节点造出来，初次加载稍慢|
+|**频繁切换开销**|**极高**（频繁地在内存里创建、销毁 DOM 节点非常消耗 CPU）|**极低**（仅仅改个 CSS 属性，浏览器毫无压力）|
+|**企业级应用场景**|**要么显示，要么不显示，不频繁切换的场景**。<br><br>  <br><br>例如：根据当前登录员工的权限，控制“删除按钮”是否渲染（非管理员直接不生出这个按钮）。|**频繁切换显示隐藏的场景**。<br><br>  <br><br>例如：点击搜索栏的“高级筛选”展开/收起菜单，或者各种弹窗、Tooltip 提示框。|
+
+### 4. 代码实战
+
+我们直接结合员工管理表格，以及 `v-bind` 图片属性绑定，来写一段最纯正的条件控制实战：
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 员工表格——v-if 与 v-show 实战</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; text-align: center; }
+        th, td { border: 1px solid #e8e8e8; padding: 12px; }
+        .avatar-img { width: 40px; height: 40px; border-radius: 50%; }
+        .no-avatar { color: #aaa; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <h3>员工列表展示（条件控制区域）</h3>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>姓名</th>
+                    <th>性别（数据翻译）</th>
+                    <th>头像状态（动态控制）</th>
+                    <th>在线状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="emp in empList" :key="emp.id">
+                    <td>{{ emp.name }}</td>
+
+                    <td>
+                        <span v-if="emp.gender === 1" style="color: blue;">♂ 男</span>
+                        <span v-else-if="emp.gender === 2" style="color: pink;">♀ 女</span>
+                        <span v-else style="color: gray;">未知</span>
+                    </td>
+
+                    <td>
+                        <img v-if="emp.avatar" :src="emp.avatar" class="avatar-img">
+                        <span v-else class="no-avatar">暂无头像</span>
+                    </td>
+
+                    <td>
+                        <span style="color: green;">● </span>
+                        <span v-show="emp.isOnline">工作在线</span>
+                        <span v-show="!emp.isOnline" style="color: #999;">离线</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    empList: [
+                        { id: 1, name: "赵敏", gender: 2, avatar: "https://randomuser.me/api/portraits/women/1.jpg", isOnline: true },
+                        { id: 2, name: "风清扬", gender: 1, avatar: null, isOnline: false },
+                        { id: 3, name: "东方不败", gender: 3, avatar: "https://randomuser.me/api/portraits/legends/3.jpg", isOnline: true }
+                    ]
+                }
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+### 总结 
+
+1. **`v-if` 是真正的“生死判官”**：当条件为假时，对应的标签和里面的子标签在页面 HTML 源码里是**彻底消失、找不到的**。
+    
+2. **`v-show` 是“隐身斗篷”**：不管真假，标签永远都在，只是加了 `display: none`。
+    
+---
+---
+
+
+
+## 常用指令——v-bind
+
+
+
+我们在第一节学过，如果要动态改变 HTML 标签**中间的文字**，我们直接用双大括号 **插值表达式 `{{ }}`** 就能轻松搞定：
+
+```HTML
+<p>当前登录账号：{{ loginUser.name }}</p>
+```
+
+### 致命痛点：插值表达式不能写在属性里
+
+但是，如果你想动态改变 HTML 标签的**属性值**（比如图片的 `src` 路径、超链接的 `href` 地址、或者盒子的 `style/class` 样式），你绝对**不能**这样写：
+
+```HTML
+<img src="{{ emp.avatar }}"> 
+```
+
+### 救场英雄：`v-bind`
+
+**`v-bind` 的作用，就是动态为 HTML 标签绑定属性值**。 一旦你在某个属性前面加上了 `v-bind:`，你就等于开启了一个“魔法通道”：**属性值里面的双引号就不再是普通的字符串了，而是变成了可以执行 JS 表达式、读取 `data` 变量的“高能区域”**！
+
+### 写法
+
+它的写法分为标准版和企业开发 100% 会用的极简版：
+
+- **标准语法**：`v-bind:属性名="data中的变量名"`
+    
+- **简化语法（语法糖）🌟**：**直接把 `v-bind` 蒸发掉，只留一个冒号 `:`**
+
+
+### 属性绑定对比演练：
+
+```HTML
+<img v-bind:src="item.image" width="30px"> 
+<img :src="item.image" width="30px">       
+
+<a :href="baseUrl + '/download'">下载附件</a>
+
+<button :disabled="!emp.isOnline">发送消息</button>
+```
+
+### 实战演练
+
+我们把 `v-for`、`v-if` 以及刚学的 `:`（`v-bind` 简化版）融会贯通，做一个高级的名片渲染中心。在这个案例中，我们会动态绑定**图片地址**、**超链接**，甚至根据员工的在职状态**动态绑定不同的 CSS 颜色样式**！
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 员工名片——v-bind 终极实战</title>
+    <style>
+        .card { width: 220px; padding: 20px; border: 1px solid #ccc; text-align: center; display: inline-block; margin: 10px; border-radius: 8px; }
+        .avatar { width: 80px; height: 80px; border-radius: 50%; }
+        /* 两个不同的控制样式的 class 类名 */
+        .active-style { border: 2px solid #52c41a; background-color: #f6ffed; }
+        .leave-style { border: 2px solid #ff4d4f; background-color: #fff2f0; filter: grayscale(100%); }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <h2>tlias 系统 - 讲师风采墙</h2>
+        <br>
+
+        <div v-for="emp in empList" :key="emp.id" :class="emp.status === 1 ? 'card active-style' : 'card leave-style'">
+            
+            <img :src="emp.avatar" class="avatar" alt="员工头像">
+            
+            <h3>{{ emp.name }}</h3>
+            <p>职位：{{ emp.job }}</p>
+
+            <a :href="'http://localhost:8080/tlias/emp/detail/' + emp.id" target="_blank">查看详情介绍</a>
+            <br><br>
+
+            <span v-if="emp.status === 1" style="color: green;">● 在职</span>
+            <span v-else style="color: red;">● 已离职</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    empList: [
+                        { id: 10, name: "风清扬", job: "教研主管", avatar: "https://randomuser.me/api/portraits/men/10.jpg", status: 1 },
+                        { id: 11, name: "任统领", job: "普通讲师", avatar: "https://randomuser.me/api/portraits/men/11.jpg", status: 1 },
+                        { id: 12, name: "左盟主", job: "高级讲师", avatar: "https://randomuser.me/api/portraits/men/12.jpg", status: 0 } // 已离职，名片会自动变灰变红
+                    ]
+                }
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+---
+---
+
