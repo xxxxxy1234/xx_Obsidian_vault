@@ -1033,6 +1033,12 @@ CSS 有一套权重计算规则，简单来说：
 - **正确做法：** 必须写上 `<input type="text" name="username">`。这样打包发送时，数据就会变成键值对：`username=admin`发给服务器。你的 Java 代码就能通过 `request.getParameter("username")` 极其优雅地把数据拿出来了！
     
 
+| 属性     | 是否需要唯一                   | 核心用途                             |
+| ------ | ------------------------ | -------------------------------- |
+| `id`   | **整个html页面必须全局唯一**       | 配合 label 的`for`、CSS 定位、JS 精准查找元素 |
+| `name` | html页面可重复，**仅表单提交时分组生效** | 后端接收表单参数、单选 / 复选互斥分组             |
+
+
 ### 实战演练：完整还原“账号/短信登录”表单结构
 
 我们参考“账号登录”弹窗原型，亲手写一个标准的、符合后端接收规范的表单页面。
@@ -1142,6 +1148,24 @@ CSS 有一套权重计算规则，简单来说：
  > <label for="male">男</label> 
  > <!-- 绑定方式2：直接把 input 包在 label 里 --> 
  > <label> <input type="checkbox"> 同意协议 </label>
+ >```
+ >==注意上面的代码例子中没有使用这两种绑定，那么label只是纯普通文字==
+ >```html
+ >//写法一：
+ ><label for="pwd">登录密码：</label>
+ > <input type="password" id="pwd" name="password">
+ >```
+ >```html
+ >//写法二：
+ ><label> 登录密码： <input type="password" name="password"> </label>
+ >```
+ >```html
+ >//下拉列表同理
+ ><label for="role">登录角色：</label> 
+ ><select name="role" id="role"> 
+ ><option value="admin">系统管理员</option> 
+ >...
+ > </select>
  >```
 
 
