@@ -4016,3 +4016,197 @@ v-model="变量名"
 
 ---
 ---
+
+
+# Ajax
+
+
+
+
+如果说前面的 HTML/CSS 是皮肉，JavaScript 是筋骨，Vue 是高效的器官，那么 **Ajax 就是血液**。没有 Ajax，前端只是一个单机版、孤芳自赏的精美壳子；**有了 Ajax，前端才能跨越千山万水，连接上你的 Spring Boot 后端、Tomcat 服务器和 MySQL 数据库**
+
+今天我们顺着你的课程脉络，用纯正的后端视角，把 **Ajax 的本质、同步与异步的死穴、以及企业级标配 Axios 框架** 彻底扒得清清楚楚。
+
+## 什么是 Ajax？（解决什么核心痛点）
+
+
+![[Java Web笔记-21.png]]
+
+如图所示，**Ajax** 全称是 **A**synchronous **J**avaScript **A**nd **X**ML（异步的 JavaScript 和 XML）。
+
+### 核心作用：
+
+1. **数据交换**：通过 Ajax 可以给服务器发送请求，并获取服务器响应的数据。
+    
+2. **异步交互**：可以**在不重新加载（刷新）整个页面的情况下，与服务器交换数据并更新部分网页**的技术。
+    
+
+### 场景暴击：如果没有 Ajax 会怎样？
+
+在遥远的 2005 年之前，网页没有 Ajax。用户在注册网易邮箱时，输入完用户名（比如 `java666`），必须点击“提交”按钮，**导致整个网页大白屏刷新一次**，把数据传给后端 Java，Java 去 MySQL 查完发现重名了，再渲染一个新网页返回给浏览器，提示“该邮箱已被占用”。用户之前填写的密码、密保全没了，体验差到让人想砸电脑。
+
+有了 Ajax 之后，就像截图里的网易邮箱注册一样：用户输入完鼠标一失焦，前端在后台默默发一个极其轻量级的请求给 Java，**整个网页完全不动，只有输入框下面唰地弹出一行红字**。这就是 Ajax 的恐怖威力。
+
+
+## 核心硬核：同步与异步的区别
+
+![[Java Web笔记-22.png]]
+
+看懂图中的那两条“时间轴”，是决定一个程序员能不能写好并发代码的关键。
+
+### 1. 同步（Synchronous）模式
+
+- **执行逻辑**：客户端向服务器发送请求后，**必须死死停在原地，什么也干不了，等待服务器的响应**。
+    
+- **后端类比**：就像 Java 里单线程调用一个阻塞方法 `Thread.sleep(3000)`，代码必须卡在那一行，等它执行完才能走下一步。
+    
+
+### 2. 异步（Asynchronous）模式 🌟（Ajax的灵魂）
+
+- **执行逻辑**：客户端向服务器发送请求。在服务器处理的这 3 秒钟里，**客户端（浏览器）完全不需要等待，用户可以继续在网页上愉快地打字、滚动、点击其他按钮**。当服务器处理完把数据送回来时，浏览器会自动触发一个“回调函数”来渲染数据。
+    
+- **全栈白话**：你去饭店点完单，拿了个会亮灯的排队号簿（发起了异步请求），然后你就回座位上刷手机、和朋友聊天去了（客户端执行其他操作）。等到号簿开始震动闪烁（服务器响应），你再去取餐（执行成功回调）。
+    
+
+## 从原生到企业级王牌：Axios 的降维打击
+
+原生 JS 提供的 Ajax 核心对象叫 `XMLHttpRequest`（简称 XHR），但它的语法设计得极其反人类，需要手写十几行代码，还要处理复杂的跨域状态判断。
+
+所以，在实际的企业项目开发中，**没人会去写原生的 Ajax，100% 会使用对原生 Ajax 进行优雅封装的第三方库——Axios**！
+
+### 1. 标准经典写法（配置对象模式）
+
+![[Java Web笔记-23.png]]
+
+
+如你图所示，引入 Axios 的 JS 文件后，标准写法如下：
+
+```JavaScript
+axios({
+    method: 'GET',                                // 请求方式，GET/POST/PUT/DELETE
+    url: 'https://web-server.itheima.net/emps/list' // 请求路径（未来换成你的Spring Boot接口）
+}).then((result) => {
+    // 🌟 成功回调函数：当后端Java成功返回JSON数据时，自动触发
+    console.log("拿到后端数据了：", result.data);    // 真正的后端数据藏在 result.data 里！
+}).catch((err) => {
+    // ❌ 失败回调函数：网络断了、或者后端报500服务器炸了时触发
+    alert("网络请求失败：" + err);
+});
+```
+
+### 2. 企业开发最推荐：请求方式别名
+
+
+![[Java Web笔记-24.png]]
+
+如图所展示的带有大绿色“**推荐**”戳的花样写法。因为天天写 `method` 太烦了，Axios 为所有常用请求方式提供了别名函数：
+
+```JavaScript
+// 格式：axios.请求方式(url [, data [, config]])
+```
+
+- **GET 请求别名（常用于查询 List/Page）**：
+
+    ```JavaScript
+    axios.get('http://localhost:8080/tlias/emps/list')
+         .then(res => console.log(res.data))
+         .catch(err => console.error(err));
+    ```
+    
+- **POST 请求别名（常用于新增、修改、携带复杂JSON体）**：
+
+    ```JavaScript
+    // 第二个参数直接塞你要传给 Java 的参数体
+    axios.post('http://localhost:8080/tlias/emps/save', { name: '张三', gender: 1 })
+         .then(res => alert("保存成功！"))
+         .catch(err => alert("保存失败"));
+    ```
+
+
+## 代码实战：Vue 3 + Axios 异步数据渲染
+
+现在，我们把前几节学到的 Vue 3 数据驱动、`v-for` 表格渲染、以及今天的 Axios 别名异步请求全部拧成一股绳，为你还原一个大三做毕业设计、去企业实习时 **100% 一模一样的真实表格开发闭环代码**！
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 终极闭环——Vue+Axios 异步动态渲染</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; text-align: center; margin-top: 15px; }
+        th, td { border: 1px solid #e2e2e2; padding: 10px; }
+        th { background-color: #f7f7f7; }
+        .loading { font-size: 18px; color: #666; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="app" style="padding: 30px;">
+        <h2>tlias 智能学习辅助系统 - 异步数据联动中心</h2>
+
+        <div class="loading" v-show="isLoading">🔄 正在连接远程 Java 接口，拼命读取 MySQL 中，请稍候...</div>
+
+        <table v-show="!isLoading">
+            <thead>
+                <tr>
+                    <th>员工ID</th>
+                    <th>姓名</th>
+                    <th>职位</th>
+                    <th>入职时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="emp in empList" :key="emp.id">
+                    <td>{{ emp.id }}</td>
+                    <td>{{ emp.name }}</td>
+                    <td>{{ emp.job }}</td>
+                    <td>{{ emp.entryDate }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    // 天条：遍历的源数组，必须初始化定义好！开始时是空的
+                    empList: [],
+                    isLoading: true // 初始状态为正在加载
+                }
+            },
+            // 🌟 震撼全栈的生命周期钩子：mounted()
+            // 它的意思是：当网页刚刚在浏览器里渲染、挂载完毕的一瞬间，会自动执行这里的代码！
+            mounted() {
+                console.log("【生命周期钩子触发】网页已就绪，立即启动 Ajax 向后端拉取真实数据！");
+                
+                // 执行异步网络请求（这里使用的是黑马程序员官方提供的线上模拟 Mock 接口）
+                axios.get('https://mock.apifox.cn/m1/3083103-0-default/emps/list')
+                    .then((result) => {
+                        // 1. 把后端返回的真实 JSON 数组，死死地喂给 data 里的 empList 变量
+                        this.empList = result.data.data; 
+                        
+                        // 2. 关闭加载动画
+                        this.isLoading = false;
+                        console.log("【数据交付成功】Vue 感知到 empList 发生变量，已自动帮你触发重新变脸渲染！");
+                    })
+                    .catch((error) => {
+                        this.isLoading = false;
+                        alert("连接服务端失败，请检查你的后端 Spring Boot 端口是否正常开启！");
+                    });
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+---
+---
+
+
