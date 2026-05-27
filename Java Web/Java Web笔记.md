@@ -4018,6 +4018,148 @@ v-model="变量名"
 ---
 
 
+## 补充：Vue的生命周期
+
+
+![[Java Web笔记-26.png]]
+
+
+
+很多全栈初学者写代码非常随意：想发 Ajax 请求，结果写错地方导致拿到数据页面死活不刷新；或者想操作 DOM 节点，结果代码执行时标签根本还没造出来，直接报 `undefined` 错误。
+
+作为后端开发者，你可以把 Vue 生命周期完美类比为 **Servlet的 `init/service/destroy`**，或者是 **Spring 容器中 Bean 的生命周期管理**。一个 Vue 实例从**在内存中被创建**，到**编译模板**、**挂载到浏览器页面上**，再到**数据变动导致重新渲染**，最后**被销毁**，整个过程就像人类的一生一样，会经历不同的“关键节点”。
+
+Vue 在这些节点上为你预留了**生命周期钩子函数（Lifecycle Hooks）**，允许你在特定的时刻自动塞入你的 Java/Axios 逻辑。
+
+### 一、 四大核心阶段与 8 个主要钩子
+
+我们将生命周期的全程拆解为四大核心阶段（每个阶段都有一个“准备前”和“完成交接后”的钩子）：
+
+#### 1. 初始化阶段（Creation）—— 内存中胚胎发育
+
+Vue 实例正在内存里初始化，此时**页面上什么都看不到**。
+
+- **`beforeCreate`**：实例刚在内存里创建，此时 Vue 最核心的 `data` 数据和 `methods` 方法**都还没初始化**，什么也干不了。
+    
+- **`created`**：极度重要！此时内存中的 `data` 和 `methods` 已经大功告成，可以正常读写变量了。
+    
+    - _全栈开发场景_：如果你不需要对 DOM 标签做调整，这时候已经可以在后台默默启动 `axios` 异步向 Java 后端发送请求拉取数据了。
+        
+
+#### 2. 挂载阶段（Mounting）—— 破土而出见浏览器
+
+Vue 准备把内存里编译好的 HTML 骨架，真正地“强行塞入”到浏览器的 DOM 树中。
+
+- **`beforeMount`**：模板已经在内存里编译好了，但是还没正式装进网页里。此时页面上你写的 `{{ message }}` 还没被翻译，还是串死文本。
+    
+- **`mounted` 🌟🌟🌟（企业全栈绝对的王牌之魂）**：**整个生命周期里使用率达 90% 的钩子。**此时，Vue 已经把写好数据的真实 HTML 节点**成功挂载、渲染到了网页上**。
+    
+    - _全栈开发场景_：正如我们前两节写的一样，**发 Ajax 请求、拿后端真实员工列表、初始化各种第三方图表插件，100% 必须写在 `mounted()` 里！** 因为只有到了这一刻，页面上的 HTML 标签才真实存在。
+        
+
+#### 3. 更新阶段（Updating）—— 数据变动，页面“变脸”
+
+只要你网页上的数据（`data` 里的变量）发生了修改，这个阶段就会被循环反复触发。
+
+- **`beforeUpdate`**：`data` 里的变量已经变成新值了，但网页上的老标签还没来得及换，两者处于脱节状态。
+    
+- **`updated`**：Vue 内部利用虚拟 DOM 算法比对完毕，网页上的 HTML 标签已经唰地一下**完成了重新渲染，变成最新的视觉效果**。
+    
+
+#### 4. 销毁阶段（Unmounting）—— 功成身退，内存释放
+
+当页面切换、或者组件利用 `v-if` 被隐藏销毁时触发。
+
+- **`beforeUnmount`**（老版本叫 `beforeDestroy`）：组件从页面移除前的一瞬间。
+    
+    - _全栈开发场景_：用来做收尾工作。比如你在页面上开了一个每隔 1 秒请求一次 Java 接口的“大屏定时器”，必须在这里手动把定时器关掉，否则组件没了定时器还在后台裸奔，会导致严重的内存泄漏。
+        
+- **`unmounted`**（老版本叫 `destroyed`）：实例彻底瓦解，所有事件监听被移除。
+    
+
+### 二、 代码实战：肉眼捕捉生命周期的“心跳”
+
+我们直接写一段好玩的监控代码，把你截图里最核心的 `created` 和 `mounted` 抓到控制台里，并看清楚它们和 Axios 数据的执行先后顺序：
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Vue 生命周期钩子全捕捉</title>
+</head>
+<body>
+
+    <div id="app">
+        <h3 id="title">当前系统状态：{{ statusMessage }}</h3>
+        <button @click="statusMessage = '数据已更新！'">修改状态触发 Update</button>
+    </div>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    statusMessage: "正在初始化..."
+                }
+            },
+            
+            // 1. 内存初始化完毕
+            created() {
+                console.log("【1. 执行了 created() 钩子】:");
+                console.log("-> 内存中的数据可以读取到了:", this.statusMessage);
+                
+                // 🚨 后端思维测试：此时去抓网页上的 h3 标签
+                let dom = document.getElementById("title");
+                console.log("-> 此时抓取网页上的h3元素结果是:", dom); // 结果会是 null！因为还没挂载呢！
+                console.log("-----------------------------------------");
+            },
+
+            // 2. 网页挂载完毕（全栈最常用的高架桥）
+            mounted() {
+                console.log("【2. 执行了 mounted() 钩子】:");
+                console.log("-> 此时抓取网页上的h3元素结果是:", document.getElementById("title")); // 完美抓到对象！
+                
+                // 模拟在这个时刻，自动执行异步 Axios 业务
+                this.statusMessage = "tlias 系统就绪，已成功连接 Spring Boot 服务端！";
+                console.log("-----------------------------------------");
+            },
+
+            // 3. 当你点击按钮改变 statusMessage 时，会自动触发以下两个钩子
+            beforeUpdate() {
+                console.log("【3. 触发 beforeUpdate】数据变了，但页面还没变");
+            },
+            updated() {
+                console.log("【4. 触发 updated】页面已经完成了重绘渲染！");
+            }
+
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+#### 运行后的控制台打印真相：
+
+1. `【1. 执行了 created() 钩子】` 触发 ➡️ 证明内存数据好了，但 DOM 节点是 `null`。
+    
+2. `【2. 执行了 mounted() 钩子】` 触发 ➡️ 成功抓到真正的网页 DOM 节点，数据渲染成功。
+    
+3. 点击按钮 ➡️ 依次打印 `beforeUpdate` 和 `updated`。
+    
+
+### 面试与开发核心死理（一句话总结）
+
+> **“在 `created` 里有数据无 DOM，在 `mounted` 里有数据有 DOM。”**
+> 
+> 作为全栈开发，记住一个铁律：**凡是涉及到调用后端接口（Axios）并需要渲染到页面上的初始化动作，不要犹豫，统统塞进 `mounted()` 里！**
+
+
+
+
+---
+---
 # Ajax
 
 
@@ -4205,6 +4347,161 @@ axios({
 </body>
 </html>
 ```
+
+---
+---
+
+
+## 补充：async和await
+
+
+![[Java Web笔记-25.png]]
+
+
+
+作为 Java 开发者，你看到这一幕绝对会狂喜。因为上一节我们写的 `axios.get().then().catch()` 这种一环扣一环的回调函数（俗称**回调地狱**），在习惯了“从上到下按顺序执行”的 Java 程序员眼里，看多了总觉得别扭。
+
+而 `async` 和 `await` 的出现，就是为了让我们**用写同步代码的爽快感，去写底层的异步网络请求**！
+
+### 一、 核心概念：它们到底是什么？
+
+这两个关键字通常是**成双成对、密不可分**的亲兄弟：
+
+1. **`async`（异步声明）**：
+    
+    - **作用**：用来修饰一个方法。只要方法前面加了 `async`，就代表告诉浏览器：“这是一个异步方法，我里面准备整点网络请求等耗时操作了！”
+        
+2. **`await`（异步等待）**：
+    
+    - **作用**：只能写在被 `async` 声明的方法内部。它放在一个异步请求（比如 Axios）前面，意思是：“后面的网络请求你给我卡住，等后端 Java 把数据安全送回来了，我拿到结果再往下走下一行。”
+        
+
+### 二、 维打击：传统 `.then()` 与 `async/await` 代码对比
+
+为了让你一眼看出为什么官方疯狂推荐它，我们把上一节的 Axios 请求拿出来做个肉眼可见的对比：
+
+#### 1. 传统的 `.then()` 写法（配置回调）
+
+```JavaScript
+methods: {
+    search() {
+        axios.get('https://web-server.itheima.net/emps/list').then((result) => {
+            // 嵌套在里面的回调函数，层级一旦变多，代码就会疯狂往右边缩进
+            this.employees = result.data.data;
+            console.log("成功拿到数据");
+        });
+    }
+}
+```
+
+#### 2. 完美的 `async / await` 写法（如同写 Java 顺序代码）
+
+```JavaScript
+methods: {
+    // 1. 在方法名前面加上 async 声明
+    async search() {
+        // 2. 在 axios 前面加上 await，直接用一个普通的变量接收返回结果！
+        // 此时，代码会在这里“等”网络请求成功，完全取代了传统的 .then() 函数
+        let result = await axios.get('https://web-server.itheima.net/emps/list');
+        
+        // 3. 拿到结果直接用，完全是在写同步代码！从上到下一目了然
+        this.employees = result.data.data;
+    }
+}
+```
+
+### 三、 绝对高频的注意警告（避坑死理）
+
+
+1. **`await` 关键字只能在 `async` 函数内部有效**。如果你在一个普通的方法里写 `await axios.get(...)`，浏览器会无情地给你抛出一个大红色的语法错误。
+    
+2. **`await` 关键字直接取代了 `.then()` 函数**，用来等待并直接获取请求成功的返回值。
+    
+
+### 后端思维小 Tips：那如果网络请求报错（比如404/500）了，怎么替代原先的 `.catch()`？
+
+在 `async/await` 写法里，捕获异常的方式回归到了最纯正的 **Java 传统老手艺——`try-catch` 代码块**：
+
+```JavaScript
+async search() {
+    try {
+        let result = await axios.get('/emps/list');
+        this.employees = result.data.data;
+    } catch (error) {
+        // 如果后端接口炸了，直接进到这里，完美取代 .catch()
+        console.error("请求 Java 后端失败：", error);
+    }
+}
+```
+
+### 终极实战演练：用最高级的姿势重构 tlias 查询
+
+我们将上一节的 Vue 3 表格查询，用今天学到的 `async/await` 进行黄金重构。让你的前端代码看起来就像是由拥有 3 年开发经验的老鸟写出来的一样优雅：
+
+
+```HTML
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>tlias 高级重构——async/await 极简实战</title>
+</head>
+<body>
+
+    <div id="app" style="padding: 20px;">
+        <h3>员工管理（async / await 异步拉取版本）</h3>
+        
+        <button @click="getEmployeeData">🔍 异步刷新员工列表</button>
+        
+        <ul>
+            <li v-for="emp in employees" :key="emp.id">
+                【ID: {{emp.id}}】 姓名: {{ emp.name }} —— 职位: {{ emp.job }}
+            </li>
+        </ul>
+    </div>
+
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <script type="module">
+        import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+        createApp({
+            data() {
+                return {
+                    employees: []
+                }
+            },
+            methods: {
+                // 🌟 用 async 关键字包装你的核心点击事件
+                async getEmployeeData() {
+                    console.log("【1】开始发起异步请求...");
+                    
+                    try {
+                        // 🌟 用 await 静静等待网络畅通，数据直接被赋值给 response
+                        let response = await axios.get('https://mock.apifox.cn/m1/3083103-0-default/emps/list');
+                        
+                        // 【2】这一行代码，绝对会等到上面接口返回后才会执行！
+                        console.log("【2】成功抓取到响应体，开始解析赋值！");
+                        this.employees = response.data.data;
+                        
+                    } catch (err) {
+                        alert("捕获到服务端异常！");
+                    }
+                    
+                    console.log("【3】方法执行完毕");
+                }
+            },
+            // 顺便在生命周期里也用 async/await，页面一加载就自动顺序执行！
+            async mounted() {
+                await this.getEmployeeData();
+            }
+        }).mount("#app");
+    </script>
+</body>
+</html>
+```
+
+掌握了 `async` 和 `await`，你在 JavaScript 异步网络通信这一块的内功已经彻底圆满。
 
 ---
 ---
