@@ -5067,10 +5067,116 @@ async search() {
 4. **等待同步**：IDEA 识别到 `pom.xml` 后，知道这是一个正规的 Maven 军规项目，会自动帮你在后台构建目录，并默默下载代码里声明的所有历史依赖。等右下角的进度条全部读取完毕，整个项目就能在你的电脑里完美跑起来！
     
 
-至此，在 IDEA 里如何让 Maven 从无到有创建、如何精确通过坐标找包、以及如何无缝导入别人的成果，你已经完全具备了实操底气。
 
 ---
 ---
 
 
 
+## 依赖管理
+
+
+Maven 的依赖管理可以用一句话概括：**统一管理项目运行所需的 jar 包，并自动帮你打理它们之间错综复杂的“亲属关系”**。
+
+在实际的工程开发（比如你以后要写的 Spring Boot 后端工程）中，依赖管理主要玩转三个核心点：**依赖配置、依赖传递、排除依赖**。我们直接来逐一盘透。
+
+### 一、 依赖配置（让项目引入 jar 包）
+
+
+![[Java Web笔记-32.png]]
+
+**依赖，指当前项目运行所需要的 jar 包，一个项目中可以引入多个依赖**。
+
+#### 极其标准的配置四步法：
+
+1. **外层包裹**：在 `pom.xml` 中编写 `<dependencies>` 标签。
+    
+2. **精准点菜**：在内部使用 `<dependency>` 引入具体某个 jar 包的坐标。
+    
+3. **三要素对齐**：定义坐标的 `groupId`、`artifactId`、`version`。
+    
+4. **刷新激活**：点击 IDEA 右上角的小圈圈刷新按钮，让 Maven 顺着阿里云镜像去下载它。
+    
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>org.springframework</groupId>
+        <artifactId>spring-context</artifactId>
+        <version>6.1.4</version>
+    </dependency>
+</dependencies>
+```
+
+> 💡 **绝招曝光**：写代码时不可能背得出这么多坐标怎么办？截图下方给出了终极解决方案：如果不知道依赖的坐标信息，可以直接去全球最大的公共索引库 **`https://mvnrepository.com/`** 搜索。在里面搜到想要的 jar 包后，直接一键复制 XML 坐标丢进 IDEA 即可。
+
+### 二、 依赖传递（隐形的“买一送一”）
+
+这是 Maven 最聪明的特性，也是初学者经常感到神奇的地方。
+
+- **什么是依赖传递**：假设你的项目（`maven-project01`）引入了 `spring-context` 包。而 Spring 官方在写 `spring-context` 时，里面又用到了 `spring-beans`、`spring-core` 以及 `micrometer-observation` 等包。
+    
+- **Maven 的做法**：当你把 `spring-context` 的坐标配好后，Maven 会自动把那一大串间接关联的 jar 包**全部顺带下载下来并导入到你的项目中**。
+    
+
+#### 优点与痛点：
+
+- **爽点**：你只需要配一个顶层包，底层几十个依赖自动配齐，免去了传统手动导包漏掉基础包导致的 `ClassNotFoundException` 惨剧。
+    
+- **痛点（大厂常遇到的坑）**：如果你的项目同时引入了 A 框架和 B 框架，而 A 框架偷偷带进来的某个日志包是 `1.0` 版本，B 框架偷偷带进来的是 `2.0` 版本，就会引发极其恶心的**依赖版本冲突**！
+    
+
+### 三、 排除依赖（老死不相往来）
+
+
+![[Java Web笔记-31.png]]
+
+当你发现依赖传递机制给你带进来了一些“不干净”或者你完全不想要的、产生冲突的间接依赖时，就轮到**排除依赖**。
+
+- **核心定义**：排除依赖指**主动断开依赖的资源**。
+    
+- **铁律规范**：被排除的资源**无需指定版本（version）**！因为你都不要它了，把它名号报出来就行，Maven 会在当前依赖链路中自动把它切断。
+    
+
+#### 语法演练：
+
+由于 `spring-context` 默认会带入 `io.micrometer:micrometer-observation`，但如果这个包和我们项目里的其他观测工具打架了，我们可以在它的 `<dependency>` 里面开辟一块 `<exclusions>` 净土：
+
+
+```XML
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-context</artifactId>
+    <version>6.1.4</version>
+    
+    <exclusions>
+        <exclusion>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-observation</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+加完这段代码并刷新后，右侧 Maven 树里的 `micrometer-observation` 就会瞬间消失，右侧那个画红叉的示意图完美展现了这个过程！
+
+### 总结进阶
+
+Maven 的依赖管理，就像是一套严密的“物资分配系统”：
+
+1. 用 `<dependency>` **精准拉货**；
+    
+2. 靠**依赖传递**实现“全家桶一键送达”；
+    
+3. 用 `<exclusion>` 对冲突的物资**无情驱逐**。
+    
+
+这一块的逻辑掌握好后，后端最让人头疼的“包版本冲突”你就已经能解决大半了。
+
+
+
+---
+---
+
+
+## 生命周期
