@@ -5289,6 +5289,19 @@ Maven 生命周期和命令的精髓在于：**它用一套固定的顺序和阶
     
 - **企业开发痛点**：一个大型企业级项目可能有上千个方法，它们错综复杂地编织在一起。如果等系统全部拼装完了再整体测试，一旦报错，你根本不知道到底是哪一行代码出了鬼。**单元测试就像是把每一个方法拆成零件，放在显微镜下单独通电测试，确保每一个基础零件都是 100% 完美的。**
     
+- **Junit介绍**：JUnit 是**Java 语言最主流的单元测试框架**，专门用来给 Java 代码写**自动化测试用例**，快速验证代码逻辑是否正确，是 Java 开发必备工具。
+	- 特点：
+	    1. **轻量简单**：上手快，几行代码就能写一个测试用例
+	    2. **自动化执行**：不用写 `main` 方法，一键运行所有测试
+		3. **断言验证**：直接判断结果是否符合预期（比如：结果等于 5、对象不为空）
+		4. **生态完善**：和 IDEA/Eclipse、Maven/Gradle、SpringBoot 无缝集成
+		5. **主流版本**：**JUnit 5（Jupiter）** 是现在的标准（淘汰了老的 JUnit 4）
+    - 作用：
+		- 测试单个方法、类的逻辑是否正确
+		- 改代码后快速回归，避免引入 bug
+		- 配合项目构建工具，自动跑测试
+
+
 
 ### 二、 单元测试的“军规级”四大核心特征
 
@@ -5341,3 +5354,291 @@ Maven 生命周期和命令的精髓在于：**它用一套固定的顺序和阶
 
 ---
 ---
+
+## 单元测试——断言
+
+
+
+在上一节，我们聊到合格的单元测试必须具备 **“Self-Validating（自我验证）”** 的特征，测试框架得自己利落地分清黑白，吐出“绿条”或“红条”。
+
+而实现自我验证的**绝对底层核心、唯一判官，就是——断言（Assertion）**！
+
+### 一、 核心概念：什么是断言？
+
+
+- **本质定义**：断言（Assertion）是**单元测试的核心组成部分，用于判定测试结果是否符合预期**。
+    
+- **白话干货**：断言就像是代码世界里的“军令状”。你作为程序员，预期这个方法执行完应该输出 $100$。那你就下一道断言：“如果实际结果是 $100$，就通关亮绿灯；如果哪怕变成 $99.9$，就立刻报错拉响红灯，证明业务逻辑写塌了！”
+    
+- **核心语法**：在主流的 JUnit 5 测试框架中，断言功能由 `org.junit.jupiter.api.Assertions` 类全权提供，里面全是一系列静态方法。
+    
+
+---
+
+### 二、 常用断言方法大盘点
+
+![[Java Web笔记-40.png]]
+
+
+
+企业开发中最常用的断言有以下 4 种：
+
+|**静态方法名**|**判别逻辑**|**适用场景**|
+|---|---|---|
+|**`assertEquals(expected, actual)`**|预期值 == 实际值|检查计算结果、状态码、字符串是否完全对等。|
+|**`assertNotEquals(unexpected, actual)`**|预期值 != 实际值|确保修改后的敏感数据（如加密后的密码）绝不能和原密码相同。|
+|**`assertTrue(actual)`**|实际值 == `true`|验证某个布尔判断（如 `isValid` 校验）必须通过。|
+|**`assertFalse(actual)`**|实际值 == `false`|验证某些非法操作（如拉黑用户的状态）必须为假。|
+
+---
+
+### 三、 纯正企业级源码实战：从业务到测试
+
+为了让你彻底看清它是怎么在 Maven 规范中跑起来的，我们直接分别编写一段**正规的业务代码**和一段**对应的单元测试断言代码**。
+
+#### 1. 业务逻辑代码（存放在 `src/main/java` 中）
+
+假设我们在 tlias 系统里写了一个负责**员工薪资计算与折扣发放**的业务组件：
+
+```Java
+package com.tlias.service;
+
+public class SalaryCalculator {
+
+    /**
+     * 根据工龄计算最终年终奖系数
+     * 法定天条：工龄大于等于 3 年，系数为 2.0；否则系数为 1.0
+     */
+    public double calculateBonusFactor(int workingYears) {
+        if (workingYears >= 3) {
+            return 2.0;
+        }
+        return 1.0;
+    }
+
+    /**
+     * 判断输入的员工邮箱格式是否合法
+     */
+    public boolean isValidEmail(String email) {
+        if (email == null) {
+            return false;
+        }
+        // 极其简陋的判断：包含 @ 符号即视为合法
+        return email.contains("@");
+    }
+}
+```
+
+#### 2. 单元测试断言代码（存放在 `src/test/java` 中） 
+
+现在，我们用 JUnit 5 搭配刚刚学到的断言静态方法，对上述两个函数进行全方位无死角的“硬核体检”：
+
+```Java
+package com.tlias.service;
+
+// 🌟 核心死理：必须手动静态导入 JUnit 5 的断言全家桶方法
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
+
+public class SalaryCalculatorTest {
+
+    // 实例化我们要测试的真实业务目标
+    private final SalaryCalculator calculator = new SalaryCalculator();
+
+    @Test
+    public void testCalculateBonusFactor() {
+        System.out.println("【测试动作开启】：正在体检年终奖系数核心算法...");
+
+        // 场景 A：老员工，工龄 5 年，预期系数应该是 2.0
+        double actualFactor1 = calculator.calculateBonusFactor(5);
+        // 断言：assertEquals( 期望值, 实际值 )
+        assertEquals(2.0, actualFactor1, "🚨 天条警告：工龄满5年的老员工年终奖系数计算错误！");
+
+        // 场景 B：新员工，工龄 1 年，预期系数绝对【不能是】 2.0
+        double actualFactor2 = calculator.calculateBonusFactor(1);
+        // 断言：assertNotEquals( 不应当出现的值, 实际值 )
+        assertNotEquals(2.0, actualFactor2, "🚨 天条警告：新员工年终奖系数竟然算成了老员工标准！");
+    }
+
+    @Test
+    public void testEmailValidation() {
+        System.out.println("【测试动作开启】：正在体检邮箱合法性校验...");
+
+        // 场景 A：输入正确的邮箱，结果应该为 true
+        boolean result1 = calculator.isValidEmail("admin@tlias.com");
+        // 断言：assertTrue( 结果必须为真 )
+        assertTrue(result1, "🚨 错误：合法的邮箱地址未能通过校验！");
+
+        // 场景 B：输入错误的邮箱，结果应该为 false
+        boolean result2 = calculator.isValidEmail("wrong-email-format");
+        // 断言：assertFalse( 结果必须为假 )
+        assertFalse(result2, "🚨 错误：非法格式的邮箱竟然蒙混过关了！");
+    }
+}
+```
+
+---
+
+### 四、 运行后的两种命运（红与绿）
+
+当你在 IDEA 里右键点击这个测试类，选择 **`Run 'SalaryCalculatorTest'`** 运行时：
+
+#### 🟢 命运一：亮起完美的“绿条”（Passed）
+
+如果你的代码完美无误，控制台会弹出一个极为舒适的**绿色对勾条**，提示 `Tests passed: 2`。这意味着所有的断言判断全部顺利通过，项目质量绝对安全。
+
+#### 🔴 命运二：惊心动魄的“红条”（Failed）
+
+假设你不小心把业务代码里的 `workingYears >= 3` 手误写成了 `workingYears > 3`。
+
+那么当测试运行到 `calculator.calculateBonusFactor(3)` 时，实际算出了 `1.0`，但你的断言硬性要求 `assertEquals(2.0, ...)`。
+
+此时，IDEA 会瞬间拉响**大红色的高能警报**，控制台会详细输出错误报告：
+
+```Plaintext
+Expected : 2.0
+Actual   : 1.0
+Message  : 🚨 天条警告：工龄满3年的员工年终奖系数计算错误！
+```
+
+这就是断言的终极威力！它不需要你用肉眼去看、去猜，它会在流水线上死死卡住每一个方法的运行界限。
+
+---
+
+### 思考：测试运行不报错不就代表代码没问题吗，还要断言干嘛
+
+
+这个问题一针见血，直碎了单元测试最底层的秘密！
+
+很多初学者都会有这个直觉：**“我点一下运行，IDEA 只要没抛出红色的报错异常，最后条子变绿了，不就说明我的代码成功跑通了吗？为什么非要多此一举去写断言？”**
+
+其实，这里的“成功”藏着一个巨大的思维陷阱：**IDEA 亮绿灯，只代表代码“顺利执行完了”，并不代表它“算出的结果是对的”。**
+
+如果不写断言，你的单元测试将彻底失去**灵魂**。我们用一个最典型的企业级车祸现场来拆解这个底层逻辑。
+
+#### 一、 没有断言的“假成功”（自欺欺人）
+
+假设你在开发系统时，写了一个核心的**计算员工应发工资**的方法。结果因为熬夜犯困，不小心把加法写成了减法：
+
+##### 1. 悲剧的业务代码（Bug 潜伏）
+
+```Java
+public class SalaryService {
+    /**
+     * 核心业务：计算总薪资 = 基本工资 + 奖金
+     */
+    public double calculateTotalSalary(double base, double bonus) {
+        // 🚨 笔误！把 “+” 错写成了 “-”
+        return base - bonus; 
+    }
+}
+```
+
+##### 2. 不写断言的测试代码（自嗨式绿条）
+
+现在你来对它进行单元测试。如果你不写断言，只是把方法调用一下，打印个日志：
+
+```Java
+import org.junit.jupiter.api.Test;
+
+public class SalaryServiceTest {
+    private final SalaryService service = new SalaryService();
+
+    @Test
+    public void testCalculateTotalSalary() {
+        // 调用方法，基本工资 10000，奖金 3000
+        double result = service.calculateTotalSalary(10000, 3000);
+        
+        // 打印看看
+        System.out.println("计算出的总薪资是: " + result); 
+        // 屏幕上会输出：7000.0
+    }
+}
+```
+
+##### 此时会发生什么？
+
+当你点击运行这个测试时，IDEA 页面会弹出一个**无比完美的绿色对勾（Passed）**！
+
+- **为什么是绿色？** 因为对 JVM 来说，`10000 - 3000 = 7000` 是一个完全合法的数学运算，它既没有让内存溢出，也没有抛出空指针异常（NullPointerException），代码顺畅地从头走到了尾。
+    
+- **代价是什么？** 如果你看到绿条就以为项目成功了，直接打包部署上线。到了发工资那天，员工就会提着刀来找你——明明人家应得 13000，系统却因为你的 Bug 算成了 7000！
+    
+
+> **核心结论一：**
+> 
+> 框架默认的“绿条”，仅仅代表你的代码**“没有崩溃”**（No Exception），却无法保证你的**“业务逻辑正确”**。
+
+#### 二、 加上断言：让测试具备“正邪判别力”
+
+断言的本质，就是把“程序员脑子里的预期”写成白纸黑字的法律契约，强行加给测试框架，让它不仅检查代码崩不崩，更检查算出来的数对不对。
+
+我们把上面的测试代码加上断言：
+
+```Java
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+public class SalaryServiceTest {
+    private final SalaryService service = new SalaryService();
+
+    @Test
+    public void testCalculateTotalSalary() {
+        // 1. 执行业务
+        double result = service.calculateTotalSalary(10000, 3000);
+        
+        // 2. 施加断言：我以人格担保，10000 + 3000 必须等于 13000！
+        // assertEquals( 预期值, 实际算出来的值 )
+        assertEquals(13000.0, result, "🚨 严重生产事故：员工薪资计算逻辑有误！");
+    }
+}
+```
+
+##### 此时运行的结果：
+
+这时候，因为你的业务代码算出来的是 `7000.0`，而断言死死卡住必须是 `13000.0`。
+
+即使你的代码运行得再流畅，JUnit 也会无情地**一巴掌把绿条拍变红**！
+
+Plaintext
+
+```
+❌ Test failed: testCalculateTotalSalary()
+   Expected : 13000.0
+   Actual   : 7000.0
+   Message  : 🚨 严重生产事故：员工薪资计算逻辑有误！
+```
+
+看着这个红条，你就能在发布上线前，精准地在本地把那个 `base - bonus` 改回 `base + bonus`。修改后再次运行，断言成功，这时亮起的**绿条**，才是**真正代表逻辑无误的“真成功”**。
+
+#### 三、 为什么大厂必须强推断言？（自动化构建的刚需）
+
+你可能会想：“那我调用完方法，不写断言，自己用眼睛盯着控制台打印出的 `7000.0`，不也能看出算错了吗？”
+
+人脑肉眼排查，在小项目里看似可行，但到了**自动化工程化**时代就会彻底瘫痪：
+
+1. **无法肉眼应付海量测试**：一个企业级项目有 2000 个测试用例。如果用 `System.out.println` 打印，控制台会刷出几十万行日志。没有任何一个程序员能用肉眼在几万行日志里挑出哪个数据算错了。
+    
+2. **为了配合 Maven 流水线自动化**：我们在上一节学过，项目在打包部署前会自动跑 `mvn test`。服务器在云端自动编译和打包时，**可没有程序员坐在屏幕前盯着看控制台打印的内容**。
+    
+
+服务器全靠**断言的红绿信号**来识别项目质量：
+
+- 所有的断言都通过（全绿） ➡️ 允许打包上线。
+    
+- 只要有任何一个断言失败（报红） ➡️ 流水线立刻熔断，拒绝发布，打回重写。
+    
+
+
+> - **不加断言的绿条**：只代表代码 **“活着跑完了”** ，不代表 **“算对数了”** 。
+>     
+> - **加了断言的绿条**：代表代码 **“既活着跑完了，且结果百分之百符合预期”** 。
+>     
+> - **断言的价值**：干碎人肉眼看日志的低效方式，实现全自动的、逻辑级别的代码质量防御。
+
+
+---
+---
+
+## 单元测试——Junit常见注解
