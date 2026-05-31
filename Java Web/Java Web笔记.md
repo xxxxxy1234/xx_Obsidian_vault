@@ -5644,3 +5644,138 @@ Plaintext
 ## 单元测试——Junit常见注解
 
 
+
+在实际编写企业级单元测试时，我们经常会遇到这样的**刚需场景**：
+
+- 每次测试开始前，必须先自动连接数据库或初始化一套 mock 数据。
+    
+- 整个测试类运行结束了，必须统一关闭文件流或断开 Redis 连接。
+    
+- 某个测试方法由于后端接口还在调整，暂时需要跳过，不参与打包构建。
+    
+
+如果全靠人肉去每个方法里复制粘贴这些前置/后置代码，不仅臃肿，还容易漏掉。**JUnit 的这一组生命周期注解，就是为了让你像写配置一样，优雅地控制测试方法的执行顺序。**
+
+### 一、 JUnit 5 常用注解核心盘点
+
+
+![[Java Web笔记-41.png]]
+
+
+JUnit 5 最核心的 5 个注解分工如下：
+
+|**注解名**|**执行时机与频次**|**纯正后端白话类比**|**核心用途**|
+|---|---|---|---|
+|**`@Test`**|被修饰的方法是一个**测试方法**。|**核心业务**|实际跑断言、测逻辑的地方。|
+|**`@BeforeEach`**|在**每一个** `@Test` 方法执行**之前**都会执行一次。|**游戏每局前的“加载”**|重新初始化变量、清空临时数据。|
+|**`@AfterEach`**|在**每一个** `@Test` 方法执行**之后**都会执行一次。|**游戏每局后的“清算”**|擦干净战场，还原测试现场。|
+|**`@BeforeAll`**|在当前测试类的**所有**测试方法执行**之前**只执行一次。|**开机启动**|耗时的大型初始化（如开数据库连接池）。|
+|**`@AfterAll`**|在当前测试类的**所有**测试方法执行**之后**只执行一次。|**关机断电**|彻底释放大资源（如关闭数据库连接）。|
+
+> 🚨 **全栈避坑天条（初学者必踩）**：
+> 
+> **`@BeforeAll` 和 `@AfterAll` 修饰的方法，必须声明为静态方法（`static`）！** 因为它们是在测试类对象还没被实例化之前/之后触发的，必须由类直接调用。
+
+### 二、 工业级源码实战：用生命周期接管测试
+
+为了让你肉眼看清它们的执行先后顺序，我们直接模拟一个正规的**企业级“员工缓存服务”体检测试类**。
+
+这段代码严格遵循 Maven 的 `src/test/java` 规范，把这 5 个注解编织在同一个类里：
+
+```Java
+package com.tlias.service;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+// 🌟 核心死理：全部引入 JUnit 5 (Jupiter) 体系的注解
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+public class EmployeeCacheTest {
+
+    // ==================== 1. 全局生命周期（只跑一次） ====================
+
+    @BeforeAll
+    public static void initGlobalResource() {
+        // 🚨 必须是 static 静态方法！
+        System.out.println(">>> 🚀 【@BeforeAll】全局初始化：成功连接到外部 Redis 缓存服务器（只此一次）");
+    }
+
+    @AfterAll
+    public static void clearGlobalResource() {
+        // 🚨 必须是 static 静态方法！
+        System.out.println(">>> 🛑 【@AfterAll】全局销毁：断开 Redis 服务器连接，释放内存资源（只此一次）");
+    }
+
+    // ==================== 2. 方法级生命周期（每局必跑） ====================
+
+    @BeforeEach
+    public void setUp() {
+        System.out.println("  -> 🟢 【@BeforeEach】准备工作：为当前测试用例注入全新的 Mock 员工数据");
+    }
+
+    @AfterEach
+    public void tearDown() {
+        System.out.println("  -> 🧹 【@AfterEach】清理现场：清空本轮测试产生的临时脏数据");
+        System.out.println("----------------------------------------------------------------");
+    }
+
+    // ==================== 3. 真实的测试核心核心业务 ====================
+
+    @Test
+    public void testCacheSave() {
+        System.out.println("    [ ⚡ 执行测试 1 ] 正在验证：员工数据能否成功写入缓存...");
+        String cacheData = "Emp_001_Data";
+        
+        // 施加断言
+        assertNotNull(cacheData, "缓存数据不能为 null！");
+    }
+
+    @Test
+    public void testCacheDelete() {
+        System.out.println("    [ ⚡ 执行测试 2 ] 正在验证：删除缓存后数据是否彻底清空...");
+        boolean isDeleted = true;
+        
+        // 施加断言
+        assertTrue(isDeleted, "删除缓存逻辑未返回成功状态！");
+    }
+}
+```
+
+### 三、 运行后的控制台：肉眼捕捉生命周期交响乐
+
+当你在 IDEA 里右键运行这个测试类时，控制台输出的日志会把这张生命周期图的执行流完美复现出来：
+
+Plaintext
+
+```
+>>> 🚀 【@BeforeAll】全局初始化：成功连接到外部 Redis 缓存服务器（只此一次）
+
+  -> 🟢 【@BeforeEach】准备工作：为当前测试用例注入全新的 Mock 员工数据
+    [ ⚡ 执行测试 1 ] 正在验证：员工数据能否成功写入缓存...
+  -> 🧹 【@AfterEach】清理现场：清空本轮测试产生的临时脏数据
+----------------------------------------------------------------
+  -> 🟢 【@BeforeEach】准备工作：为当前测试用例注入全新的 Mock 员工数据
+    [ ⚡ 执行测试 2 ] 正在验证：删除缓存后数据是否彻底清空...
+  -> 🧹 【@AfterEach】清理现场：清空本轮测试产生的临时脏数据
+----------------------------------------------------------------
+
+>>> 🛑 【@AfterAll】全局销毁：断开 Redis 服务器连接，释放内存资源（只此一次）
+```
+
+#### 深度复盘这个心跳轨迹：
+
+- 类一加载，`@BeforeAll` 一马当先，帮我们把最重的网络连接架设好。
+    
+- 只要遇到一个带有 `@Test` 的方法，`@BeforeEach` 和 `@AfterEach` 就会像贴身保镖一样，一前一后把它夹在中间精心伺候。哪怕类里有 100 个测试方法，这对保镖就会反复执行 100 次。
+    
+- 所有任务圆满完成，`@AfterAll` 出来收尾，优雅关灯拔电源。
+    
+---
+---
+
+
+
