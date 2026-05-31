@@ -6569,6 +6569,8 @@ HTTP 协议有三个最重要的底层特征。作为后端开发，未来的很
 
 `http://localhost:8080/hello?name=Heima`
 
+![[Java Web笔记-53.png]]
+
 1. **网络连接**：浏览器顺着 `http://localhost:8080` 通过 **TCP 协议** 找到了你用 `main` 方法跑起来的内嵌 Tomcat 服务器。
     
 2. **发起请求**：浏览器根据 **HTTP 协议的规则**，将请求封装好发送给后端。
