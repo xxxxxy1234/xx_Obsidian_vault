@@ -6581,3 +6581,120 @@ HTTP 协议有三个最重要的底层特征。作为后端开发，未来的很
 ---
 ---
 
+
+## 请求协议
+
+
+
+### 模块一：解剖 HTTP 请求数据格式
+
+无论是浏览器点回车，还是前端发异步请求，送上门的请求数据包必定由**三部分**组成。我们来逐一拆解：
+
+![[Java Web笔记-48.png]]
+
+#### 1. 请求行（Request Line）—— 数据的“排头兵”
+
+位于请求数据的**第一行**。它交代了三个最基本的信息：
+
+> 示例：`GET /brand/findAll?name=OPPO&status=1 HTTP/1.1`
+
+- **请求方式**：告诉后端动作类型（如 `GET` 或 `POST`）。
+    
+- **资源路径**：请求服务器的哪个接口（`/brand/findAll`），后面可能携带问号 `?` 拼接的参数。
+    
+- **协议版本**：通常是固定的 `HTTP/1.1`。
+    
+
+##### 面试高频：GET 和 POST 请求方式的核心区别
+
+- **GET**：请求参数**直接挂在请求行的 URL 后面**。由于浏览器地址栏有长度限制，所以 GET 请求传递的数据大小有限制，且参数暴露在地址栏，不适合传密码等敏感信息。没有“请求体”。
+    
+- **POST**：请求参数**存放在请求体（Body）中**。参数不会暴露在地址栏，且传输大小没有限制，适合上传大文件、提交表单或复杂的 JSON 对象。
+    
+
+#### 2. 请求头（Request Headers）—— 数据的“附带属性”
+
+![[Java Web笔记-49.png|697]]
+
+从**第二行开始**直到空行结束，格式为 `Key: Value` 的键值对。它们是浏览器带给后端的“额外小情报”。对照你的第二张截图，最常用的几个必须死记硬背：
+
+- **`Host`**：你要请求的服务器主机名和端口号（如 `localhost:8080`）。
+    
+- **`User-Agent`**：浏览器的“身份证”，告诉后端当前是用 Chrome、Edge 还是手机浏览器访问的。
+    
+- **`Accept`**：浏览器告诉后端：“我能接收什么格式的返回结果”（如 `text/html`, `application/json`）。
+    
+- **`Content-Type`**：**（极重要，通常伴随POST）** 告诉后端，当前请求体里带过来的数据是什么格式。例如 `application/json` 代表是个 JSON 字符串。
+    
+- **`Content-Length`**：请求体的大小（单位：字节）。
+    
+
+#### 3. 请求体（Request Body）—— 数据的“正文”
+
+- 紧跟在空行后面（空行用于隔离请求头和请求体）。
+    
+- **只有 POST/PUT 等请求才有**。如图三的绿色高亮部分，存放的是真正要提交给后端的复杂业务数据：`{"status":1, "brandName":"黑马", ...}`。
+    
+
+### 模块二：后端如何获取 HTTP 请求数据？
+
+现在前端数据通过网络发过来了，我们在 Java 中该怎么把它们捞出来呢？
+
+一个底层的关键对象：**`HttpServletRequest`**。它是 Java Web 标准（Servlet 规范）中专门用来**封装 HTTP 请求所有数据**的超级对象。当请求到达 Spring Boot 时，Spring 会把这个对象自动注入到你的方法参数里。
+
+
+#### 1. 核心代码清单与 API 对比
+
+```Java
+@RestController
+@RequestMapping("/request")
+public class RequestController {
+
+    @RequestMapping("/test")
+    public String request(HttpServletRequest request) {
+        
+        // 1. 获取请求方式（GET/POST）
+        String method = request.getMethod(); 
+        System.out.println("请求方式：" + method); // 输出: GET
+
+        // 2. 获取请求的完整 URL 地址
+        String url = request.getRequestURL().toString(); 
+        System.out.println("请求URL地址：" + url); // 输出: http://localhost:8080/request/test
+
+        // 3. 获取请求的 URI 资源路径（不带域名和端口）
+        String uri = request.getRequestURI(); 
+        System.out.println("请求URI地址：" + uri); // 输出: /request/test
+
+        // 4. 获取请求行中拼接的原始查询参数字符串
+        String queryString = request.getQueryString();
+        System.out.println("查询参数字符串：" + queryString); // 输出: name=itheima
+
+        // 5. 获取指定的请求头信息
+        String acceptHeader = request.getHeader("Accept");
+        System.out.println("Accept请求头：" + acceptHeader);
+
+        return "OK";
+    }
+}
+```
+
+#### 2. 划重点：`URL` 和 `URI` 的区别
+
+这是非常容易混淆的一点，在开发和面试中极其常用：
+
+- **`URL` (Uniform Resource Locator，统一资源定位符)**：指的是互联网上的**绝对路径**，带有协议、域名和端口。就像是“中国北京市海淀区XX路XX号”。
+    
+    - 对应代码：`request.getRequestURL()` ➔ 结果如 `http://localhost:8080/request`
+        
+- **`URI` (Uniform Resource Identifier，统一资源标识符)**：指的是除去域名和端口后的**资源相对路径**。就像是“XX路XX号”。
+    
+    - 对应代码：`request.getRequestURI()` ➔ 结果如 `/request`
+        
+
+---
+---
+
+
+## 响应协议
+
+
