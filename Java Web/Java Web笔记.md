@@ -6175,3 +6175,236 @@ public class EmpServiceTest {
 ---
 
 
+# Spring Boot
+
+
+## 概述
+
+### 一、 鸟瞰 Spring 家族：它由什么组成？
+
+Spring 并不是一个单一的框架，而是一个庞大的**生态系统**，涵盖了从企业级开发、安全认证到微服务、大数据的方方面面。以下是 Java Web 开发中最核心的四大成员：
+
+|**成员名称**|**核心职责与定位**|**形象比喻**|
+|---|---|---|
+|**Spring Framework**|整个家族的**基石**，提供最底层的容器、依赖注入（DI）和面向切面编程（AOP）。|汽车的底盘与发动机|
+|**Spring MVC**|专门用来做 **Web 开发**的经典框架，负责处理 HTTP 请求、路由和响应。|汽车的控制台与方向盘|
+|**Spring Boot**|现代 Java 开发的**绝对核心**。它不是新框架，而是对上述框架的“脚手架”封装，旨在简化配置。|汽车的自动挡与一键启动|
+|**Spring Cloud**|专门用于**微服务架构**的工具集（处理服务注册、发现、配置中心、网关等）。|高速公路上的交通指挥系统|
+
+此外，家族中还有负责安全认证的 **Spring Security**、负责数据访问的 **Spring Data** 等。
+
+
+![[Java Web笔记-44.png]]
+
+#### 为什么说 Spring Framework 是基石？
+
+要学好 Spring，必须理解它的两大核心思想：
+
+1. **IoC/DI（控制反转/依赖注入）：** 以前我们要用一个对象，得自己 `new`。现在所有对象（在 Spring 里叫 **Bean**）都交给 Spring 容器来管理，你需要什么，Spring 就给你注入（Inject）什么。这实现了代码的**解耦**。
+    
+2. **AOP（面向切面编程）：** 把一些与业务无关，但很多地方都要用的功能（比如日志记录、事务管理、权限控制）抽离出来，在不修改原代码的情况下，动态地“织入”到业务方法中。
+    
+
+### 二、 重点攻克：为什么要用 Spring Boot？
+
+在没有 Spring Boot 的年代（也就是传统的 SSM 时代：Spring + Spring MVC + MyBatis），开发一个简单的 "Hello World" 网页都需要配置大量的 XML 文件、手动配置 Tomcat 服务器、处理繁琐的 Maven 依赖冲突。
+
+Spring Boot 的出现彻底改变了这一切，它的核心灵魂就是：**约定优于配置（Convention over Configuration）**。
+
+#### 1. Spring Boot 的三大核心杀手锏
+
+- **自动配置（Auto-Configuration）：**
+    
+    Spring Boot 非常“聪明”。当它发现你的项目依赖里引入了 `spring-boot-starter-web`，它就会自动帮你把 Spring MVC 锁需要的配置全部配好；如果发现了 MySQL 的驱动包，它就会自动去准备数据库连接池。你不需要写长篇大论的 XML，它猜你想要什么，并帮你做好了默认设置。
+    
+- **起步依赖（Starter POMs）：**
+    
+    以前引入依赖要写一堆，还要担心版本冲突。现在 Spring Boot 把各种功能打包成了统一的“开箱即用”单元，叫做 **Starter**。
+    
+    - 想做 Web 开发？引入 `spring-boot-starter-web`
+        
+    - 想连数据库？引入 `mybatis-spring-boot-starter`
+        
+        所有的版本号都由 Spring Boot 统一管理，再也不会发生依赖冲突的惨剧。
+        
+- **内嵌 Servlet 容器：**
+    
+    传统的 Web 项目需要打包成 `war` 包，然后手动下载并配置一个外部的 Tomcat 服务器才能运行。而 Spring Boot 内部**直接集成了 Tomcat/Jetty**。你的项目最终会打包成一个普通的 `jar` 包，直接运行 `java -jar xxx.jar` 就能跑起来，极其方便部署。
+    
+
+### 三、 Spring Boot 项目的长相与核心组件
+
+当你初始化一个 Spring Boot 项目后，你会发现它的结构非常清晰。一个典型且规范的后端工程通常包含以下几层：
+
+#### 1. 经典的三层架构（MVC 落地）
+
+- **Controller 层（控制层/表现层）：** 负责接收前端发来的 HTTP 请求，调用业务层处理，最后把结果返回给前端（现在通常返回 JSON 数据）。
+    
+- **Service 层（业务逻辑层）：** 编写核心业务逻辑的地方，比如计算价格、处理用户注册流程。
+    
+- **Mapper 层 / DAO 层（数据访问层）：** 负责和数据库（如 MySQL）打交道，执行 SQL 语句（配合 MyBatis 或 JPA）。
+    
+
+#### 2. 常用核心注解（必须烂熟于心）
+
+在 Spring Boot 中，我们几乎不再写配置文件，全靠**注解**来告诉框架该怎么做：
+
+```Java
+@RestController // 声明这是一个支持RESTful风格的Controller，返回值会自动转为JSON
+@RequestMapping("/user") // 映射请求路径
+public class UserController {
+
+    @Autowired // 自动注入：让Spring把底层的UserService实例塞进来
+    private UserService userService;
+
+    @GetMapping("/{id}") // 处理GET请求，获取用户数据
+    public User getUserById(@PathVariable Long id) {
+        return userService.findById(id);
+    }
+}
+```
+
+- `@SpringBootApplication`：贴在主类上，是整个项目的启动入口，它包含了自动配置和组件扫描的功能。
+    
+- `@Component`、`@Service`、`@Repository`：告诉 Spring 容器，“我是一个 Bean，快把我管理起来”。
+    
+
+### 四、 给你的 Java Web 学习路线建议
+
+既然你的目标很明确，是为了以后能高效地做项目和顺利就业，建议不要在传统的 XML 配置（比如老旧的 SSH 或纯 SSM 整合）上浪费太多时间。
+
+1. **基础打牢：** 确保你的 Java 基础（集合、异常处理、反射、面向对象思想）过关，理解 Maven 怎么管理依赖。
+    
+2. **理解核心：** 动手用 Spring Boot 跑一个 "Hello World"。虽然不用写 XML，但一定要通过 debug 搞懂什么是 **IoC（控制反转）** 和 **AOP（面向切面）**。
+    
+3. **数据联动：** 学习 **Spring Boot + MyBatis-Plus + MySQL** 的组合。这是国内目前最主流、写起来最爽快的数据持久化方案。
+    
+4. **前后端分离：** 现在的企业项目基本都是前后端分离。重点练习写 **RESTful API**，学会用统一的 JSON 格式（如自定义的 `Result<T>` 类）给前端返回数据。
+    
+5. **周边生态：** 顺着项目需求，逐渐引入 Redis（缓存）、Spring Security / JWT（登录认证与权限控制）。
+    
+
+---
+---
+
+
+## 入门程序
+
+
+![[Java Web笔记-45.png]]
+
+下面我将完全基于你截图中展示的经典案例，为你重现这个小练习，并采用**最符合日常开发规范**的 IDEA 代码结构进行详细拆解
+
+### 1. 第一步：在 IDEA 中创建标准的项目结构
+
+在 IntelliJ IDEA 中，使用 **Spring Initializr（或者叫Spring Boot）** 创建工程并勾选 **Spring Web** 依赖后，IDEA 会自动为你生成一套标准的 Maven 包结构。
+
+为了让项目更加规范，我们需要把控制层（Controller）单独放到一个包里。请在 IDEA 中建立如下的目录结构：
+
+
+```Plaintext
+my-springboot-demo
+├── src
+│   ├── main
+│   │   ├── java
+│   │   │   └── com
+│   │   │       └── example
+│   │   │           └── demo
+│   │   │               ├── DemoApplication.java       <-- 自动生成的主启动类
+│   │   │               └── controller                 <-- 手动新建的包，存放控制器
+│   │   │                   └── HelloController.java   <-- 手动新建的业务代码类
+│   │   └── resources
+│   │       ├── static                                 <-- 存放静态资源（如 html, css）
+│   │       ├── templates                              <-- 存放模板文件
+│   │       └── application.properties                 <-- 核心配置文件（如修改端口）
+└── pom.xml                                            <-- Maven 依赖管理配置文件
+```
+
+> ⚠️ **新手踩坑注意（大忌）：**
+> 
+> `HelloController.java` **必须**放在主启动类 `DemoApplication.java` 所在的包或其**子包**（如上面的 `controller` 包）下！如果把它移动到与 `com.example.demo` 平级甚至更外层的地方，Spring Boot 将无法自动扫描到该注解，从而导致访问时报 `404` 错误。
+
+### 2. 第二步：编写完整的核心代码
+
+在这个入门程序中，我们只需要关注两个 Java 类。
+
+#### ① 主启动类（创建项目时 IDEA 已自动生成，无需修改）
+
+
+```Java
+package com.example.demo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication // 核心注解：标识这是一个Spring Boot应用，并自动开启组件扫描
+public class DemoApplication {
+    public static void main(String[] args) {
+        // 启动内置的 Tomcat 服务器并初始化 Spring 容器
+        SpringApplication.run(DemoApplication.class, args);
+    }
+}
+```
+
+#### ② 业务控制类（手动在 `controller` 包下创建）
+
+请完全对照你截图中的逻辑编写如下代码：
+
+
+```Java
+package com.example.demo.controller;
+
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController // 标识当前类是一个请求处理类（Controller），返回值会自动转为数据返回给浏览器
+public class HelloController {
+
+    @RequestMapping("/hello") // 标识请求路径，把浏览器的 /hello 路径映射到这个方法上
+    public String hello(String name) {
+        // 在 IDEA 控制台中打印接收到的参数，便于后端排查日志
+        System.out.println("HelloController ... hello : " + name);
+        
+        // 返回给前端浏览器的字符串内容
+        return "Hello " + name + " ~ ";
+    }
+}
+```
+
+### 3. 第三步：代码与原理深度拆解
+
+为了让你真正掌握，我们把这段看似简单的代码拆开来看：
+
+1. **`@RestController` 的魔力**：
+    
+    在传统的 Spring MVC 网页开发中，方法返回 `"hello"` 通常意味着框架会去寻找一个叫 `hello.html` 或 `hello.jsp` 的页面。而现在进入了**前后端分离**时代，我们使用 `@RestController` 告诉 Spring：_“我这里不需要返回任何网页，方法返回的是什么字符串/对象，你就直接把它们塞进 HTTP 响应体里塞给前端。”_
+    
+2. **`@RequestMapping("/hello")` 的路由**：
+    
+    它就像是一个路标。当外部用户的浏览器访问服务器的 `/hello` 节点时，Tomcat 会在第一时间抓住这个请求，并交给带有匹配注解的 `hello()` 方法去处理。
+    
+3. **参数的自动绑定 `(String name)`**：
+    
+    这是 Spring Boot 非常智能的一个体现。如果你在浏览器访问时传入了参数（例如 `?name=Heima`），Spring Boot 会通过反射机制，**自动调取同名参数的值**注入到该方法的 `name` 变量中，完全不需要你手动写 `request.getParameter("name")` 这种繁琐的代码。
+    
+
+### 4. 第四步：运行与验证
+
+1. **启动应用**：回到 `DemoApplication.java` 类中，点击 `main` 方法左侧的**绿色小三角**启动项目。
+    
+2. **查看控制台**：当看到控制台打印出类似 `Tomcat started on port 8080 (http) with context path ''` 以及 `Started DemoApplication in ... seconds` 时，说明内置的 Tomcat 已经在后台成功跑起来了，默认端口为 **8080**。
+    
+3. **浏览器测试**：打开浏览器，在地址栏输入：
+    
+    `http://localhost:8080/hello?name=Heima`
+    
+4. **验证结果**：
+    
+    - **网页显示**：浏览器页面会输出：`Hello Heima ~`
+        
+    - **IDEA 控制台**：切回 IDEA，控制台会打印出：`HelloController ... hello : Heima`
+        
+
+---
+---
+
