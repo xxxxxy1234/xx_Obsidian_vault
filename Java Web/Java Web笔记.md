@@ -5072,6 +5072,157 @@ async search() {
 ---
 
 
+## Maven常见问题和解决方法
+
+
+### 一、 核心痛点 1：Maven 依赖包/插件下载失败（爆红线）
+
+#### 报错表现
+
+在 `pom.xml` 里引入一个依赖，或者在右侧 Maven 面板的 Plugins 目录里，**整行代码疯狂拉起红线**，提示：`Dependency 'xxx' not found` 或者 `Plugin 'xxx' not found`。
+
+#### 报错根源
+
+1. **网络抽风**：没有配置国内阿里云镜像，Maven 傻傻地去连海外中央仓库，结果超时断开，下载了一半的 jar 包直接损坏。
+    
+2. **IDEA 反应迟钝**：有时候网络已经好了，但 IDEA 内部的索引还没有刷新，依然固执地报错。
+    
+
+#### 解决方案（三步递进神功）
+
+##### 第一步：检查并锁死国内阿里云镜像
+
+去检查你的 Maven 安装目录下的 `conf/settings.xml`，确保在 `<mirrors>` 标签里老老实实配好了阿里云，这是飙速下载的底座：
+
+```XML
+<mirror>
+    <id>alimaven</id>
+    <name>aliyun maven</name>
+    <url>https://maven.aliyun.com/repository/public</url>
+    <mirrorOf>central</mirrorOf>
+</mirror>
+```
+
+##### 第二步：IDEA 强行刷新（依赖一键复活）
+
+在 IDEA 界面，点击右侧的 **`Maven`** 面板。不要只点那个普通的刷新圈圈，试试这套强力组合拳：
+
+- 点击左上角的 **`Reload All Maven Projects`（重新加载所有项目）**。
+    
+- 如果还不动，右键点击项目根目录 ➡️ `Maven` ➡️ `Generate Sources and Update Folders`。
+    
+
+##### 第三步：终极绝招——人肉清理 `.lastUpdated` 损坏文件
+
+如果还是爆红，说明你的本地仓库（`mvn_repo`）里已经下载了一半的垃圾文件。只要这个垃圾文件在，Maven 就会误以为已经下过了，永远不会重新下载。
+
+1. 关闭 IDEA。
+    
+2. 找到你的本地仓库文件夹（如 `D:\develop\apache-maven-3.9.4\mvn_repo`）。
+    
+3. 在该文件夹的搜索框中输入：`.lastUpdated`。
+    
+4. **把搜出来的所有以 `.lastUpdated` 结尾的文件全部一把无情删除！**
+    
+5. 重新打开 IDEA，点击 Maven 刷新，你会看到进度条重新疯狂飙升，红线瞬间变白！
+    
+
+### 二、 核心痛点 2：Plugins（插件）加载失败，打包时报错
+
+#### 报错表现
+
+在右侧 Maven 的 `Plugins` 列表里，某个核心插件（如 `maven-compiler-plugin` 或 `spring-boot-maven-plugin`）显示红线，执行 `package` 时直接弹出一大堆英文报错。
+
+#### 报错根源
+
+Maven 项目在执行编译、打包、测试等生命周期时，底层全靠这些插件干活。如果这些插件本身的版本没有和你的 Maven 版本或者 JDK 版本对齐，或者插件包损坏，流水线就会直接瘫痪。
+
+#### 解决方案
+
+##### 方案 A：在 `pom.xml` 中强行锁死插件版本
+
+不要让 Maven 去盲盒乱猜插件版本，直接在 `pom.xml` 的 `<build>` 标签里显式指定一个与你当前 Spring Boot 或 JDK 匹配的稳定版本：
+
+```XML
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.11.0</version>
+            <configuration>
+                <source>17</source> <target>17</target>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+##### 方案 B：强制清除插件缓存
+
+在 IDEA 的终端（Terminal）里，直接手敲一行底层原生的强制下载命令，绕过 IDEA 的界面限制：
+
+```Bash
+mvn clean install -U
+```
+
+> **`-U` 的硬核含义**：强制 Maven 去远程仓库检查并更新所有的快照和插件，专门用来对付不听话的损坏插件。
+
+### 三、 核心痛点 3：编译版本不一致（Java: 错误: 不支持发行版本 xxx）
+
+#### 报错表现
+
+点击运行或者编译项目时，下方控制台啪地弹出一行刺眼的红字：
+
+`🔑 Java: 错误: 不支持发行版本 17` 或者 `🔑 Error:java: 无效的源发行版: 21`。
+
+#### 报错根源
+
+这是典型的“多头管理，版本打架”灾难。你电脑里可能装了 JDK 8、JDK 11 和 JDK 17，而 IDEA 里的各种配置指得乱七八糟。项目编译时，A 配置说是 JDK 17，B 配置说是 JDK 8，JVM 直接当场懵圈罢工。
+
+#### 解决方案（全面地毯式对齐）
+
+要根治这个问题，必须在 IDEA 里死死**卡统一以下 4 个地方的 JDK 版本**（以 JDK 17 为例）：
+
+##### 1. 项目级别的 JDK（Project SDK）
+
+点击 `File ➡️ Project Structure ➡️ Project`：
+
+- 将 **`SDK`** 选为你的真实 JDK 17。
+    
+- 将 **`Language level`（语言级别）** 严格选为 `17 - SDK Default`。
+    
+
+##### 2. 模块级别的 JDK（Modules）
+
+依然在 `Project Structure` 窗口中，切换到 `Modules`：
+
+- 选中你的项目模块，确保其中的 **`Language level`** 同样是 `17`。
+    
+
+##### 3. Java 编译器的版本（Java Compiler）
+
+点击 `File ➡️ Settings ➡️ Build, Execution, Deployment ➡️ Compiler ➡️ Java Compiler`：
+
+- 在下方找到你的项目名称，将后面的 **`Target bytecode version`（目标字节码版本）** 手动改成 `17`。
+    
+
+##### 4. Maven 自身的配置文件硬锁定（一劳永逸）
+
+为了防止 IDEA 每次刷新又把你改好的配置重置，最王道的做法是在 `pom.xml` 里用属性标签死死焊死：
+
+```XML
+<properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+</properties>
+```
+
+
+
+---
+---
 
 ## 依赖管理
 
@@ -5173,6 +5324,86 @@ Maven 的依赖管理，就像是一套严密的“物资分配系统”：
 
 这一块的逻辑掌握好后，后端最让人头疼的“包版本冲突”你就已经能解决大半了。
 
+
+---
+---
+
+
+## 依赖范围
+
+
+![[Java Web笔记-42.png]]
+
+在实际的企业级后端开发中，你会发现一个很有意思的现象：
+
+有些 jar 包（比如我们刚刚学的 JUnit 测试框架），我们**只希望在写测试和跑测试的时候用它**，一旦项目开发完了、要打包发布到服务器上线了，这个包就完全没用了。如果把它也打包进去，不仅会增加包的体积，还可能带来安全漏洞。
+
+Maven 的 **`<scope>`（依赖范围）** 标签，就是为了解决这个“什么时候该用什么包”的精准控制问题。
+
+### 一、 什么是依赖范围？（Classpath 的三维空间）
+
+依赖范围的本质就是控制依赖的 jar 包，在 **哪些生命周期阶段、哪些 classpath 环境** 下可以被使用。
+
+Maven 的代码世界被强行划分成了三个空间（Classpath）：
+
+1. **编译环境（compile classpath）**：编写 `src/main/java` 主业务代码时，哪些包能用。
+    
+2. **测试环境（test classpath）**：编写和运行 `src/test/java` 测试代码时，哪些包能用。
+    
+3. **运行/打包环境（runtime classpath）**：项目最终被 `mvn package` 打包成 jar 包并部署到生产服务器运行时，哪些包必须在里面。
+    
+
+### 二、 4 大核心依赖范围详解
+
+企业开发中最常用的 4 种 scope 如下：
+
+|**scope 范围值**|**编译时**|**测试时**|**运行时(打包)**|**典型硬核代表包**|**纯正后端白话类比**|
+|---|---|---|---|---|---|
+|**`compile`** _(默认)_|✅|✅|✅|`logback` (日志)、`MyBatis`|**全职常驻主力**。从生到死，写代码、测代码、线上运行全都要它。|
+|**`test`**|❌|✅|❌|`junit-jupiter` (测试框架)|**随军质检员**。只在测试时蹦出来，生产打包时无情抛弃。|
+|**`provided`**|✅|✅|❌|`servlet-api`、`lombok`|**借鸡生蛋**。写代码时需要它撑场面，但运行环境（如 Tomcat）里自带了，所以不打包它。|
+|**`runtime`**|❌|✅|✅|`mysql-connector-java` (驱动)|**幕后黑手**。写代码时用不着它（用的是标准接口），但一跑起来必须有它和数据库接头。|
+
+### 三、 纯正企业级代码实战：`pom.xml` 中的范围控制
+
+我们直接来看一段标准的 Spring Boot 后端项目的 `pom.xml` 配置，看看这四大金刚是如何在代码里各司其职的：
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>3.0.3</version>
+        </dependency>
+
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
+        <version>5.10.2</version>
+        <scope>test</scope> </dependency>
+
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <version>8.3.0</version>
+        <scope>runtime</scope> </dependency>
+
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.30</version>
+        <scope>provided</scope> </dependency>
+</dependencies>
+```
+
+### 四、 深度复盘：如果把 JUnit 的 `<scope>test</scope>` 删掉会怎样？
+
+我们来做个反向思考，如果把 JUnit 的 `test` 范围删掉，或者错写成了 `compile`：
+
+1. **写业务代码时的乱象**：你在 `src/main/java` 的主业务类里写代码时，IDEA 的代码提示里会莫名其妙地跳出 JUnit 的 `@Test` 注解。如果不小心手滑点到了，就会把测试注解写进生产业务里，导致代码逻辑极其混乱。
+    
+2. **生产环境的“体积虚胖”**：当你在生产环境打包时，项目的 `.jar` 包里会死死塞进一堆 JUnit 以及它带出来的传递依赖包。这不仅浪费了服务器宝贵的磁盘和内存，更严重的是，测试框架里的某些漏洞可能会直接暴露在线上，给黑客留下可乘之机。
+    
 
 
 ---
@@ -5347,6 +5578,15 @@ Maven 生命周期和命令的精髓在于：**它用一套固定的顺序和阶
     
 3. **生命周期联动**：正如上一节所学，当你在右侧 Maven 面板双击执行 `test` 或者 `package` 命令时，**Maven 会启动底层插件，自动去 `src/test/java` 里地毯式搜寻所有带 `@Test` 标志的方法并全部疯狂跑一遍**。如果有任何一个方法的自我验证弹出了“红条”，Maven 就会立刻拉响警报、中断整条流水线，**拒绝为你打包！** 从而死死守住线上的安全底线。
     
+
+
+| **规范维度**     | **核心军规要求**                  | **纯正全栈白话解读**                                                    |
+| ------------ | --------------------------- | --------------------------------------------------------------- |
+| **1. 编写位置**  | 必须放在 `src/test/java` 目录下。   | 测试代码是“质检员”，永远不能和 `src/main/java` 的正规军混住，打包时它会自动被隔离。             |
+| **2. 类名规范**  | 测试类的命名：**`目标业务类名 + Test`**。 | 如果你测的是 `EmployeeService`，测试类必须叫 `EmployeeServiceTest`。方便别人一眼对齐。 |
+| **3. 方法名规范** | 测试方法的命名：**`test + 业务方法名`**。 | 测 `login` 方法，测试方法就叫 `testLogin`。严禁出现 `test1`、`aaa` 等毫无意义的命名。    |
+
+
 
 ### 概述总结
 
@@ -5774,6 +6014,163 @@ Plaintext
     
 - 所有任务圆满完成，`@AfterAll` 出来收尾，优雅关灯拔电源。
     
+---
+---
+
+## 单元测试——企业开发规范
+
+
+
+企业开发中关于单元测试的两个殿堂级指标：**单元测试覆盖率**，以及大厂里铁律一般的**核心业务三大红线规范**。
+
+写出能跑通的测试叫“初学者”，能写出符合这套量化指标的测试，才叫“合格的后端工程师”。我们这就带上规范的代码示例，把这套企业级红线彻底盘透。
+
+![[Java Web笔记-43.png]]
+
+
+### 一、 核心量化指标：单元测试覆盖率（Test Coverage）
+
+企业衡量测试质量不靠嘴说，全靠数据说话：
+
+- **业务类覆盖率 ➡️ $\ge 70\%$**：
+    
+    一个项目里如果写了 $100$ 个业务类（Service），其中至少有 $70$ 个类必须有对应的测试类去测它。
+    
+- **方法覆盖率 ➡️ $\ge 70\%$**：
+    
+    在被测试的类里面，如果写了 $10$ 个核心业务方法，至少要写 $7$ 个测试方法。
+    
+- **行覆盖率 ➡️ $\ge 70\%$**：
+    
+    **这是最硬核、也最难偷懒的指标。** 它指的是你写的方法里，假设有 $100$ 行代码，你的测试用例在跑的时候，必须实际踩过其中的 $70$ 行以上。这意味着你不能只测正向流程，**必须写多个测试用例去踩那些 `if-else` 的异常分支**，否则行覆盖率绝对达不到大厂红线。
+    
+
+### 二、 核心业务三大红线规范（不踩雷天条）
+
+
+#### 1. 规范一：不能存在空测试方法 ❌
+
+- **大白话**：为了应付大厂的覆盖率检查，有些“聪明”的程序员会写一个带 `@Test` 的方法，但里面**什么代码都不写（或者只有一行空注释）**。
+    
+- **企业痛点**：由于它没报错，IDEA 跑完会亮绿灯，且这个类会被计入“已测试”的数字里。但它没有实质的断言逻辑，根本测不出任何 Bug。规范对此直接一刀切：**禁止一切空测试方法，发现即扣绩效**。
+    
+
+#### 2. 规范二：测试方法中不能使用 `System.out.println` 输出 ❌
+
+- **大白话**：严禁在测试里用控制台打印去人肉看结果。
+    
+- **企业痛点**：正如我们之前聊过的，自动化运维（CI/CD 流水线）在云端打包时，根本没人去盯着屏幕看你打印了啥。**所有结果判别必须且只能交给 `assertEquals` / `assertTrue` 等断言（Assertion）来自动判定**。
+    
+
+#### 3. 规范三：测试方法中不能包含 `try-catch` ❌
+
+- **大白话**：测试代码里绝对不能自己去吞掉异常。
+    
+- **企业痛点**：如果你的业务代码真的出了 Bug 抛出了异常，测试方法里如果加了 `try-catch` 把异常给消化了，JUnit 就会误以为这个方法“顺利走完了”，从而**吐出一个具有欺骗性的“假绿条”**。大厂规范要求：**有异常就必须让它直接往外抛，抛出来 JUnit 才能精准抓到并报红，及时拦截有问题的代码**。
+    
+
+### 三、 🛠️ 纯正企业级源码实战：从“违规”到“完美规范”
+
+我们同样模拟 tlias 系统里的**员工离职（`leave`）业务**。
+
+#### 1. 业务代码（存放在 `src/main/java` 目录）
+
+
+```Java
+package com.tlias.service;
+
+public class EmpService {
+    /**
+     * 核心业务：员工离职
+     * 规则：1号超级管理员绝对不允许离职，否则抛出异常
+     */
+    public boolean leave(Long empId) {
+        if (empId == 1L) {
+            throw new IllegalArgumentException("🚨 警报：超级管理员不可离职！");
+        }
+        return true; // 正常离职成功
+    }
+}
+```
+
+### 2. ❌ 违规的测试写法
+
+```Java
+package com.tlias.service;
+
+import org.junit.jupiter.api.Test;
+
+public class EmpServiceTest {
+    private final EmpService empService = new EmpService();
+
+    @Test
+    public void testLeave_Empty() {
+        // ❌ 违规 1：空测试方法！为了刷覆盖率而写，毫无意义。
+    }
+
+    @Test
+    public void testLeave_Normal() {
+        boolean result = empService.leave(2L);
+        // ❌ 违规 2：使用 System.out 打印！没有使用断言自动自我验证。
+        System.out.println("离职结果是: " + result); 
+    }
+
+    @Test
+    public void testLeave_Exception() {
+        try {
+            empService.leave(1L);
+        } catch (Exception e) {
+            // ❌ 违规 3：使用了 try-catch！把异常吞掉了，导致本来该报错的测试结果依然亮绿灯！
+            System.out.println("抓到了异常");
+        }
+    }
+}
+```
+
+#### 3. 🟢 100% 符合大厂行覆盖率与红线规范的教科书级写法 
+
+下面这个类，不仅**命名规范**，而且**丢弃了打印、丢弃了 try-catch**，甚至通过多场景测试让代码的**行覆盖率达到了 100%**：
+
+
+```Java
+package com.tlias.service;
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+/**
+ * 严格对齐企业开发规范
+ */
+public class EmpServiceTest {
+
+    private final EmpService empService = new EmpService();
+
+    /**
+     * 场景一：测试正常离职流程
+     * 规范：使用断言代替打印，无 try-catch
+     */
+    @Test
+    public void testLeaveNormal() {
+        boolean result = empService.leave(1024L);
+        // ✨ 正确做法：交给断言自动验证，无需肉眼看控制台
+        assertTrue(result, "规范异常：正常员工离职应当返回 true！");
+    }
+
+    /**
+     * 场景二：测试超级管理员离职触发异常的流程
+     * 规范：不使用 try-catch，利用 JUnit 5 专用的 assertThrows 优雅断言异常
+     */
+    @Test
+    public void testLeaveAdminException() {
+        // ✨ 正确做法：断言“这行代码必须抛出 IllegalArgumentException 异常”
+        // 如果它没抛出异常，断言就会报错，完美踩中异常分支，行覆盖率飙升
+        assertThrows(IllegalArgumentException.class, () -> {
+            empService.leave(1L); // 传入超级管理员ID
+        }, "规范异常：超级管理员离职时系统竟然没有拦截并抛出异常！");
+    }
+}
+```
+
 ---
 ---
 
