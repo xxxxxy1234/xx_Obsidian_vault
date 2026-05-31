@@ -6408,3 +6408,108 @@ public class HelloController {
 ---
 ---
 
+
+## 入门程序补充：
+
+![[Java Web笔记-46.png]]
+
+这张图问出了一个非常经典且致命的核心问题：**“为什么一个 main 方法就能将 Web 应用启动了？”** 在传统的 Java Web 开发里，没有 Tomcat 软件或者没在外部配置好服务器，单独跑一个 `main` 方法是绝对出不来网页的。Spring Boot 颠覆这一常识的幕后功臣，就是你截图中提到的**起步依赖（Starter）**。
+
+我们结合你新发出的这张原理图，深入拆解一下这个“魔法”的底层逻辑，你可以直接把这部分补充进你的 Obsidian 笔记中。
+
+### 一、 揭秘：为什么一个 `main` 方法就能启动 Web 应用？
+
+这其中的核心秘密在于两点：**内嵌 Tomcat** 和 **自动装配**。
+
+#### 1. 顺藤摸瓜：看清 Maven 依赖树的隐藏底层
+
+观察你截图中右侧的依赖树（Dependencies），你会发现我们仅仅在 `pom.xml` 中引入了一个起步依赖：
+
+- `spring-boot-starter-web`（Web开发核心依赖）
+    
+
+但是当你把它展开时，它像连环套一样，自动帮你间接引入了大量的底层 Jar 包。其中被红色高亮标注的最关键的一项就是：
+
+👉 `org.springframework.boot:spring-boot-starter-tomcat`
+
+再往下点开，它包含了 Tomcat 的核心核心组件：`tomcat-embed-core`（内嵌Tomcat核心）。
+
+#### 2. 什么是“内嵌 Tomcat（Embedded Tomcat）”？
+
+- **传统方式：** Tomcat 是一个独立的软件。你需要先下载、解压、配置环境变量，然后把写好的 Java Web 项目打包成 `war` 包，手动拷贝到 Tomcat 的 `webapps` 目录下，再点击 Tomcat 的 `startup.bat` 脚本来带起项目。
+    
+- **Spring Boot 方式：** 程序员不要再去处理外部服务器了。Spring Boot 直接把 Tomcat 的核心底层代码打包成了 Java 的 `Jar` 包，作为项目的依赖。
+    
+
+> **形象的比喻：** > 传统 Web 开发是“**把房子（你的代码）盖在公共地基（外部 Tomcat）上**”；
+> 
+> Spring Boot 是“**房车一体**”，Tomcat 成了你代码的一部分，直接被打包进了最终的 `jar` 运行文件中。
+
+#### 3. `main` 方法执行时的内部动作
+
+当你点击绿色的三角号运行 `main` 方法时，底层其实默默执行了以下流水线：
+
+1. **JVM 启动**：执行主类的 `main` 方法，调用 `SpringApplication.run()`。
+    
+2. **创建容器**：Spring 开始初始化 IoC 容器，扫描并加载你写的 `HelloController`。
+    
+3. **触发动机**：容器发现你引入了 `starter-web` 依赖，触发自动配置机制，直接在内存中通过代码 `new` 出了一个 Tomcat 实例。
+    
+4. **绑定与监听**：内嵌的 Tomcat 启动，默认将项目挂载在 **8080** 端口，开始监听网络请求。
+    
+
+### 二、 重点消化：什么是“起步依赖（Starter）”？
+
+截图下方提到一句话：“`spring-boot-starter-web` 包含了 Web 应用开发所需要的常见依赖”。
+
+这就是 Spring Boot 设计的艺术，它被称为 **Starter（起步依赖 / 场景启动器）**。
+
+#### 1. 传统依赖管理的痛苦
+
+以前你想做 Web 开发，得在 `pom.xml` 里写上一大堆乱七八糟的依赖：Spring MVC 的包、Jackson JSON 解析包、日志包、Tomcat 相关的包……不仅繁琐，而且只要其中任何一个包的**版本号**不兼容，项目就会疯狂报错。
+
+#### 2. Starter 的“全家桶”概念
+
+Spring Boot 提出了“**把功能打包成场景**”的概念。
+
+- 你想做 Web 开发？你不需要关心里面需要几百个小 Jar 包。你只要对 Maven 说：“给我来一份 `spring-boot-starter-web` 全家桶。”
+    
+- 它就会在底层自动把 Spring MVC、JSON 转换、日志、内置 Tomcat 等所有**版本互相兼容、测试稳定**的小 Jar 包一次性全部帮你捆绑引入进来。
+    
+
+#### 3. 常见 Starter 的命名规范（就业面试常考）
+
+你在以后的开发中会遇到各种各样的 Starter，它们有固定的命名套路：
+
+- **官方提供的 Starter：** 命名格式为 `spring-boot-starter-xxx`。
+    
+    - `spring-boot-starter-test`：负责单元测试（如你截图中最后一项）。
+        
+    - `spring-boot-starter-data-redis`：负责缓存中间件 Redis。
+        
+- **第三方（民营企业）提供的 Starter：** 命名格式为 `xxx-spring-boot-starter`。
+    
+    - `mybatis-spring-boot-starter`：国内最常用的持久层整合包。
+        
+
+### 三、 避坑与总结
+
+有了这些前置理解，现在再看之前的 `HelloController` 代码，逻辑就完全闭环了：
+
+```Plaintext
+浏览器发出请求 (http://localhost:8080/hello) 
+       ↓
+[内嵌 Tomcat] 拦截到网络请求 (因为引入了 starter-web 并在 main 中随应用一起被启动)
+       ↓
+[Spring 路由机制] 匹配到带有 @RequestMapping("/hello") 的方法
+       ↓
+[HelloController.hello()] 执行业务，控制台打印日志，返回字符串
+       ↓
+[内嵌 Tomcat] 把字符串作为响应结果丢回给浏览器
+```
+
+
+
+---
+---
+
