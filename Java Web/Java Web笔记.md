@@ -6698,3 +6698,135 @@ public class RequestController {
 ## 响应协议
 
 
+
+### 模块一：解剖 HTTP 响应数据格式
+
+![[Java Web笔记-50.png]]
+
+#### 1. 状态行（Status Line）—— 结果的“定性声明”
+
+位于响应数据的**第一行**。它用来粗暴直接地告诉浏览器：“这次请求是成功了，还是崩了”。
+
+> 示例：`HTTP/1.1 200 OK`
+
+- **协议版本**：通常是 `HTTP/1.1`。
+    
+- **状态码（Status Code）**：用 3 位数字代表处理结果。
+    
+- **状态描述**：对数字的简单文字解释。
+    
+
+##### 面试与开发必备：响应状态码分类
+
+- **`1xx` (信息提示)**：临时状态，提示客户端继续操作。
+    
+- **`2xx` (成功)**：代表请求非常顺利。**最常用的是 `200 OK`**。
+    
+- **`3xx` (重定向)**：资源搬家了。告诉浏览器：_“你要的数据不在我这，快去访问另一个新地址”_。
+    
+- **`4xx` (客户端错误)**：前端传错参数、没登录或访问了不存在的资源。**最常见的是 `404 Not Found`**。
+    
+- **`5xx` (服务器错误)**：后端 Java 代码抛出异常挂掉了。**最常见的是 `500 Internal Server Error`**。
+    
+
+#### 2. 响应头（Response Headers）—— 返回的“附加属性”
+
+![[Java Web笔记-51.png|697]]
+
+从**第二行开始**直到空行结束，格式同样为 `Key: Value`。这是后端留给浏览器的一些“温馨提示”：
+
+- **`Content-Type`**：**（极其核心）** 告诉浏览器响应体里装的是什么。例如 `application/json` 代表是个 JSON 对象；`text/html` 代表是一个网页，浏览器看到后会直接渲染。
+    
+- **`Content-Length`**：响应体正文的大小（字节数）。
+    
+- **`Content-Encoding`**：告知数据采用了何种压缩算法（如 `gzip`），浏览器收到后需要先解压。
+    
+- **`Cache-Control`**：控制浏览器的缓存机制（例如 `max-age=300` 代表这个数据 300 秒内不用再向后端要，直接读本地缓存）。
+    
+- **`Set-Cookie`**：**（极重要）** 后面做登录认证时，后端用来往浏览器的底层塞入身份凭证（Cookie）的通道。
+    
+
+#### 3. 响应体（Response Body）—— 返回的“真正正文”
+
+- 紧跟在空行后面。
+    
+- 它是真正要展示在浏览器页面上、或者交给前端 Vue/React 解析的**核心数据**。可以是一个 HTML 页面、一张图片的二进制流，或者是一个标准的 **JSON 数组**（如第一张图中高亮的 `[{id: 1, brandName: "阿里巴巴", ...}]`）。
+    
+
+### 模块二：后端如何设置与返回响应数据？
+
+前端既然在等响应，那我们在 Java 中该怎么控制这三部分（状态码、响应头、响应体）呢？
+
+![[Java Web笔记-52.png|697]]
+#### 方式一：基于 Servlet 原生 `HttpServletResponse`（底层的做法）
+
+通过把 Java Web 顶层的 `HttpServletResponse` 对象直接作为方法参数注入，进行**纯手动、命令式**的设置：
+
+
+```Java
+@RequestMapping("/response")
+public void response(HttpServletResponse response) throws IOException {
+    // 1. 设置响应状态码
+    response.setStatus(401); // 故意设置为401（未授权异常）
+    
+    // 2. 设置自定义响应头
+    response.setHeader("name", "itheima");
+    
+    // 3. 设置响应体：获取字符输出流，直接往浏览器写数据
+    response.getWriter().write("<h1>Hello Response</h1>");
+}
+```
+
+- **缺点**：过于底层，写起来非常繁琐。在前后端分离的开发中，由于每次都要自己通过 `getWriter()` 写数据，很不方便。
+    
+
+#### 方式二：基于 Spring 提供的 `ResponseEntity`（高级的做法）
+
+利用 Spring 提供的**链式编程对象**（Fluent API）进行包装，代码更加优雅、具备现代感：
+
+
+```Java
+@RequestMapping("/response2")
+public ResponseEntity<String> response2() {
+    return ResponseEntity
+            .status(401)                        // 1. 设置响应状态码
+            .header("name", "javaweb-ai")       // 2. 设置响应头
+            .body("<h1>Hello Response</h1>");   // 3. 设置响应体
+}
+```
+
+- **优点**：结构清晰，通过方法链（`.status().header().body()`）直接一步到位将响应包封装完毕返回，是现代化企业开发中很推崇的规范写法。
+    
+
+#### 注意
+
+
+> **“响应状态码和响应头如果没有特殊要求的话，通常不手动设定。服务器会根据请求处理的逻辑，自动设置响应状态码和响应头。”**
+
+
+在绝大多数正常的业务（比如查询商品、用户登录）下，你不需要像上面那样大费周章地去写 `setStatus(200)` 或者手动设置 `Content-Type`。
+
+**你只需要在类上加上 `@RestController`，然后方法直接返回你的数据对象：**
+
+```Java
+@GetMapping("/user")
+public User getUser() {
+    return new User("张三", 18);
+}
+```
+
+**Spring Boot 幕后会自动帮你做三件事：**
+
+1. 发现方法正常执行完，自动在状态行塞入 `200 OK`。
+    
+2. 发现你返回的是一个 Java 对象，自动通过 Jackson 组件把它转成 `{"name":"张三","age":18}`。
+    
+3. 发现是 JSON 串，自动在响应头加上 `Content-Type: application/json;charset=UTF-8`。
+    
+
+你只有在做一些**特殊、硬性的底层业务**（比如：鉴权失败故意返回 `401/403`、文件下载需要设置特定的 `Content-Disposition` 响应头、或者强制重定向时），才会用到 `ResponseEntity` 或原生 `response` 对象去手动修改。
+
+---
+---
+
+
