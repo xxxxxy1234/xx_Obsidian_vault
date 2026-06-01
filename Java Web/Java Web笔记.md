@@ -6514,6 +6514,270 @@ Spring Boot 提出了“**把功能打包成场景**”的概念。
 ---
 
 
+## 完整实战
+
+![[Java Web笔记-54.png|697]]
+
+这个案例是 黑马程序员 课程中非常经典的 **“用户列表数据展示”** 综合实战。它完美地把前端（Vue + Axios）、后端（Spring Boot Controller）、底层数据（`user.txt` 解析）以及 HTTP 协议闭环（JSON 响应）全部串联了起来。
+
+
+### 项目目录结构对照
+
+在开始写代码前，请确保你的 IDEA 目录结构与标准结构一致：
+
+```Plaintext
+springboot_web_quickstart
+ └── src
+      └── main
+           ├── java
+           │    └── com
+           │         └── itheima
+           │              ├── SpringbootWebQuickstartApplication.java (启动类)
+           │              ├── controller
+           │              │    └── UserController.java              (控制层)
+           │              └── pojo
+           │                   └── User.java                        (实体类)
+           └── resources
+                ├── static
+                │    └── user.html                                  (前端静态页面)
+                └── user.txt                                        (原始数据文件)
+```
+
+### 后端核心代码实现
+
+#### 1. 实体类定义：`pojo/User.java`
+
+*POJO 包（Plain Old Java Object）只放纯实体类（实体模型），简单说：用来封装数据的普通 Java 类*
+
+利用 Lombok 注解简化 Java 属性的 Getter/Setter 构造方法，用来封装单条用户数据。**要先添加 Lombok 依赖**
+
+```Java
+package com.itheima.pojo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+
+@Data // 自动生成 getter/setter/toString/equals/hashCode
+@NoArgsConstructor // 自动生成无参构造额方法
+@AllArgsConstructor // 自动生成全参构造方法
+public class User {
+    private Integer id;             // 用户ID
+    private String username;        // 用户名
+    private String password;        // 密码
+    private String name;            // 姓名
+    private Integer age;            // 年龄
+    private LocalDateTime updateTime; // 更新时间
+}
+```
+
+#### 2. 控制层实现：`controller/UserController.java`
+
+这是核心业务。负责：**读取本地文件 ➔ 解析数据并封装成 List ➔ 借助 `@RestController` 将其转化为标准 HTTP JSON 响应体返回**。
+
+> **⚠️ 黑马冷知识**：在没有学数据库（MySQL）和 MyBatis 之前，老师用读取 `user.txt` 文件的方案来平替数据库查询逻辑，目的是让我们聚焦于 Web 请求和响应的闭环。
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.User;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+// @RestController = @Controller + @ResponseBody
+// 核心作用：将方法的返回值直接写入 HTTP 响应体，如果是对象或集合，会自动转为 JSON 响应
+@RestController 
+public class UserController {
+
+    @RequestMapping("/list") // 标识请求路径，前端输入 /list 会触发该方法
+    public List<User> list() throws Exception {
+        
+        // 1. 加载 resources 目录下的数据文件 user.txt
+        InputStream in = this.getClass().getClassLoader().getResourceAsStream("user.txt");
+        
+        // 2. 利用字符输入流读取文件中的所有行
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        List<String> lines = reader.lines().collect(Collectors.toList());
+
+        // 3. 解析文本数据，将其转为 List<User> 集合
+        List<User> userList = new ArrayList<>();
+        
+        for (String line : lines) {
+            // user.txt 数据格式：1,daqiao,1234567890,大乔,22,2024-07-15 15:05:45
+            String[] parts = line.split(","); // 按照逗号切割每一行
+            
+            Integer id = Integer.parseInt(parts[0]);      // 提取 id
+            String username = parts[1];                  // 提取用户名
+            String password = parts[2];                  // 提取密码
+            String name = parts[3];                      // 提取姓名
+            Integer age = Integer.parseInt(parts[4]);     // 提取年龄
+            
+            // 提取更新时间，并转换字符串为 LocalDateTime 格式
+            LocalDateTime updateTime = LocalDateTime.parse(parts[5], 
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            
+            // 组装 User 对象并放入集合中
+            User user = new User(id, username, password, name, age, updateTime);
+            userList.add(user);
+        }
+
+        // 4. 直接返回集合对象。
+        // 由于加了 @RestController，Spring Boot 会自动把它打包成 HTTP 响应体，返回标准的 JSON 数组
+        return userList;
+    }
+}
+```
+
+### 资源及前端页面配置
+
+#### 1. 模拟数据库文件：`resources/user.txt`
+
+请直接在项目的 `resources` 文件夹下新建该文本文件，用于存放原始的 mock 数据（注意时间格式需与 Java 解析器对齐）。
+
+
+```Plaintext
+1,daqiao,1234567890,大乔,22,2024-07-15 15:05:45
+2,xiaoqiao,1234567890,小乔,18,2024-07-15 15:12:09
+3,diaochan,1234567890,貂蝉,21,2024-07-15 15:07:16
+4,lvbu,1234567890,吕布,28,2024-07-16 10:05:15
+5,zhaoyun,1234567890,赵云,27,2024-07-16 11:03:28
+6,zhangfei,1234567890,张飞,31,2024-07-16 11:03:28
+7,guanyu,1234567890,关羽,34,2024-07-16 12:05:12
+8,liubei,1234567890,刘备,37,2024-07-16 15:03:28
+```
+
+#### 2. 前端静态展示页：`resources/static/user.html`
+
+在 Spring Boot 中，所有的静态资源文件（HTML、CSS、JS）默认都存放在 `resources/static` 目录下。
+
+利用 Vue 渲染和 Axios 发起异步 HTTP 请求：
+
+
+```HTML
+<!DOCTYPE html>
+<html lang="en"> <head>
+    <meta charset="UTF-8">
+    <title>用户列表数据展示</title>
+    <style>
+        table {
+            width: 60%;
+            margin: 50px auto;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        th {
+            background-color: #f5f7fa;
+        }
+        h2 {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <h2>用户列表数据</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户名</th>
+                <th>密码</th>
+                <th>姓名</th>
+                <th>年龄</th>
+                <th>更新时间</th>
+            </tr>
+        </thead>
+        
+        <tbody>
+            <tr v-for="user in userList">
+                <td>{{user.id}}</td>
+                <td>{{user.username}}</td>
+                <td>{{user.password}}</td>
+                <td>{{user.name}}</td>
+                <td>{{user.age}}</td>
+                <td>{{user.updateTime}}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script src="js/axios.min.js"></script>
+
+<script type="module">
+
+    import { createApp } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+
+    createApp({
+    
+        data() {
+            return {
+                userList: [] // 初始化接收后端数据的数组
+            }
+        },
+       
+        methods: {
+            //使用 async/await 发送异步网络请求
+            async search() {
+                //通过 axios 向后端的 /list 路径发出 GET 请求
+                const result = await axios.get('/list');
+                //把后端响应体（result.data）里的 JSON 数组赋值给当前的 userList 属性
+                this.userList = result.data;
+            }
+        },
+        // Vue 生命周期钩子函数（挂载完毕阶段）
+        mounted() {
+            // 页面一加载，自动执行 search() 方法去向后端“要数据”
+            this.search();
+        }
+    }).mount('#app') // 将 Vue 实例挂载到 id 为 app 的容器上
+</script>
+
+</body>
+</html>
+```
+
+### 验证闭环与运行效果
+
+1. 打开项目的启动类 `SpringbootWebQuickstartApplication`，右键点击 **Run**。
+    
+2. 观察 IDEA 控制台，当看到内嵌 Tomcat 成功在 `8080` 端口拉起后，打开浏览器。
+    
+3. **测试接口数据（纯 JSON）**：
+    
+    在地址栏输入 `http://localhost:8080/list` 并敲回车，此时浏览器会发出 HTTP 请求，并直接在屏幕上打印出纯文本的 **JSON 数组数据**。
+    
+4. **测试最终系统（可视化表格）**：
+    
+    在地址栏输入 `http://localhost:8080/user.html` 并敲回车。
+    
+    - **运行逻辑**：浏览器首先请求拿到了 `user.html` 静态页面；页面加载时触发了 Vue 的 `mounted()` 钩子；Axios 再次发射异步请求去撞后端的 `/list` 接口；后端将数据打包回传；Vue 动态把数据在表格里“画”出来，呈现出如你第一张截图所示的精美用户列表数据表格！
+
+
+
+
+
+
+---
+---
 
 # HTTP
 
