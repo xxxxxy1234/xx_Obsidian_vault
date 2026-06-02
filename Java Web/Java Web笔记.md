@@ -6175,6 +6175,327 @@ public class EmpServiceTest {
 ---
 
 
+
+# HTTP
+
+
+
+## 概述
+
+![[Java Web笔记-47.png]]
+
+### 一、 HTTP协议的本质概念
+
+**HTTP（Hyper Text Transfer Protocol，超文本传输协议）**，它是互联网通信的基石。
+
+- **一句话总结**：它规定了**浏览器（客户端）** 和**服务器（后端）** 之间数据传输的**统一规则**。
+    
+- **为什么叫超文本？**：因为早期的网络只能传普通文本，而 HTTP 协议允许传输比普通文本更丰富的“超文本”——比如 HTML 网页、图片、音频、视频，以及如今前后端分离最核心的 **JSON 数据**。
+    
+
+### 二、 必须吃透的 HTTP 三大核心特点
+
+HTTP 协议有三个最重要的底层特征。作为后端开发，未来的很多架构设计（比如 Cookie、Session、JWT Token）都是为了应对这些特征而衍生出来的：
+
+#### 1. 基于 TCP 协议：面向连接，安全
+
+- **含义**：HTTP 只是一个应用层协议，它自己不负责怎么把数据安全送达。它的底层是建立在 **TCP 协议**（传输层）之上的。
+    
+- **底层逻辑**：在发送 HTTP 请求之前，客户端和服务器必须先经历经典的 **“三次握手”** 建立起一条可靠的、安全的双向连接通路。通路建好了，HTTP 协议的数据包才能在上面安心传输。
+    
+
+#### 2. 基于请求-响应模型：一次请求对应一次响应
+
+- **含义**：这是一个典型的“一问一答”或“不请不来”的模型。
+    
+- **底层逻辑**：通信**必须由客户端（浏览器）主动发起（请求）**，服务器收到后进行处理并给回结果（响应）。
+    
+- **开发局限**：服务器是永远无法主动“叫醒”浏览器或者向它推送数据的。如果前端不发请求，后端写的 `HelloController` 代码就只能老老实实地在内存里等。
+    
+
+#### 3. 无状态的协议（Stateless）
+
+- **含义**：协议对于事务处理**没有记忆能力**。在 HTTP 眼里，每一次请求-响应都是完全独立、彼此陌生的。
+    
+- **利弊权衡**：
+    
+    - **缺点：** 多次请求之间**不能共享数据**。比如你在购物网站上，第一步请求把商品“加入购物车”，第二步请求去“结算”，由于 HTTP 无状态，第二步的请求过来时，服务器根本不记得你是谁，也不知道你刚才加了什么。
+        
+    - **优点：** 结构简单，不需要维护复杂的上下文状态，因此**传输速度极快**，服务器的内存负担很小。
+        
+
+### 三、 承前启后：它与你写的 Spring Boot 是怎么结合的？
+
+你在浏览器里敲下：
+
+`http://localhost:8080/hello?name=Heima`
+
+![[Java Web笔记-53.png]]
+
+1. **网络连接**：浏览器顺着 `http://localhost:8080` 通过 **TCP 协议** 找到了你用 `main` 方法跑起来的内嵌 Tomcat 服务器。
+    
+2. **发起请求**：浏览器根据 **HTTP 协议的规则**，将请求封装好发送给后端。
+    
+3. **后端处理**：Spring Boot 接收并解析这个 HTTP 请求，把参数绑定给 `hello(String name)` 方法，执行内部逻辑。
+    
+4. **给出响应**：方法返回的 `"Hello Heima ~ "`，被 Spring 再次以 **HTTP 协议的规则** 打包，作为“响应数据”回传给浏览器，网页这才显示出文字。
+    
+
+---
+---
+
+
+## 请求协议
+
+
+
+### 模块一：解剖 HTTP 请求数据格式
+
+无论是浏览器点回车，还是前端发异步请求，送上门的请求数据包必定由**三部分**组成。我们来逐一拆解：
+
+![[Java Web笔记-48.png]]
+
+#### 1. 请求行（Request Line）—— 数据的“排头兵”
+
+位于请求数据的**第一行**。它交代了三个最基本的信息：
+
+> 示例：`GET /brand/findAll?name=OPPO&status=1 HTTP/1.1`
+
+- **请求方式**：告诉后端动作类型（如 `GET` 或 `POST`）。
+    
+- **资源路径**：请求服务器的哪个接口（`/brand/findAll`），后面可能携带问号 `?` 拼接的参数。
+    
+- **协议版本**：通常是固定的 `HTTP/1.1`。
+    
+
+##### 面试高频：GET 和 POST 请求方式的核心区别
+
+- **GET**：请求参数**直接挂在请求行的 URL 后面**。由于浏览器地址栏有长度限制，所以 GET 请求传递的数据大小有限制，且参数暴露在地址栏，不适合传密码等敏感信息。没有“请求体”。
+    
+- **POST**：请求参数**存放在请求体（Body）中**。参数不会暴露在地址栏，且传输大小没有限制，适合上传大文件、提交表单或复杂的 JSON 对象。
+    
+
+#### 2. 请求头（Request Headers）—— 数据的“附带属性”
+
+![[Java Web笔记-49.png|697]]
+
+从**第二行开始**直到空行结束，格式为 `Key: Value` 的键值对。它们是浏览器带给后端的“额外小情报”。对照你的第二张截图，最常用的几个必须死记硬背：
+
+- **`Host`**：你要请求的服务器主机名和端口号（如 `localhost:8080`）。
+    
+- **`User-Agent`**：浏览器的“身份证”，告诉后端当前是用 Chrome、Edge 还是手机浏览器访问的。
+    
+- **`Accept`**：浏览器告诉后端：“我能接收什么格式的返回结果”（如 `text/html`, `application/json`）。
+    
+- **`Content-Type`**：**（极重要，通常伴随POST）** 告诉后端，当前请求体里带过来的数据是什么格式。例如 `application/json` 代表是个 JSON 字符串。
+    
+- **`Content-Length`**：请求体的大小（单位：字节）。
+    
+
+#### 3. 请求体（Request Body）—— 数据的“正文”
+
+- 紧跟在空行后面（空行用于隔离请求头和请求体）。
+    
+- **只有 POST/PUT 等请求才有**。如图三的绿色高亮部分，存放的是真正要提交给后端的复杂业务数据：`{"status":1, "brandName":"黑马", ...}`。
+    
+
+### 模块二：后端如何获取 HTTP 请求数据？
+
+现在前端数据通过网络发过来了，我们在 Java 中该怎么把它们捞出来呢？
+
+一个底层的关键对象：**`HttpServletRequest`**。它是 Java Web 标准（Servlet 规范）中专门用来**封装 HTTP 请求所有数据**的超级对象。当请求到达 Spring Boot 时，Spring 会把这个对象自动注入到你的方法参数里。
+
+
+#### 1. 核心代码清单与 API 对比
+
+```Java
+@RestController
+@RequestMapping("/request")
+public class RequestController {
+
+    @RequestMapping("/test")
+    public String request(HttpServletRequest request) {
+        
+        // 1. 获取请求方式（GET/POST）
+        String method = request.getMethod(); 
+        System.out.println("请求方式：" + method); // 输出: GET
+
+        // 2. 获取请求的完整 URL 地址
+        String url = request.getRequestURL().toString(); 
+        System.out.println("请求URL地址：" + url); // 输出: http://localhost:8080/request/test
+
+        // 3. 获取请求的 URI 资源路径（不带域名和端口）
+        String uri = request.getRequestURI(); 
+        System.out.println("请求URI地址：" + uri); // 输出: /request/test
+
+        // 4. 获取请求行中拼接的原始查询参数字符串
+        String queryString = request.getQueryString();
+        System.out.println("查询参数字符串：" + queryString); // 输出: name=itheima
+
+        // 5. 获取指定的请求头信息
+        String acceptHeader = request.getHeader("Accept");
+        System.out.println("Accept请求头：" + acceptHeader);
+
+        return "OK";
+    }
+}
+```
+
+#### 2. 划重点：`URL` 和 `URI` 的区别
+
+这是非常容易混淆的一点，在开发和面试中极其常用：
+
+- **`URL` (Uniform Resource Locator，统一资源定位符)**：指的是互联网上的**绝对路径**，带有协议、域名和端口。就像是“中国北京市海淀区XX路XX号”。
+    
+    - 对应代码：`request.getRequestURL()` ➔ 结果如 `http://localhost:8080/request`
+        
+- **`URI` (Uniform Resource Identifier，统一资源标识符)**：指的是除去域名和端口后的**资源相对路径**。就像是“XX路XX号”。
+    
+    - 对应代码：`request.getRequestURI()` ➔ 结果如 `/request`
+        
+
+---
+---
+
+
+## 响应协议
+
+
+
+### 模块一：解剖 HTTP 响应数据格式
+
+![[Java Web笔记-50.png]]
+
+#### 1. 状态行（Status Line）—— 结果的“定性声明”
+
+位于响应数据的**第一行**。它用来粗暴直接地告诉浏览器：“这次请求是成功了，还是崩了”。
+
+> 示例：`HTTP/1.1 200 OK`
+
+- **协议版本**：通常是 `HTTP/1.1`。
+    
+- **状态码（Status Code）**：用 3 位数字代表处理结果。
+    
+- **状态描述**：对数字的简单文字解释。
+    
+
+##### 面试与开发必备：响应状态码分类
+
+- **`1xx` (信息提示)**：临时状态，提示客户端继续操作。
+    
+- **`2xx` (成功)**：代表请求非常顺利。**最常用的是 `200 OK`**。
+    
+- **`3xx` (重定向)**：资源搬家了。告诉浏览器：_“你要的数据不在我这，快去访问另一个新地址”_。
+    
+- **`4xx` (客户端错误)**：前端传错参数、没登录或访问了不存在的资源。**最常见的是 `404 Not Found`**。
+    
+- **`5xx` (服务器错误)**：后端 Java 代码抛出异常挂掉了。**最常见的是 `500 Internal Server Error`**。
+    
+
+#### 2. 响应头（Response Headers）—— 返回的“附加属性”
+
+![[Java Web笔记-51.png|697]]
+
+从**第二行开始**直到空行结束，格式同样为 `Key: Value`。这是后端留给浏览器的一些“温馨提示”：
+
+- **`Content-Type`**：**（极其核心）** 告诉浏览器响应体里装的是什么。例如 `application/json` 代表是个 JSON 对象；`text/html` 代表是一个网页，浏览器看到后会直接渲染。
+    
+- **`Content-Length`**：响应体正文的大小（字节数）。
+    
+- **`Content-Encoding`**：告知数据采用了何种压缩算法（如 `gzip`），浏览器收到后需要先解压。
+    
+- **`Cache-Control`**：控制浏览器的缓存机制（例如 `max-age=300` 代表这个数据 300 秒内不用再向后端要，直接读本地缓存）。
+    
+- **`Set-Cookie`**：**（极重要）** 后面做登录认证时，后端用来往浏览器的底层塞入身份凭证（Cookie）的通道。
+    
+
+#### 3. 响应体（Response Body）—— 返回的“真正正文”
+
+- 紧跟在空行后面。
+    
+- 它是真正要展示在浏览器页面上、或者交给前端 Vue/React 解析的**核心数据**。可以是一个 HTML 页面、一张图片的二进制流，或者是一个标准的 **JSON 数组**（如第一张图中高亮的 `[{id: 1, brandName: "阿里巴巴", ...}]`）。
+    
+
+### 模块二：后端如何设置与返回响应数据？
+
+前端既然在等响应，那我们在 Java 中该怎么控制这三部分（状态码、响应头、响应体）呢？
+
+![[Java Web笔记-52.png|697]]
+#### 方式一：基于 Servlet 原生 `HttpServletResponse`（底层的做法）
+
+通过把 Java Web 顶层的 `HttpServletResponse` 对象直接作为方法参数注入，进行**纯手动、命令式**的设置：
+
+
+```Java
+@RequestMapping("/response")
+public void response(HttpServletResponse response) throws IOException {
+    // 1. 设置响应状态码
+    response.setStatus(401); // 故意设置为401（未授权异常）
+    
+    // 2. 设置自定义响应头
+    response.setHeader("name", "itheima");
+    
+    // 3. 设置响应体：获取字符输出流，直接往浏览器写数据
+    response.getWriter().write("<h1>Hello Response</h1>");
+}
+```
+
+- **缺点**：过于底层，写起来非常繁琐。在前后端分离的开发中，由于每次都要自己通过 `getWriter()` 写数据，很不方便。
+    
+
+#### 方式二：基于 Spring 提供的 `ResponseEntity`（高级的做法）
+
+利用 Spring 提供的**链式编程对象**（Fluent API）进行包装，代码更加优雅、具备现代感：
+
+
+```Java
+@RequestMapping("/response2")
+public ResponseEntity<String> response2() {
+    return ResponseEntity
+            .status(401)                        // 1. 设置响应状态码
+            .header("name", "javaweb-ai")       // 2. 设置响应头
+            .body("<h1>Hello Response</h1>");   // 3. 设置响应体
+}
+```
+
+- **优点**：结构清晰，通过方法链（`.status().header().body()`）直接一步到位将响应包封装完毕返回，是现代化企业开发中很推崇的规范写法。
+    
+
+#### 注意
+
+
+> **“响应状态码和响应头如果没有特殊要求的话，通常不手动设定。服务器会根据请求处理的逻辑，自动设置响应状态码和响应头。”**
+
+
+在绝大多数正常的业务（比如查询商品、用户登录）下，你不需要像上面那样大费周章地去写 `setStatus(200)` 或者手动设置 `Content-Type`。
+
+**你只需要在类上加上 `@RestController`，然后方法直接返回你的数据对象：**
+
+```Java
+@GetMapping("/user")
+public User getUser() {
+    return new User("张三", 18);
+}
+```
+
+**Spring Boot 幕后会自动帮你做三件事：**
+
+1. 发现方法正常执行完，自动在状态行塞入 `200 OK`。
+    
+2. 发现你返回的是一个 Java 对象，自动通过 Jackson 组件把它转成 `{"name":"张三","age":18}`。
+    
+3. 发现是 JSON 串，自动在响应头加上 `Content-Type: application/json;charset=UTF-8`。
+    
+
+你只有在做一些**特殊、硬性的底层业务**（比如：鉴权失败故意返回 `401/403`、文件下载需要设置特定的 `Content-Disposition` 响应头、或者强制重定向时），才会用到 `ResponseEntity` 或原生 `response` 对象去手动修改。
+
+---
+---
+
+
+
+
+
 # Spring Boot
 
 
@@ -6779,320 +7100,140 @@ public class UserController {
 ---
 ---
 
-# HTTP
+
+## 分层解耦——三层架构
+
+
+在你刚才完成的“用户列表展示”小练习里，所有的代码（读文件、解析字符串、包装数据、返回响应）全都塞在了一个 `UserController` 的 `list()` 方法里。正如你第一张截图中所高亮的痛点：**“单一职责原则：一个方法/类只负责一件事情。如果全部写在一起，代码极其臃肿、难以维护、复用性极差。”**
 
 
 
-## 概述
+### 一、 什么是三层架构？（核心职责划分）
 
-![[Java Web笔记-47.png]]
+三层架构把一个复杂的 Web 业务，像流水线工厂一样切分成了三个各司其职的部门：
 
-### 一、 HTTP协议的本质概念
+![[Java Web笔记-55.png]]
+#### 1. Controller：控制层（表现层）
 
-**HTTP（Hyper Text Transfer Protocol，超文本传输协议）**，它是互联网通信的基石。
-
-- **一句话总结**：它规定了**浏览器（客户端）** 和**服务器（后端）** 之间数据传输的**统一规则**。
+- **它的职责**：负责**接收前端发来的请求**，并**把结果响应给前端**。
     
-- **为什么叫超文本？**：因为早期的网络只能传普通文本，而 HTTP 协议允许传输比普通文本更丰富的“超文本”——比如 HTML 网页、图片、音频、视频，以及如今前后端分离最核心的 **JSON 数据**。
+- **形象比喻**：餐馆里的“前台服务员”。它只负责接待客人（点单）、把菜单传给后厨，最后把做好的菜端给客人。服务员自己是绝对不会跑去炒菜的。
     
-
-### 二、 必须吃透的 HTTP 三大核心特点
-
-HTTP 协议有三个最重要的底层特征。作为后端开发，未来的很多架构设计（比如 Cookie、Session、JWT Token）都是为了应对这些特征而衍生出来的：
-
-#### 1. 基于 TCP 协议：面向连接，安全
-
-- **含义**：HTTP 只是一个应用层协议，它自己不负责怎么把数据安全送达。它的底层是建立在 **TCP 协议**（传输层）之上的。
-    
-- **底层逻辑**：在发送 HTTP 请求之前，客户端和服务器必须先经历经典的 **“三次握手”** 建立起一条可靠的、安全的双向连接通路。通路建好了，HTTP 协议的数据包才能在上面安心传输。
+- **对应代码注解**：带有 `@RestController` 标签的类。
     
 
-#### 2. 基于请求-响应模型：一次请求对应一次响应
+#### 2. Service：业务逻辑层
 
-- **含义**：这是一个典型的“一问一答”或“不请不来”的模型。
+- **它的职责**：负责**核心业务逻辑的处理**（比如计算折扣、过滤不合规数据、组装业务对象）。
     
-- **底层逻辑**：通信**必须由客户端（浏览器）主动发起（请求）**，服务器收到后进行处理并给回结果（响应）。
-    
-- **开发局限**：服务器是永远无法主动“叫醒”浏览器或者向它推送数据的。如果前端不发请求，后端写的 `HelloController` 代码就只能老老实实地在内存里等。
+- **形象比喻**：后厨的“掌勺大厨”。它是整个餐馆的核心，专门负责研究怎么把原材料做成绝妙的菜肴。它不关心客人坐哪（不关心 HTTP 请求），它只管做业务。
     
 
-#### 3. 无状态的协议（Stateless）
+#### 3. Dao / Mapper：数据访问层（Data Access Object）
 
-- **含义**：协议对于事务处理**没有记忆能力**。在 HTTP 眼里，每一次请求-响应都是完全独立、彼此陌生的。
+- **它的职责**：负责**与底层数据/数据库打交道**（包括增删改查 CRUD）。在没有连接 MySQL 之前，它负责读写 `user.txt` 文本文件；连了数据库后，它负责执行 SQL 语句。
     
-- **利弊权衡**：
-    
-    - **缺点：** 多次请求之间**不能共享数据**。比如你在购物网站上，第一步请求把商品“加入购物车”，第二步请求去“结算”，由于 HTTP 无状态，第二步的请求过来时，服务器根本不记得你是谁，也不知道你刚才加了什么。
-        
-    - **优点：** 结构简单，不需要维护复杂的上下文状态，因此**传输速度极快**，服务器的内存负担很小。
-        
-
-### 三、 承前启后：它与你写的 Spring Boot 是怎么结合的？
-
-你在浏览器里敲下：
-
-`http://localhost:8080/hello?name=Heima`
-
-![[Java Web笔记-53.png]]
-
-1. **网络连接**：浏览器顺着 `http://localhost:8080` 通过 **TCP 协议** 找到了你用 `main` 方法跑起来的内嵌 Tomcat 服务器。
-    
-2. **发起请求**：浏览器根据 **HTTP 协议的规则**，将请求封装好发送给后端。
-    
-3. **后端处理**：Spring Boot 接收并解析这个 HTTP 请求，把参数绑定给 `hello(String name)` 方法，执行内部逻辑。
-    
-4. **给出响应**：方法返回的 `"Hello Heima ~ "`，被 Spring 再次以 **HTTP 协议的规则** 打包，作为“响应数据”回传给浏览器，网页这才显示出文字。
+- **形象比喻**：餐馆里的“采购员 / 仓库管理员”。大厨需要什么食材（数据），采购员就去仓库里（数据库）拿出来提供给大厨，它自己不参与炒菜业务。
     
 
----
----
+### 二、 实战重构：代码应该怎么分？
 
+我们将之前臃肿的 `UserController` 彻底“大卸三块”：
 
-## 请求协议
+#### 1. Dao层：只管拿原始数据
 
-
-
-### 模块一：解剖 HTTP 请求数据格式
-
-无论是浏览器点回车，还是前端发异步请求，送上门的请求数据包必定由**三部分**组成。我们来逐一拆解：
-
-![[Java Web笔记-48.png]]
-
-#### 1. 请求行（Request Line）—— 数据的“排头兵”
-
-位于请求数据的**第一行**。它交代了三个最基本的信息：
-
-> 示例：`GET /brand/findAll?name=OPPO&status=1 HTTP/1.1`
-
-- **请求方式**：告诉后端动作类型（如 `GET` 或 `POST`）。
-    
-- **资源路径**：请求服务器的哪个接口（`/brand/findAll`），后面可能携带问号 `?` 拼接的参数。
-    
-- **协议版本**：通常是固定的 `HTTP/1.1`。
-    
-
-##### 面试高频：GET 和 POST 请求方式的核心区别
-
-- **GET**：请求参数**直接挂在请求行的 URL 后面**。由于浏览器地址栏有长度限制，所以 GET 请求传递的数据大小有限制，且参数暴露在地址栏，不适合传密码等敏感信息。没有“请求体”。
-    
-- **POST**：请求参数**存放在请求体（Body）中**。参数不会暴露在地址栏，且传输大小没有限制，适合上传大文件、提交表单或复杂的 JSON 对象。
-    
-
-#### 2. 请求头（Request Headers）—— 数据的“附带属性”
-
-![[Java Web笔记-49.png|697]]
-
-从**第二行开始**直到空行结束，格式为 `Key: Value` 的键值对。它们是浏览器带给后端的“额外小情报”。对照你的第二张截图，最常用的几个必须死记硬背：
-
-- **`Host`**：你要请求的服务器主机名和端口号（如 `localhost:8080`）。
-    
-- **`User-Agent`**：浏览器的“身份证”，告诉后端当前是用 Chrome、Edge 还是手机浏览器访问的。
-    
-- **`Accept`**：浏览器告诉后端：“我能接收什么格式的返回结果”（如 `text/html`, `application/json`）。
-    
-- **`Content-Type`**：**（极重要，通常伴随POST）** 告诉后端，当前请求体里带过来的数据是什么格式。例如 `application/json` 代表是个 JSON 字符串。
-    
-- **`Content-Length`**：请求体的大小（单位：字节）。
-    
-
-#### 3. 请求体（Request Body）—— 数据的“正文”
-
-- 紧跟在空行后面（空行用于隔离请求头和请求体）。
-    
-- **只有 POST/PUT 等请求才有**。如图三的绿色高亮部分，存放的是真正要提交给后端的复杂业务数据：`{"status":1, "brandName":"黑马", ...}`。
-    
-
-### 模块二：后端如何获取 HTTP 请求数据？
-
-现在前端数据通过网络发过来了，我们在 Java 中该怎么把它们捞出来呢？
-
-一个底层的关键对象：**`HttpServletRequest`**。它是 Java Web 标准（Servlet 规范）中专门用来**封装 HTTP 请求所有数据**的超级对象。当请求到达 Spring Boot 时，Spring 会把这个对象自动注入到你的方法参数里。
-
-
-#### 1. 核心代码清单与 API 对比
+我们新建一个类或接口，专门用来处理文件/数据库数据的读取。
 
 ```Java
-@RestController
-@RequestMapping("/request")
-public class RequestController {
-
-    @RequestMapping("/test")
-    public String request(HttpServletRequest request) {
-        
-        // 1. 获取请求方式（GET/POST）
-        String method = request.getMethod(); 
-        System.out.println("请求方式：" + method); // 输出: GET
-
-        // 2. 获取请求的完整 URL 地址
-        String url = request.getRequestURL().toString(); 
-        System.out.println("请求URL地址：" + url); // 输出: http://localhost:8080/request/test
-
-        // 3. 获取请求的 URI 资源路径（不带域名和端口）
-        String uri = request.getRequestURI(); 
-        System.out.println("请求URI地址：" + uri); // 输出: /request/test
-
-        // 4. 获取请求行中拼接的原始查询参数字符串
-        String queryString = request.getQueryString();
-        System.out.println("查询参数字符串：" + queryString); // 输出: name=itheima
-
-        // 5. 获取指定的请求头信息
-        String acceptHeader = request.getHeader("Accept");
-        System.out.println("Accept请求头：" + acceptHeader);
-
-        return "OK";
+// 假设定义一个 UserDao 类
+public class UserDao {
+    public List<String> listRawData() throws Exception {
+        // 1. 纯粹负责加载和读取 user.txt，拿到最原始的一行行字符串数据
+        InputStream in = this.getClass().getClassLoader().getResourceAsStream("user.txt");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
+        return reader.lines().collect(Collectors.toList());
     }
 }
 ```
 
-#### 2. 划重点：`URL` 和 `URI` 的区别
+#### 2. Service层：负责复杂的解析与逻辑加工
 
-这是非常容易混淆的一点，在开发和面试中极其常用：
+大厨登场，管 Dao 要到原始数据后，进行解析和格式转换。
 
-- **`URL` (Uniform Resource Locator，统一资源定位符)**：指的是互联网上的**绝对路径**，带有协议、域名和端口。就像是“中国北京市海淀区XX路XX号”。
-    
-    - 对应代码：`request.getRequestURL()` ➔ 结果如 `http://localhost:8080/request`
+```Java
+public class UserService {
+    private UserDao userDao = new UserDao(); // 依赖Dao层去拿数据
+
+    public List<User> listUsers() throws Exception {
+        // 1. 调用Dao层拿到原始的字符串行
+        List<String> lines = userDao.listRawData();
         
-- **`URI` (Uniform Resource Identifier，统一资源标识符)**：指的是除去域名和端口后的**资源相对路径**。就像是“XX路XX号”。
-    
-    - 对应代码：`request.getRequestURI()` ➔ 结果如 `/request`
+        // 2. 在这里编写核心业务：切割字符串、转换LocalDateTime、封装成User对象
+        List<User> userList = new ArrayList<>();
+        for (String line : lines) {
+            String[] parts = line.split(",");
+            // ... 解析包装成 user 对象 ...
+            userList.add(user);
+        }
         
-
----
----
-
-
-## 响应协议
-
-
-
-### 模块一：解剖 HTTP 响应数据格式
-
-![[Java Web笔记-50.png]]
-
-#### 1. 状态行（Status Line）—— 结果的“定性声明”
-
-位于响应数据的**第一行**。它用来粗暴直接地告诉浏览器：“这次请求是成功了，还是崩了”。
-
-> 示例：`HTTP/1.1 200 OK`
-
-- **协议版本**：通常是 `HTTP/1.1`。
-    
-- **状态码（Status Code）**：用 3 位数字代表处理结果。
-    
-- **状态描述**：对数字的简单文字解释。
-    
-
-##### 面试与开发必备：响应状态码分类
-
-- **`1xx` (信息提示)**：临时状态，提示客户端继续操作。
-    
-- **`2xx` (成功)**：代表请求非常顺利。**最常用的是 `200 OK`**。
-    
-- **`3xx` (重定向)**：资源搬家了。告诉浏览器：_“你要的数据不在我这，快去访问另一个新地址”_。
-    
-- **`4xx` (客户端错误)**：前端传错参数、没登录或访问了不存在的资源。**最常见的是 `404 Not Found`**。
-    
-- **`5xx` (服务器错误)**：后端 Java 代码抛出异常挂掉了。**最常见的是 `500 Internal Server Error`**。
-    
-
-#### 2. 响应头（Response Headers）—— 返回的“附加属性”
-
-![[Java Web笔记-51.png|697]]
-
-从**第二行开始**直到空行结束，格式同样为 `Key: Value`。这是后端留给浏览器的一些“温馨提示”：
-
-- **`Content-Type`**：**（极其核心）** 告诉浏览器响应体里装的是什么。例如 `application/json` 代表是个 JSON 对象；`text/html` 代表是一个网页，浏览器看到后会直接渲染。
-    
-- **`Content-Length`**：响应体正文的大小（字节数）。
-    
-- **`Content-Encoding`**：告知数据采用了何种压缩算法（如 `gzip`），浏览器收到后需要先解压。
-    
-- **`Cache-Control`**：控制浏览器的缓存机制（例如 `max-age=300` 代表这个数据 300 秒内不用再向后端要，直接读本地缓存）。
-    
-- **`Set-Cookie`**：**（极重要）** 后面做登录认证时，后端用来往浏览器的底层塞入身份凭证（Cookie）的通道。
-    
-
-#### 3. 响应体（Response Body）—— 返回的“真正正文”
-
-- 紧跟在空行后面。
-    
-- 它是真正要展示在浏览器页面上、或者交给前端 Vue/React 解析的**核心数据**。可以是一个 HTML 页面、一张图片的二进制流，或者是一个标准的 **JSON 数组**（如第一张图中高亮的 `[{id: 1, brandName: "阿里巴巴", ...}]`）。
-    
-
-### 模块二：后端如何设置与返回响应数据？
-
-前端既然在等响应，那我们在 Java 中该怎么控制这三部分（状态码、响应头、响应体）呢？
-
-![[Java Web笔记-52.png|697]]
-#### 方式一：基于 Servlet 原生 `HttpServletResponse`（底层的做法）
-
-通过把 Java Web 顶层的 `HttpServletResponse` 对象直接作为方法参数注入，进行**纯手动、命令式**的设置：
-
-
-```Java
-@RequestMapping("/response")
-public void response(HttpServletResponse response) throws IOException {
-    // 1. 设置响应状态码
-    response.setStatus(401); // 故意设置为401（未授权异常）
-    
-    // 2. 设置自定义响应头
-    response.setHeader("name", "itheima");
-    
-    // 3. 设置响应体：获取字符输出流，直接往浏览器写数据
-    response.getWriter().write("<h1>Hello Response</h1>");
+        // 3. 返回加工处理好的干净数据
+        return userList;
+    }
 }
 ```
 
-- **缺点**：过于底层，写起来非常繁琐。在前后端分离的开发中，由于每次都要自己通过 `getWriter()` 写数据，很不方便。
-    
+#### 3. Controller层：作为前台迎客，代码变得极其干净！
 
-#### 方式二：基于 Spring 提供的 `ResponseEntity`（高级的做法）
-
-利用 Spring 提供的**链式编程对象**（Fluent API）进行包装，代码更加优雅、具备现代感：
-
+由于繁重的脏活、累活全被 Service 和 Dao 承包了，控制层现在只需要负责接收和响应：
 
 ```Java
-@RequestMapping("/response2")
-public ResponseEntity<String> response2() {
-    return ResponseEntity
-            .status(401)                        // 1. 设置响应状态码
-            .header("name", "javaweb-ai")       // 2. 设置响应头
-            .body("<h1>Hello Response</h1>");   // 3. 设置响应体
+@RestController
+public class UserController {
+    // 依赖 Service 层来获取业务结果
+    private UserService userService = new UserService(); 
+
+    @RequestMapping("/list")
+    public List<User> list() throws Exception {
+        // 1. 前台不碰业务，直接调用大厨（Service）做好的数据
+        List<User> userList = userService.listUsers();
+        
+        // 2. 将数据响应给前端
+        return userList;
+    }
 }
 ```
 
-- **优点**：结构清晰，通过方法链（`.status().header().body()`）直接一步到位将响应包封装完毕返回，是现代化企业开发中很推崇的规范写法。
-    
+### 三、 高级思考：什么是“解耦”？它完美了吗？
 
-#### 注意
+通过上面的重构，我们成功实现了**分层**（Controller ➔ Service ➔ Dao）。
 
-
-> **“响应状态码和响应头如果没有特殊要求的话，通常不手动设定。服务器会根据请求处理的逻辑，自动设置响应状态码和响应头。”**
-
-
-在绝大多数正常的业务（比如查询商品、用户登录）下，你不需要像上面那样大费周章地去写 `setStatus(200)` 或者手动设置 `Content-Type`。
-
-**你只需要在类上加上 `@RestController`，然后方法直接返回你的数据对象：**
+但是，请非常仔细地观察我们在 `UserController` 里写的这一行代码：
 
 ```Java
-@GetMapping("/user")
-public User getUser() {
-    return new User("张三", 18);
-}
+private UserService userService = new UserService();
 ```
 
-**Spring Boot 幕后会自动帮你做三件事：**
+还有在 `UserService` 里面写的：
 
-1. 发现方法正常执行完，自动在状态行塞入 `200 OK`。
+```Java
+private UserDao userDao = new UserDao();
+```
+
+#### 致命缺陷：这并没有真正“解耦”！
+
+我们在控制层里面手写了 `new UserService()`。这意味着，`UserController` 和 `UserService` 之间存在着**强耦合**。
+
+- **如果有一天**：因为业务调整，大厨类改名了，或者我们要换成另一个 `NewUserService` 类的实现。
     
-2. 发现你返回的是一个 Java 对象，自动通过 Jackson 组件把它转成 `{"name":"张三","age":18}`。
-    
-3. 发现是 JSON 串，自动在响应头加上 `Content-Type: application/json;charset=UTF-8`。
+- **代价**：你就不得不被迫去修改 `UserController` 的源代码！这就违反了软件工程的“开闭原则”。
     
 
-你只有在做一些**特殊、硬性的底层业务**（比如：鉴权失败故意返回 `401/403`、文件下载需要设置特定的 `Content-Disposition` 响应头、或者强制重定向时），才会用到 `ResponseEntity` 或原生 `response` 对象去手动修改。
+#### 预告：如何实现“真正的解耦”？
+
+这就要引出你接下来的课程核心——Spring 最引以为傲的两大王牌：**控制反转（IoC）** 和 **依赖注入（DI）**！
+
+Spring 会对你说：_“翻转吧！你们谁也别自己 `new` 对象了。把管理对象的权力上交给我（Spring容器）。Controller 需要 UserService 吗？在属性上贴个 `@Autowired` 注解，我自动在后台帮你把实例塞进去！”_
 
 ---
 ---
-
 
