@@ -939,6 +939,8 @@ ResultSet rs = pstmt.executeQuery();
 
 #### ① 性能缓存 (Server-side Prepare)
 
+![[JDBC笔记-11.png]]
+
 如果你要循环执行 10,000 次插入操作：
 
 - **使用 `Statement`**：数据库必须痛苦地重复执行 10,000 次语法解析、编译优化，CPU 直接飙升。
