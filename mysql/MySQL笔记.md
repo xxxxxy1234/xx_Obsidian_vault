@@ -252,7 +252,7 @@ CREATE TABLE students (
 
 在 MySQL 的世界里，SQL 语句虽然多，但就像乐高积木一样，根据**功能**被分成了四大类（有时加上事务控制是五类）。
 
-
+![[MySQL笔记-6.png]]
 ### 1. DDL（Data Definition Language 数据定义语言）
 
 **关键词：结构 (Structure）     用来定义数据库对象（数据库、表、字段）**
@@ -267,6 +267,8 @@ CREATE TABLE students (
     
 - **TRUNCATE**：清空表里的所有内容，但保留表结构。
 
+
+![[MySQL笔记-7.png|697]]
 
 #### DDL--数据库操作
 
