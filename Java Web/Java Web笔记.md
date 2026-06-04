@@ -8399,3 +8399,152 @@ public List<Emp> list(@Param("name") String name,
 ---
 
 
+## XML映射配置
+
+
+### 前言：什么是XML
+
+
+**XML（可扩展标记语言）**：一种**用来存储、传输数据的文本格式文件**，后缀`.xml`，用自定义标签包裹数据，和 HTML 长得像，但用途完全不同。
+
+#### 1、核心特点
+
+1. **标签自己定义（可扩展）**
+    
+    HTML 标签固定`<div><p>`，XML 标签随便写：`<姓名>张三</姓名>`、`<价格>99</价格>`。
+
+```xml
+<商品>
+  <名称>可乐</名称>
+  <单价>3.5</单价>
+</商品>
+```
+
+1. **纯文本**：记事本、VS Code 都能打开编辑
+2. **树形层级结构**：有根节点、子节点，嵌套书写
+
+#### 2、和 HTML 区别
+
+- **HTML：用来展示页面内容（网页排版）**
+- **XML：用来存放 / 交换数据（存配置、传数据）**
+
+#### 3、日常用处
+
+1. **软件配置文件**：很多 Java、安卓、旧程序配置都是`.xml`
+2. **老式接口数据传输**（现在大多被 JSON 替代）
+3. **Office 旧文档**：docx/xlsx 本质是压缩包，内部就是一堆 xml
+
+#### 4、补充
+
+现在新项目优先用**JSON**（更简短），但老系统、工业软件、Android 项目还大量在用 XML。
+
+---
+
+
+
+当 SQL 语句变得极其复杂、长达几十行，或者需要用到动态 SQL 的标签（如 `<if>`）时，如果还硬把 SQL 挤在 `@Select`、`@Update` 注解里，Java 代码就会变得像一团乱麻，极难维护。企业规范的核心准则就是：**简单的 SQL 用注解，复杂的 SQL 用 XML**。
+
+![[Java Web笔记-70.png]]
+### 一、 核心解耦思想：Java 接口与 XML 的完美映射
+
+使用 XML 映射配置的核心逻辑是：**Java 接口中只保留方法声明，而把所有的 SQL 语句全部抽离到 `src/main/resources` 下的 XML 文件中**。
+
+为了让 MyBatis 能够在运行时精准地把“Java 接口方法”和“XML 里的 SQL 语句”绑定在一起，必须严格遵守以下 **3 大黄金对齐准则**：
+
+
+```Plaintext
+1. 【同包同名】 XML 文件所在的目录结构，必须与 Mapper 接口的包结构完全一致，且文件名相同。
+2. 【名称空间】 XML 文件中 <mapper> 标签的 namespace 属性，必须是 Mapper 接口的全限定类名。
+3. 【ID 对齐】 XML 中 SQL 标签（如 <select>）的 id 属性，必须与接口中的方法名完全一致。
+```
+
+### 二、 实战流水线：XML 映射的规范配置步骤
+
+#### 步骤 1：在 `resources` 下建立同名目录（防坑重点！）
+
+还记得我们在 IDEA 辅助配置里聊过的核心陷阱吗？
+
+- 在 `src/main/resources` 下创建多层目录时，**千万不要**右键新建文件夹然后输入 `com.itheima.mapper`！
+    
+- **正确做法**：必须使用**斜杠 `/`** 隔开，输入 **`com/itheima/mapper`**。这样创建出来的才是真正嵌套的三层目录，才能在项目打包后与 Java 类的字节码目录完美融合。
+    
+- 接着在这个目录下，新建一个文件，命名为 **`EmpMapper.xml`**（必须与接口名 `EmpMapper` 完全一样）。
+    
+
+#### 步骤 2：编写 Java 接口：`EmpMapper.java`
+
+此时的接口干净利落，**不要写任何 MyBatis 注解**，只留纯粹的方法签名：
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Mapper;
+import java.time.LocalDate;
+import java.util.List;
+
+@Mapper
+public interface EmpMapper {
+    // 这是一个复杂的条件模糊查询方法，不需要任何注解
+    public List<Emp> list(String name, Short gender, LocalDate begin, LocalDate end);
+}
+```
+
+#### 步骤 3：编写 XML 映射配置：`EmpMapper.xml`
+
+在新建的 XML 文件中，首先必须贴入 MyBatis 官方标准的 **DTD 约束头声明**（用于提供标签提示），然后编写具体的映射标签：
+
+```XML
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        public "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-0-get.dtd">
+
+<mapper namespace="com.itheima.mapper.EmpMapper">
+
+    <select id="list" resultType="com.itheima.pojo.Emp">
+        select * from emp
+        where name like concat('%', #{name}, '%')
+          and gender = #{gender}
+          and entrydate between #{begin} and #{end}
+        order by update_time desc
+    </select>
+
+</mapper>
+```
+
+
+![[Java Web笔记-71.png]]
+
+### 三、 核心配置参数详解
+
+在编写 XML 时，有几个新手极易混淆的硬核参数
+
+#### 1. `resultType` 的“单体原则”
+
+- **经典错误**：很多同学认为既然方法返回的是 `List<Emp>`，那 XML 里的 `resultType` 是不是应该写 `java.util.List`？
+    
+- **正确逻辑**：**绝对不行！** `resultType` 告诉 MyBatis 的是“每一行数据库记录应该被包装成什么 Java 对象”**。MyBatis 会自动把包装好的一个个 `Emp` 对象组织成一个 `List` 集合返回。所以，无论接口返回的是单个对象还是 `List` 集合，`resultType` 永远填写**泛型中的那个具体实体类路径。
+    
+
+#### 2. 增删改标签没有 `resultType`
+
+- XML 中提供了四大主流标签：`<select>`、`<insert>`、`<update>`、`<delete>`。
+    
+- 其中，**只有 `<select>` 查询标签必须写 `resultType` 或 `resultMap`**。另外三个标签默认返回的是受影响的行数（`int`），MyBatis 底层会自动处理，严禁在它们身上写 `resultType`。
+    
+
+### 四、 配合 MyBatisX 插件的完全体体验
+
+如果你在 IDEA 中安装了我上一步为你推荐的 **MyBatisX 插件**，完成上述配置后，你会体验到极其震撼的丝滑操作：
+
+1. **小鸟图标激活**：在 Java 接口方法的第 11 行左侧，会亮起一个小蓝鸟图标；在 XML 文件的第 12 行 `<select>` 标签左侧，会亮起一个小红鸟图标。点击即可在 Java 和 XML 间秒级穿梭。
+    
+2. **红绿线校验**：如果你的 XML 中的 `id="list"` 字母写错了（比如写成了 `list2`），MyBatisX 会瞬间把标签报红，并警告你没有对应的 Java 方法，在编译前就能帮你拦截 Bug。
+    
+
+---
+---
+
+
+
