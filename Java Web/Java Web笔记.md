@@ -7546,7 +7546,7 @@ public class EmpController {
 # Mybatis
 
 
-## Mybatis——入门程序
+## 入门程序
 
 
 ### 什么是 MyBatis？它凭什么淘汰 JDBC？
@@ -7920,4 +7920,123 @@ mybatis.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl*
 ---
 ---
 
+
+## 数据库连接池
+
+
+当你把 MyBatis 环境刚搭好，或者去翻看控制台输出的日志时，你一定会看到类似 `HikariPool-1 - Starting...` 或者 `HikariDataSource` 这样的字眼。
+
+这就是 Java 后端开发里为了应对高并发、保障数据库性能而引入的绝对核心技术——**数据库连接池（Database Connection Pool）**。
+
+### 一、 为什么要用连接池？（痛点分析）
+
+在没有连接池的时代（比如传统的 JDBC 原生开发），我们每执行一次 SQL 语句，都要老老实实走一遍流程：
+
+> **发起请求 ➔ 建立网络连接（TCP 三次握手） ➔ 数据库身份验证 ➔ 执行 SQL ➔ 销毁连接**
+
+#### 传统做法有两大致命 Defects：
+
+1. **网络开销极高，慢得要死**：在计算机世界里，“建立连接”和“销毁连接”是非常沉重的物理动作。频繁开关连接所消耗的时间，往往比 SQL 语句本身的执行时间还要长。
+    
+2. **内存容易被打爆，直接宕机**：如果有 1 万个用户同时并发访问你的网页，服务器就会瞬间向 MySQL 申请 1 万个 Connection 对象。MySQL 根本扛不住这么多长连接，会直接报 `Too many connections` 错误挂掉。
+    
+
+### 二、 什么是数据库连接池？（核心原理）
+
+为了解决上述痛点，连接池采用了经典的 **“资源复用”** 思想。
+
+你可以把它理解为学校里的 **“公共共享单车”**。学校（池子）提前买好了 50 辆单车（连接）放在那里。
+
+- 当你想骑车去上课时（执行 SQL），你直接去车棚**借一辆**（获取连接）；
+    
+- 骑到教室后（SQL 执行完毕），你不需要把单车砸碎销毁，而是把它**停回车棚**（归还连接），留给下一个同学继续用。
+    
+
+#### 核心工作流程：
+
+1. **项目启动时**：连接池会在内存中提前一次性创建好一定数量的连接对象（比如 10 个），让它们保持与数据库的连通状态。
+    
+2. **业务运行时**：当你的 Mapper 接口需要查数据库时，不再自己去 `DriverManager.getConnection()` 找 MySQL 要连接，而是直接跟连接池说：_“借我用一个空闲的连接”_。
+    
+3. **业务执行完**：调用 `connection.close()`。注意！此时**并不是关闭底层网线连接**，而是把这个连接对象“擦干净”重新放回池子里，恢复为“空闲”状态。
+    
+
+### 三、 现代主流连接池产品对比
+
+随着技术迭代，Java 圈子里诞生过多款经典的连接池产品：
+
+|**连接池产品**|**状态与江湖地位**|**核心特点**|
+|---|---|---|
+|**C3P0 / DBCP**|**过时淘汰**|属于极其古老的早期连接池，性能较差，现在企业和新项目基本绝迹。|
+|**Druid (德鲁伊)**|**国产之光（极推荐）**|阿里巴巴开源的产品。不仅性能极高，而且拥有**全行业最强悍、最恐怖的监控功能**。内置了 Web 控制台，能清晰监控你的项目里哪一条 SQL 跑得最慢、防 SQL 注入等。|
+|**HikariCP**|**当世速度之王（默认）**|日本开发者开发的产品。它把代码精简到了极致，在多线程并发时，**速度和性能高居全球第一**。|
+
+### 四、 Spring Boot 中的完全自动化整合
+
+作为新一代微服务框架，Spring Boot 官方为了极致的性能，直接把 **HikariCP** 选为了**默认的数据库连接池**。
+
+#### 1. 它是怎么生效的？
+
+其实在你上一步配置 MyBatis 时，只要你在 `pom.xml` 里引入了 `mybatis-spring-boot-starter`，Spring Boot 就会在底层自动把 HikariCP 依赖顺着网线带进来。
+
+当你在 `application.properties` 里配置这四大参数时：
+
+```Properties
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.datasource.url=jdbc:mysql://localhost:3306/mybatis_db
+spring.datasource.username=root
+spring.datasource.password=123456
+```
+
+Spring Boot 的自动化配置机制一看到这些配置，就会在 IoC 容器里自动帮你创建出一个名为 **`HikariDataSource`** 的 Bean。MyBatis 运行 SQL 时，直接就会从这个 Hikari 池子里借连接用，不需要你写一行代码！
+
+#### 2. 高级调优参数（根据商业项目规模配置）
+
+如果你以后负责大厂项目或者高并发场景，可以手动在 properties 文件里调整 Hikari 的性能参数：
+
+```Properties
+# 1. 池子中允许拥有的最大连接数（默认是 10 辆车，高并发时可以改大，如 50 或 100）
+spring.datasource.hikari.maximum-pool-size=20
+
+# 2. 池子中维护的最少空闲连接数
+spring.datasource.hikari.minimum-idle=5
+
+# 3. 借连接时的最大等待时间（毫秒）。超过 30 秒如果还没借到空闲连接，直接报错拒绝，防止页面卡死
+spring.datasource.hikari.connection-timeout=30000
+
+# 4. 一个连接在池子里最长能活多久（毫秒），防止数据库那端的连接因为超时被强行踢掉
+spring.datasource.hikari.max-lifetime=1800000
+```
+
+### 进阶：如何把默认的 Hikari 切换成阿里的 Druid？
+
+如果你去公司实习，发现主管要求你用 Druid 来做 SQL 运行监控，切换也是极其简单的，体现了 Spring Boot 可插拔的特性：
+
+1. **第一步**：在 `pom.xml` 中引入 Druid 的坐标（直接盖掉默认的 Hikari）：
+    
+    
+    
+    ```XML
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid-spring-boot-starter</artifactId>
+        <version>1.2.23</version>
+    </dependency>
+    ```
+    
+2. **第二步**：修改 `application.properties`，在参数里加上 `druid` 专属前缀：
+    
+    
+    
+    ```Properties
+    spring.datasource.type=com.alibaba.druid.pool.DruidDataSource
+    # 开启 Druid 自带的监控统计功能(stat)和防SQL注入防火墙(wall)
+    spring.datasource.druid.filters=stat,wall 
+    ```
+    
+
+简单总结：**连接池就是为了“减少开关连接的开销、实现连接复用”而生的技术**。
+
+---
+---
 
