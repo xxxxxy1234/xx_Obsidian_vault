@@ -7561,7 +7561,7 @@ public class EmpController {
 
 #### 2. 它是怎么“简化” JDBC 的？
 
-![[Java Web笔记-62.png]]
+![[Java Web笔记-62.png|697]]
 
 对比原生 JDBC 痛点，MyBatis 实现了两大核心飞跃：
 
@@ -7737,24 +7737,82 @@ class SpringbootMybatisCrudApplicationTests {
 >测试类所在包的包名要与引导类所在包的包名相同（或放在引导类所在包的子包下）
 
 
-### 融会贯通：把三层架构、IoC/DI 和 MyBatis 全部串起来！
+### 补充：关于@SpringBootTest注解
 
-你可以闭上眼睛顺一下接下来的商业项目标准流程：
 
-1. 前端发送一个 HTTP 请求，想要查看用户列表。
+#### 一、 `@SpringBootTest` 到底是什么意思？
+
+简单粗暴地理解：**它是 Spring 容器环境的“总开关”。**
+
+- **普通测试（没有这个注解）**：如果你只写 `@Test`，那它只是一个普通的 Java 方法测试。此时 **Spring 容器根本没有启动**，你代码里的 `@Autowired` 依赖注入全部失效（拿出来的对象全是 `null`，报空指针异常），MyBatis 的 Mapper 接口也无法运行。
     
-2. 请求撞进 **`UserController`** 的 `@RequestMapping("/list")` 方法中。
-    
-3. `UserController` 里面不写业务，它通过 **`@Autowired`** 调用了 **`UserService`** 接口。
-    
-4. `UserService` 里面不操作数据库，它通过 **`@Autowired`** 调用了你刚刚写好的 **`UserMapper`** 接口。
-    
-5. **`UserMapper`** 接口上的 `@Select` 带着 SQL 语句杀进 MySQL 数据库，把数据捞出来，并通过 **ORM 机制** 全自动打包成 `List<User>` 一路返回。
-    
-6. 最后，`UserController` 把这个 `List<User>` 作为 **HTTP 响应体** 吐给前端，前端用 Vue 循环画出表格。
+- **Spring Boot 测试（加上这个注解）**：当你点击运行带有 `@SpringBootTest` 的类时，它会在后台**默默启动整个 Spring Boot 应用程序（也就是加载 IoC 容器）**。容器启动后，所有的 Bean（如 Service、Mapper）都会被创建并初始化，`@Autowired` 才能正常把对象塞进去，你才能顺利测试数据库操作。
     
 
-通过 MyBatis，我们用最少的代码把底层的持久化逻辑做得干净利落。
+#### 二、 要是还有其他包下的测试类呢？都要加上吗？
+
+##### 结论：
+
+**是的，只要那个测试类里用到了 `@Autowired` 依赖注入，或者需要用到 Spring 容器里的任何对象（比如 Mapper、Service），它就必须加上 `@SpringBootTest`。**
+
+但是，在实际开发中，其他包下的测试类能不能成功运行，取决于它们**写在哪个包下**。这里有一个极其重要的“潜规则”：
+
+##### 核心潜规则：测试类的“包路径”必须与启动类对齐
+
+默认情况下，`@SpringBootTest` 会在当前测试类所在的包开始，**往上逐级寻找**带有 `@SpringBootApplication` 的主启动类。它必须找到启动类，才能知道从哪里开始扫描 Bean。
+
+这就会引出两种情况：
+
+###### 情况 A：标准做法（测试类与主启动类的包路径完全一致）
+
+在 `src/test/java` 目录中，**故意创建和 `src/main/java` 一模一样的包结构**。
+
+- 启动类在：`com.itheima`
+    
+- 测试类 A 在：`com.itheima.service`
+    
+- 测试类 B 在：`com.itheima.mapper`
+    
+
+👉 **结果**：这些测试类**只需要直接加上 `@SpringBootTest` 就能直接跑通**。因为它们都在 `com.itheima` 这个大伞下面，Spring 向上能轻而易举地找到启动类。
+
+###### 情况 B：乱放包的做法（测试类跳出了启动类的领地）
+
+如果你在 `src/test/java` 里写了一个测试类，它的包名变成了 `com.example` 或者 `org.test`（完全跟 `com.itheima` 挨不着边）。
+
+👉 **结果**：此时就算你加了 `@SpringBootTest`，运行也会**直接报错**，提示找不到 `@SpringBootConfiguration`（即找不到启动类）。
+
+#### 三、 企业级开发的高级避坑指南
+
+如果以后去企业实习或写大项目，其他包下的测试类非常多，有以下两种最佳实践方案：
+
+##### 解决方案 1：严格遵守“包路径对齐”规范（最推荐）
+
+永远保持 `src/test/java` 里的包名和 `src/main/java` 里的包名严丝合缝地对应。只要在同一个根包下，所有测试类直接打上 `@SpringBootTest` 就能闭眼运行。
+
+##### 解决方案 2：如果包名实在对不上，手动指定启动类
+
+如果测试类因为特殊原因必须写在其他完全不同的包下（比如 `com.example`），你必须在 `@SpringBootTest` 后面用 `classes` 属性手动给它“指路”，告诉它启动类在哪：
+
+```Java
+package com.example; // 这是一个外部的包
+
+import com.itheima.SpringbootMybatisCrudApplication; // 导入主启动类
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+// 手动指定主启动类的 Class 对象，这样即使包名对不上，Spring 也能成功启动环境！
+@SpringBootTest(classes = SpringbootMybatisCrudApplication.class)
+public class ExternalCodeTest {
+    
+    @Test
+    public void myTest() {
+        // 你的测试逻辑
+    }
+}
+```
+
+总结一下：**想用 Spring 环境，就必须加 `@SpringBootTest`**。为了不报错，最省心的办法就是**让测试类的包名和主代码的包名保持一致**！
 
 ---
 ---
