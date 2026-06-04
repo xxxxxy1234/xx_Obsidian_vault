@@ -7526,3 +7526,235 @@ public class EmpController {
 ---
 ---
 
+# Mysql
+
+[Mysql笔记](obsidian://open?vault=xx_Obsidian_vault&file=mysql%2FMySQL%E7%AC%94%E8%AE%B0)
+
+---
+---
+
+# JDBC
+
+
+[JDBC笔记](obsidian://open?vault=xx_Obsidian_vault&file=JDBC%2FJDBC%E7%AC%94%E8%AE%B0)
+
+
+---
+---
+
+
+# Mybatis
+
+
+## Mybatis——入门程序
+
+
+### 什么是 MyBatis？它凭什么淘汰 JDBC？
+
+
+- **MyBatis 是一款优秀的持久层框架，用于简化 JDBC 开发。**
+
+#### 1. 什么是持久层？
+
+- 负责将内存中的数据保存到数据库中，或者将数据库中的数据读取到内存中的那部分代码（也就是我们三层架构里的 **Dao 层 / 数据访问层**）。
+    
+
+#### 2. 它是怎么“简化” JDBC 的？
+
+![[Java Web笔记-62.png]]
+
+对比原生 JDBC 痛点，MyBatis 实现了两大核心飞跃：
+
+1. **解决硬编码**：传统的 JDBC 把数据库账号密码、连接地址、SQL 语句全部死死写在 Java 代码里。MyBatis 允许我们将 SQL 语句集中管理，甚至直接用注解写在接口上。
+    
+2. **解决手动映射（最核心）**：JDBC 需要你用 `while(rs.next())` 循环去一个字段一个字段地 `getInt`、`getString`。而 MyBatis 框架实现了 **ORM（Object Relational Mapping，对象关系映射）**。
+    
+    - **M（Mapping）全自动映射**：只要你的 Java 实体类的属性名（如 `id`, `name`, `age`）和数据库表的列名能对上，MyBatis 就会在底层自动帮你把数据库里的每一行记录，直接**组装并翻译**成一个完整的 Java 对象或 `List<User>` 集合，彻底解放了双手。
+        
+
+### MyBatis 入门程序开发流水线
+
+![[Java Web笔记-63.png]]
+
+实现一个标准的 MyBatis 查询，只需要遵循 **4大核心步骤**：
+
+```Plaintext
+ 1. 准备工作（创建用户表 user，插入 mock 数据）
+         ↓
+ 2. 引入依赖（在 pom.xml 中引入 MyBatis 启动器和 MySQL 驱动）
+         ↓
+ 3. 配置环境（在 application.properties 中配置数据库连接四大参数）
+         ↓
+ 4. 编写代码（编写 User 实体类，以及带有 @Mapper 注解的接口并运行测试）
+```
+
+接下来，我们把这四步对应的硬核代码全部对齐：
+
+#### 步骤 1：准备数据库与数据
+
+在 MySQL 中建立一张简单的用户表，字段必须与你的 Java 实体类一一对应：
+
+```SQL
+CREATE TABLE user (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(20),
+    age INT,
+    gender TINYINT,
+    phone VARCHAR(11)
+);
+
+-- 插入一条测试数据
+INSERT INTO user (name, age, gender, phone) VALUES ('张三', 20, 1, '13800000000');
+```
+
+#### 步骤 2：在 `pom.xml` 中引入 MyBatis 全家桶
+
+在 Spring Boot 项目中，利用我们之前学过的 **Starter（起步依赖）**，一次性引入持久层和驱动所需的包：
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>3.0.3</version>
+    </dependency>
+
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+    </dependency>
+</dependencies>
+```
+
+#### 步骤 3：在 `application.properties` 中配置四大参数
+
+MyBatis 底层仍然是基于 JDBC 的，所以它需要知道怎么连接你的本地数据库。在 `src/main/resources/application.properties` 中写入：
+
+```Properties
+# 1. 数据库驱动类名（Spring Boot 会根据 url 自动推导，也可以显式写出）
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+# 2. 数据库连接 URL（记得把 mybatis_db 换成你自己的数据库名）
+spring.datasource.url=jdbc:mysql://localhost:3306/mybatis_db?useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true
+# 3. 数据库用户名
+spring.datasource.username=root
+# 4. 数据库密码
+spring.datasource.password=123456
+```
+
+#### 步骤 4：编写核心代码
+
+##### ① 编写实体类：`pojo/User.java`
+
+```Java
+package com.itheima.pojo;
+
+import lombok.Data;
+
+@Data
+public class User {
+    private Integer id;
+    private String name;
+    private Integer age;
+    private Short gender;
+    private String phone;
+}
+```
+
+##### ② 编写持久层接口：`mapper/UserMapper.java`（核心重点）
+
+MyBatis 引入了一个极其神奇的操作：**只需要写接口，不需要写任何实现类类！**
+```java
+
+package com.itheima.mapper;
+
+import com.itheima.pojo.User;
+
+import org.apache.ibatis.annotations.Mapper;
+
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
+
+// @Mapper 注解的核心作用：
+
+// 1. 告诉 Spring，当前接口是 MyBatis 的 Mapper 接口。
+
+// 2. 项目运行时，MyBatis 框架底层会自动为这个接口生成一个动态代理对象，并把它作为 Bean 注入到 IoC 容器中！
+
+@Mapper
+
+public interface UserMapper {
+
+
+// @Select 注解中直接编写原生 SQL 语句
+// 当这个方法被调用时，MyBatis 会自动执行这条 SQL，并自动把查出来的多行记录映射、封装进 List<User> 集合中。
+@Select("select id, name, age, gender, phone from user")
+public List<User> list(); 
+
+```
+
+
+
+##### ③ 编写单元测试运行：`src/test/java/...`
+在 Spring Boot 自动生成的测试类中，利用我们学过的 **`@Autowired` 依赖注入**，直接把接口拿来运行：
+
+```java
+package com.itheima;
+
+import com.itheima.mapper.UserMapper;
+import com.itheima.pojo.User;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import java.util.List;
+
+@SpringBootTest // 带有该注解的测试类，在运行时会启动整个 Spring 容器环境
+class SpringbootMybatisCrudApplicationTests {
+
+    @Autowired // 让依赖注入机制把 MyBatis 偷偷生成的 UserMapper 代理实现类塞进来
+    private UserMapper userMapper;
+
+    @Test
+    public void testListUser() {
+        // 调用接口方法
+        List<User> userList = userMapper.list();
+        
+        // 打印结果，验证 ORM 自动封装效果
+        userList.forEach(user -> System.out.println(user));
+        //或者采取方法引用userList.forEach(System.out::println);
+    }
+}
+````
+
+>[!tip]
+>SpringBoot上的单元测试类要加上@SpringBootTest注解
+>测试类所在包的包名要与引导类所在包的包名相同（或放在引导类所在包的子包下）
+
+
+### 融会贯通：把三层架构、IoC/DI 和 MyBatis 全部串起来！
+
+你可以闭上眼睛顺一下接下来的商业项目标准流程：
+
+1. 前端发送一个 HTTP 请求，想要查看用户列表。
+    
+2. 请求撞进 **`UserController`** 的 `@RequestMapping("/list")` 方法中。
+    
+3. `UserController` 里面不写业务，它通过 **`@Autowired`** 调用了 **`UserService`** 接口。
+    
+4. `UserService` 里面不操作数据库，它通过 **`@Autowired`** 调用了你刚刚写好的 **`UserMapper`** 接口。
+    
+5. **`UserMapper`** 接口上的 `@Select` 带着 SQL 语句杀进 MySQL 数据库，把数据捞出来，并通过 **ORM 机制** 全自动打包成 `List<User>` 一路返回。
+    
+6. 最后，`UserController` 把这个 `List<User>` 作为 **HTTP 响应体** 吐给前端，前端用 Vue 循环画出表格。
+    
+
+通过 MyBatis，我们用最少的代码把底层的持久化逻辑做得干净利落。
+
+---
+---
