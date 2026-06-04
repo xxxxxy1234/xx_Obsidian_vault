@@ -9197,6 +9197,38 @@ list.stream().filter(checker::check);
 
 **注意点**：这里的 `checker` 必须是**已经初始化**的对象。这种写法非常适合在 Spring 框架中引用某个注入的 Service 方法。
 
+
+>[!attention] 关于System.out::println
+>==- **类型**：`System.out::println` 是 **对象引用实例方法**==
+>==- **主体**：`System.out` 是对象，`println` 是它的实例方法==
+>==- **合法性**：因为 `println` 的参数 / 返回值，和 `Consumer.accept` 完全匹配==
+>
+>方法引用生效的**唯一条件**：
+>引用的方法**参数列表、返回值**，必须和函数式接口的抽象方法**完全匹配**
+>我们看最常用的场景：
+>```java
+// 遍历集合
+List<String> list = List.of("Java", "方法引用");
+>list.forEach(System.out::println);
+>```
+>`forEach` 接收的函数式接口是 `Consumer`：
+>```java
+>@FunctionalInterface
+>public interface Consumer<T> {
+>// 抽象方法：接收1个参数，无返回值
+>void accept(T t);
+>}
+>```
+>
+>再看 `println` 方法：
+>```java
+>public void println(String x) { ... }
+>```
+>✅ 接收 **1 个参数**
+>✅ **无返回值**
+>
+>两者**参数、返回值完全匹配**，所以可以直接用方法引用替代 Lambda。
+
 ---
 
 ### 2. 引用类名表示的成员方法（核心难点）
