@@ -8040,3 +8040,123 @@ spring.datasource.hikari.max-lifetime=1800000
 ---
 ---
 
+
+## 增删改查——删除操作
+
+
+### 一、 核心要点：`@Delete` 注解与动态参数绑定
+
+![[Java Web笔记-66.png]]
+
+在原生的 JDBC 中，如果我们想根据 ID 删除一条数据，SQL 语句通常写成占位符形式：`delete from emp where id = ?`。
+
+而在 MyBatis 中，这个痛点被优雅地简化了：
+
+#### 1. 语法规范
+
+在声明的 Mapper 接口方法上，直接使用 **`@Delete`** 注解，并且使用 **`#{}`** 语法来接收传进来的参数：
+
+```Java
+@Mapper
+public interface EmpMapper {
+
+    // @Delete 注解：标识这是一个删除操作的 SQL 语句
+    // #{id}：这是 MyBatis 的动态参数占位符，用来接收方法形参传过来的值
+    @Delete("delete from emp where id = #{id}")
+    public void delete(Integer id); 
+}
+```
+
+#### 2. 核心考点：为什么必须用 `#{}` 而不是 `${}`？（面试必问）
+
+![[Java Web笔记-67.png]]
+
+- **`#{id}`（预编译占位符）**：MyBatis 底层会把它翻译成 JDBC 的 `?` 占位符。执行时使用的是 `PreparedStatement`，**性能高且能彻底防止 SQL 注入攻击**。
+    
+- **`${id}`（拼接字符串）**：MyBatis 底层会直接把参数拼接进 SQL 串中。例如传个 17，SQL 变成 `... where id = 17`。这**极易引发 SQL 注入危险**，企业开发中严禁在常规传参中使用。
+    
+
+### 二、 实战：单元测试验证
+
+要验证这个删除方法是否成功，必须在 `src/test/java` 下对应的测试类中，利用我们学过的 **`@SpringBootTest`**（启动容器总开关）和 **`@Autowired`** 来调用接口：
+
+
+```Java
+package com.itheima;
+
+import com.itheima.mapper.EmpMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest // 必须加：启动整个 Spring Boot 环境，否则注入的 empMapper 会是 null
+class SpringbootMybatisCrudApplicationTests {
+
+    @Autowired // 让 Spring 自动把 MyBatis 动态生成的实现类注入进来
+    private EmpMapper empMapper;
+
+    @Test
+    public void testDelete() {
+        // 调用删除方法，传入想要删除的员工 ID（例如删除 id 为 17 的员工）
+        empMapper.delete(17); 
+    }
+}
+```
+
+### 三、 日志解密：看懂控制台的底层动作
+
+当你右键运行这个测试方法时，控制台如果配置了 MyBatis 日志（或者使用了你刚装的 MyBatis Log 插件），会打印出极其关键的三行数据。我们来把你的截图日志“翻译”一下：
+
+
+```Plaintext
+① Preparing: delete from emp where id = ?
+② Parameters: 17(Integer)
+③ Updates: 1
+```
+
+- **`Preparing`（准备阶段）**：说明 MyBatis 已经成功把你的 `@Delete("... #{id}")` 转换成了底层的 JDBC **预编译 SQL 语句**，其中的 `#{id}` 被置换为了标准的 `?`。
+    
+- **`Parameters`（传参阶段）**：清晰地显示出你刚才通过 Java 方法传进去的实参是 `17`，数据类型是 `Integer`。
+    
+- **`Updates`（影响行数）**：这一行至关重要！它代表**这条 SQL 语句在 MySQL 数据库中实际影响（删除了）多少行数据**。
+    
+    - 如果显示 `Updates: 1`：说明数据库里原本确实有 id=17 的员工，并且已经被**成功删除了**。
+        
+    - 如果显示 `Updates: 0`：说明代码和 SQL 都没有错，但是**数据库里本来就没有 id=17 的这条记录**，所以执行了空操作。
+        
+
+### 四、 接口方法的返回值设计（企业高级技巧）
+
+在黑马当前的案例中，老师写的方法返回值是 `public void delete(Integer id);`，也就是不需要返回值。
+
+但是在商业项目和企业级开发中，我们通常会把删除、修改、新增操作的方法返回值定义为 **`int`**：
+
+
+```Java
+@Delete("delete from emp where id = #{id}")
+public int delete(Integer id); // 将 void 改为 int
+```
+
+- **为什么改写成 `int`？**
+    
+    MyBatis 非常智能，当增删改方法的返回值是 `int` 时，它会自动把刚才控制台打印的 `Updates`（影响行数）作为方法的返回值传回来！
+    
+- **有什么用？**
+    
+    这样你在 Service 层调用时，就可以根据返回值做业务判断了：
+    
+    
+    
+    ```Java
+    int rows = empMapper.delete(17);
+    if (rows > 0) {
+        System.out.println("删除成功！");
+    } else {
+        System.out.println("删除失败，该用户可能已被他人删除！");
+    }
+    ```
+    
+
+---
+---
+
