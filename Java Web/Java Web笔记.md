@@ -7693,6 +7693,7 @@ public interface UserMapper {
 
 // @Select 注解中直接编写原生 SQL 语句
 // 当这个方法被调用时，MyBatis 会自动执行这条 SQL，并自动把查出来的多行记录映射、封装进 List<User> 集合中。
+//同理还有@Insert/@Update/@Delete等
 @Select("select id, name, age, gender, phone from user")
 public List<User> list(); 
 
@@ -7815,3 +7816,108 @@ public class ExternalCodeTest {
 
 ---
 ---
+
+
+## 补充：IDEA中关于Mybatis的一些辅助配置
+
+在 IntelliJ IDEA 中开发 MyBatis，如果没有辅助配置，你可能会遇到 **SQL 语法不亮、无法从接口直接跳转到 XML、XML 标签没有提示**等痛点。
+
+为了让编写 MyBatis 代码和写普通 Java 代码一样爽快，以下为你整理了 IDEA 中最核心的**辅助配置指南和提效插件**，直接可以贴进你的 Obsidian 中。
+
+### 一、 IDEA 原生自带的硬核配置（无需安装插件）
+
+#### 1. SQL 提示与连接注入（让 XML/注解里的 SQL 高亮且有提示）
+
+默认情况下，你在 `@Select("select * from user")` 里面写的 SQL 是一串灰色的普通字符串，IDEA 并不会校验它写得对不对。
+![[Java Web笔记-65.png]]
+然而从 **IDEA 2023.3 及之后版本**，IDE 自带内置规则：
+
+- 原生自动识别 `@Select/@Insert/@Update/@Delete/@SelectProvider` 等 MyBatis 注解内双引号字符串，**自动注入 SQL 语法**，自带关键字高亮、SQL 语法检查，不用逐个`Alt+Enter → Inject language`。
+- 效果：字符串里`select from where`自动变色、关键字标色，语法写错会波浪线提示。
+> 局限：**只做语法识别，不带表名 / 字段智能提示**（不知道数据库真实表结构）。我们要手动配置数据库连接
+
+
+- **怎么配置**：
+    
+    1. 在 IDEA 右侧边栏找到 **Database** 窗口，点击 `+` 号 ➔ `Data Source` ➔ `MySQL`。
+        
+    2. 输入你 `application.properties` 里的账号密码和数据库名，连接上你的本地数据库。
+        
+- **神奇效果**：连接成功后，IDEA 会自动把你本地的表结构同步进来。此时你在 Java 注解或 XML 里写 SQL 时，**表名、字段名都会自带代码补全提示**，如果字段名写错了，IDEA 还会直接报红线警告！
+    
+
+
+#### 2. 自动配对：将 Mapper 接口与 XML 放到同包下
+
+后面课程你会学到，除了用 `@Select` 注解，企业里更推荐把复杂的 SQL 写在单独的 `XML` 映射文件里。
+
+MyBatis 要求 **Mapper 接口的包路径** 和 **XML 文件的包路径** 必须完全一致。
+
+- **在 `src/main/resources` 创建多层文件夹的巨大陷阱**：
+    
+    如果你在 `resources` 下新建文件夹，输入 `com.itheima.mapper`，IDEA 默认会把它当作**一个名字叫 "com.itheima.mapper" 的单层文件夹**，而不是三层嵌套文件夹！这会导致 MyBatis 找不到对应的 XML。
+    
+- **破局配置**：
+    
+    在创建时，必须使用**斜杠 `/`** 代替点 `.`。即输入：`com/itheima/mapper`。这样 IDEA 才会真正建立三层嵌套的目录，从而和 Java 目录完美对齐。
+    
+
+### 二、 必须安装的爆款提效插件（重点！）
+
+在 IDEA 的 `Settings` ➔ `Plugins`（插件市场）里，直接搜索并安装以下插件：
+
+#### 1. MyBatisX（官方免费推荐，必装 ⭐⭐⭐⭐⭐）
+
+这是 Mybatis 官方为 IDEA 量身定制的辅助插件，装上它之后，你的效率能直接翻倍。
+
+- **核心功能：**
+    
+    - **鸟类图标（小蓝鸟/小红鸟）双向跳转**：安装后，你的 Mapper 接口方法左侧，和 XML 文件的 SQL 节点左侧，会出现一个小鸟图标。点击它，就能在 **Java 接口** 和 **XML 的 SQL 语句** 之间实现秒级无缝双向跳转。
+        
+    - **全自动代码生成**：在单独写完接口方法名后（例如写个 `public int insertUser(User user);`），直接在方法名上敲 **`Alt + Enter`**，选择 `Generate statement`，它会自动去对应的 XML 文件里帮你把 `<insert>` 标签和 `id` 属性全部生成好。
+        
+    - **根据表结构自动生成 CRUD**：在 Database 窗口右键任意一张表，可以直接一键生成对应的 `POJO 实体类`、`Mapper 接口` 和 `XML 映射文件`，连手写都省了。
+        
+
+|方式|SQL 语法高亮|库表字段提示|自动关联数据源|
+|---|---|---|---|
+|IDEA 原生新版|✅ 自动生效|❌ 需要手动配 Database|❌ 不能自动绑库|
+|MyBatisX (新版)|✅ 全自动|✅ 绑定项目配置自动识别数据源|✅ 读取 yml 里的 url/username 自动关联|
+
+#### 2. MyBatis Log Plugin / MyBatis Log Free（日志美化插件 ⭐⭐⭐⭐）
+
+
+当你在控制台调试 MyBatis 运行时，Spring Boot 打印出来的 SQL 日志通常长这样：
+
+*一定要先在application.properties里面手动配置mybatis的日志输出到控制台：
+mybatis.configuration.log-impl=org.apache.ibatis.logging.stdout.StdOutImpl*
+
+> `Preparing: select * from user where id = ?`
+> 
+> `Parameters: 1(Integer)`
+> 
+> 你是没办法直接把带问号的 SQL 复制到 Navicat 或 DataGrip 里去执行的。
+
+- **核心功能**：这个插件会在 IDEA 底部开辟一个单独的 `MyBatis Log` 窗口。它会自动把你控制台里那些带问号 `?` 的 SQL 语句，和后面的具体参数**自动拼接还原**成一条干净、完整的原生 SQL：
+    
+
+> `select * from user where id = 1;`
+> 
+> 你直接一键复制就能拿去数据库里跑，排查 Bug 极其方便。
+
+### 三、 补充：Lombok 插件的配套注意
+
+因为你现在在用 Lombok 的 `@Data` 来简化实体类，记得确保你的 IDEA 中已经勾选了 **Annotation Processors（注解处理器）** 的开关，否则有时候编译器会莫名其妙报错说找不到 Getter/Setter 方法。
+
+- **配置路径**：
+    
+    `Settings (Preferences)` ➔ `Build, Execution, Deployment` ➔ `Compiler` ➔ `Annotation Processors` ➔ 勾选 **`Enable annotation processing`**。
+    
+
+把 **Database 连上本地数据库** 并安装好 **MyBatisX**，这就是目前开发 MyBatis 最舒服、最标准的完全体 IDEA 配置了。
+
+
+---
+---
+
+
