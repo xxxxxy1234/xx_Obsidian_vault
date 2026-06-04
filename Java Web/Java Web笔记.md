@@ -8160,3 +8160,242 @@ public int delete(Integer id); // 将 void 改为 int
 ---
 ---
 
+
+
+## 增删改查——新增、更新操作
+
+
+
+### 专项一：MyBatis 新增操作与主键回填
+
+![[Java Web笔记-68.png]]
+传统的 JDBC 新增需要我们一个一个传参：`insert into emp values(?, ?, ?)`，非常麻烦。而 MyBatis 允许我们直接**传入一个完整的实体类 POJO 对象**，它会自动帮我们把对象的属性提取出来映射到 SQL 中。
+
+#### 1. 标准新增写法（通过参数对象映射）
+
+在 Mapper 接口中，SQL 语句里的 `#{属性名}` 必须与你传入的 `Emp` 对象的 **属性名（字段名）严格一致**：
+
+
+```Java
+@Mapper
+public interface EmpMapper {
+
+    // @Insert 注解标识这是一个插入操作
+    // #{username}、#{name} 等占位符会自动调用入参 emp 对象的 getUsername()、getName() 方法来获取值
+    @Insert("insert into emp(username, name, gender, image, job, entrydate, dept_id, create_time, update_time) " +
+            "values(#{username}, #{name}, #{gender}, #{image}, #{job}, #{entrydate}, #{deptId}, #{createTime}, #{updateTime})")
+    public void insert(Emp emp);
+}
+```
+
+#### 2. 核心大招：主键回填（`@Options` 注解）
+
+这是新增操作里**最重要、面试必问**的技术点。
+
+- **痛点场景**：数据库的 `id` 字段通常设置为了 **主键自增（AUTO_INCREMENT）**。我们在 Java 里 `new Emp()` 并且执行 `insert(emp)` 时，并没有给 `id` 赋值。数据插入成功后，如果接下来的业务马上需要用到这个刚刚生成的自增 ID（比如为其分配部门或打印发票），我们怎么在 Java 里拿到它？
+    
+- **解决方案**：在接口方法上追加打上 **`@Options`** 注解。
+    
+
+
+```Java
+@Options(keyProperty = "id", useGeneratedKeys = true)
+@Insert("insert into ...")
+public void insert(Emp emp);
+```
+
+- **参数大解密**：
+    
+    - **`useGeneratedKeys = true`**：告诉 MyBatis，执行完插入 SQL 后，**去向数据库索要自动生成的自增主键值（获取生成的主键）**。
+        
+    - **`keyProperty = "id"`**：告诉 MyBatis，拿到这个自增的 id 之后，**自动把它塞回到我传入的 `emp` 对象的 `id` 属性里**。
+        
+- **测试效果**：
+    
+    
+    
+    ```Java
+    System.out.println("插入前，id 为：" + emp.getId()); // 结果是 null
+    empMapper.insert(emp);
+    System.out.println("插入后，自增 id 自动回填为：" + emp.getId()); // 结果是 18（自动拿到并赋值了！）
+    ```
+    
+
+### 专项二：MyBatis 更新操作
+
+![[Java Web笔记-69.png]]
+更新操作使用的是 **`@Update`** 注解。它的核心逻辑和新增一模一样：也是通过**传入一个带有新数据的 POJO 对象**，利用 `#{}` 表达式把新数据以及定位用的 `#{id}` 映射到 SQL 中。
+
+#### 1. 标准更新写法
+
+
+```Java
+@Mapper
+public interface EmpMapper {
+
+    // @Update 注解标识这是一个更新操作
+    // 根据传入的 emp.id 去定位行，并用其他的属性值去修改数据库里的字段
+    @Update("update emp set username = #{username}, name = #{name}, gender = #{gender}, image = #{image}, " +
+            "job = #{job}, entrydate = #{entrydate}, dept_id = #{deptId}, update_time = #{updateTime} " +
+            "where id = #{id}")
+    public void update(Emp emp);
+}
+```
+
+#### 2. 解读测试控制台日志
+
+```Plaintext
+① Preparing: update emp set username = ?, name = ?, gender = ?, image = ?, job = ?, entrydate = ?, dept_id = ?, update_time = ? where id = ?
+② Parameters: Tom2(String), 汤姆2(String), 1(Short), 1.jpg(String), 1(Short), 2010-01-01(LocalDate), 1(Integer), 2026-06-04T21:22:25.753894400(LocalDateTime), 18(Integer)
+③ Updates: 1
+```
+
+- **`Preparing`**：MyBatis 成功将你的 Java 对象属性替换为了底层 JDBC 的 `?` 占位符进行预编译。
+    
+- **`Parameters`**：非常壮观！Java 对象的每个属性值，按照顺序一一按对应的类型（如 `String`, `LocalDate`, `LocalDateTime`）完美地填充到了对应的 `?` 位置上。注意看最后一个参数 `18(Integer)`，正是通过 `where id = ?` 来精准定位到刚刚新增的第 18 号员工。
+    
+- **`Updates: 1`**：说明 MySQL 数据库里 `id=18` 的数据行被成功修改了 1 行。
+    
+
+### 注意事项与避坑
+
+在做完新增和更新的练习后，有两个极其隐蔽的坑需要放入你的错题本中：
+
+1. **属性名大小写驼峰问题**：
+    
+    在 SQL 语句里，我们写的是 `dept_id = #{deptId}`。
+    
+    - 数据库里的列名叫 `dept_id`（下划线隔开）。
+        
+    - 表达式里写的是 `#{deptId}`（驼峰命名法）。因为 MyBatis 找的是你 **Java 实体类里定义的属性名**（`private Integer deptId;`），如果这里写成 `#{dept_id}`，就会直接报 `ReflectionException` 反射异常，提示在实体类里找不到该字段的 getter 方法。
+        
+2. **更新操作的“覆盖”隐患**：
+    
+    现在的 `@Update` 语句是把所有字段一次性全部更新了。如果在调用 `update(emp)` 时，你的 `emp` 对象里某一个字段（比如 `image`）没有赋值（是 `null`），那么执行完之后，**数据库里原有的图片地址就会被直接覆盖成 `NULL`**！
+    
+    - _预告_：为了解决这种“只想改姓名，不想动别的数据”的场景，黑马课程后面会带你学习 MyBatis 的高级杀手锏——**动态 SQL `<set>` 与 `<if>` 标签**。
+        
+
+---
+---
+
+
+## 增删改查——查询操作
+
+
+### 专项一：MyBatis 基本查询（根据主键 ID 查询）
+
+根据主键查询相对简单，通过 `@Select` 注解配合 `#{id}` 即可实现。但这里隐藏着一个关于**下划线 vs 驼峰命名**的终极教条。
+
+#### 1. 基础代码实现
+
+
+```Java
+@Mapper
+public interface EmpMapper {
+    // 根据ID查询员工信息
+    @Select("select id, username, password, name, gender, image, job, entrydate, dept_id, create_time, update_time from emp where id = #{id}")
+    public Emp getById(Integer id);
+}
+```
+
+#### 2. 核心考点：为什么查出来的 `deptId`, `createTime` 全是 `null`？
+
+如果你直接这样运行，会发现 `name`, `gender` 都有数据，但带有大写的驼峰字段全是 `null`。
+
+- **原因**：数据库的列名叫 `dept_id`、`create_time`（下划线隔开），而 Java 实体类的属性名叫 `deptId`、`createTime`（驼峰命名）。MyBatis 默认无法自动映射它们！
+    
+- **解决方案**：在 `application.properties` 中开启**驼峰命名自动转换开关**：
+    
+    
+    
+    ```Properties
+    # 开启驼峰命名自动映射转换 (dept_id -> deptId)
+    mybatis.configuration.map-underscore-to-camel-case=true
+    ```
+    
+
+### 专项二：条件模糊查询 ➔ 引出 `@Param` 的核心战场
+
+当你写类似“根据姓名模糊查询，并且筛选性别、入职时间”的多条件查询时，真正的硬核挑战来了。
+
+#### 1. 标准项目中的写法（使用 `concat` 函数）
+
+直接在 Java 代码里拼接 `%` 会导致维护混乱，黑马课程推荐使用 MySQL 的 `concat` 字符串连接函数：
+
+
+
+```Java
+@Mapper
+public interface EmpMapper {
+    // 带有复杂条件和模糊匹配的查询
+    @Select("select * from emp where name like concat('%', #{name}, '%') " +
+            "and gender = #{gender} " +
+            "and entrydate between #{begin} and #{end} " +
+            "order by update_time desc")
+    public List<Emp> list(String name, Short gender, LocalDate begin, LocalDate end);
+}
+```
+
+### 专项三：降维打击 ➔ 拿 Spring Boot 与 aliyun 项目对比解释 `@Param`
+
+很多同学看**Spring Boot**视频时，发现方法形参直接写 `String name` 就能和 SQL 里的 `#{name}` 完美对齐。但当你去翻看**老的 aliyun 教学项目**，或者某些企业级遗留项目时，会发现接口代码长这样：
+
+
+
+```Java
+// 某些项目里的老写法：每个参数前面都强行塞一个 @Param
+public List<Emp> list(@Param("name") String name, 
+                      @Param("gender") Short gender, 
+                      @Param("begin") LocalDate begin, 
+                      @Param("end") LocalDate end);
+```
+
+**这到底是为什么？不加它到底会不会报错？**
+
+#### 1. 底层解密：Java 字节码的“编译擦除”痛点
+
+在传统的 Java 编译机制中（Java 8 及以前），当 `.java` 文件被编译成 `.class` 字节码时，为了节省空间，**方法的参数名（形参名）会被全部擦除**！
+
+- 也就是说，你写的 `public List<Emp> list(String name, Short gender)`。
+    
+- 编译成字节码后，在 JVM 看来，这个方法其实变成了：`list(String arg0, Short arg1)`。
+    
+
+**这时候 MyBatis 就瞎了！** 当它在 SQL 里看到 `#{name}` 时，它去方法里一找，发现只有 `arg0` 和 `arg1`，根本找不到谁叫 `name`，于是当场抛出异常：`BindingException: Parameter 'name' not found.`。
+
+#### 2. aliyun 项目为什么要加 `@Param`？
+
+为了解决上述编译擦除的痛点，早期的项目（或者你在写 aliyun 这种需要严格兼容老环境的模块时）必须使用 **`@Param("name")`** 显式声明：
+
+- **它的作用**：硬编码起名。强行告诉 MyBatis：_“别管编译器怎么擦除，听我的，第一个参数在 SQL 里就叫 'name'，第二个就叫 'gender'！”_
+    
+
+#### 3. 为什么现在的 Spring Boot 项目不用加了？
+
+为什么现在黑马的最新视频里，**不加 `@Param` 也能跑得贼溜**？
+
+因为 **Spring Boot 2.x/3.x 进行了全自动的降维升级**！
+
+- **现代编译器的秘密武器**：新版的 Maven 编译插件和 Spring Boot 在底层默认开启了一个高级编译参数：**`-parameters`**。
+    
+- **神奇的效果**：当开启了这个参数后，Java 编译器在把代码打成字节码时，**会把真实的参数名（如 `name`, `gender`, `begin`）完好无损地保留到字节码的元数据中**！
+    
+- 运行时，MyBatis 可以通过反射轻松抓取到真实的参数名。既然能抓到 `name`，那自然就能和 `#{name}` 严丝合缝地对上，`@Param` 注解也就没有存在的必要了。
+    
+
+### 终极面试避坑卡片
+
+为了防止你以后在企业实际开发或做复杂的 aliyun 组件项目时踩坑，请将以下**什么时候必须加 `@Param`** 的大厂硬核准则加入笔记：
+
+|**场景分类**|**是否必须加 @Param**|**核心原因与企业规范**|
+|---|---|---|
+|**单参数查询**<br><br>  <br><br>`getById(Integer id)`|**绝对不需要**|单个参数时，SQL 里的 `#{}` 里写什么名字都行。写 `#{id}`、`#{abc}` 甚至 `#{123}` 都能接住。|
+|**新版 Spring Boot 项目**<br><br>  <br><br>(多参数查询)|**不需要**|靠底层的 `-parameters` 编译参数保驾护航，直接按名字映射。|
+|**🚨 复杂多参数且名字不对齐**|**必须加**|如果你 Java 形参叫 `String username`，但老项目的 SQL 里死死写着 `#{name}`，必须用 `@Param("name")` 桥接。|
+|**🚨 经典面试考点：使用 Collection / Array 传参**|**必须加**|如果你传的是一个 `List<Integer> ids` 或者一个数组。如果不加 `@Param`，MyBatis 在 SQL 里只认 `#{list}` 或 `#{array}`。想用自定义名字（如 `#{ids}`），必须写 `@Param("ids")`。|
+
+---
+---
+
+
