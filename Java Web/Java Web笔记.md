@@ -7561,8 +7561,7 @@ public class EmpController {
 
 #### 2. 它是怎么“简化” JDBC 的？
 
-![[Java Web笔记-62.png|697]]
-
+![[Java Web笔记-64.png]]
 对比原生 JDBC 痛点，MyBatis 实现了两大核心飞跃：
 
 1. **解决硬编码**：传统的 JDBC 把数据库账号密码、连接地址、SQL 语句全部死死写在 Java 代码里。MyBatis 允许我们将 SQL 语句集中管理，甚至直接用注解写在接口上。
