@@ -8339,6 +8339,7 @@ public interface EmpMapper {
 
 ### 专项三：降维打击 ➔ 拿 Spring Boot 与 aliyun 项目对比解释 `@Param`
 
+![[Java Web笔记-72.png]]
 很多同学看**Spring Boot**视频时，发现方法形参直接写 `String name` 就能和 SQL 里的 `#{name}` 完美对齐。但当你去翻看**老的 aliyun 教学项目**，或者某些企业级遗留项目时，会发现接口代码长这样：
 
 
