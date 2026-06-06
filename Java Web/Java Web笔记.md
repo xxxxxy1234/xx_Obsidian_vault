@@ -8549,3 +8549,146 @@ public interface EmpMapper {
 
 
 
+## Spring Boot项目配置文件
+
+
+
+这部分内容非常关键。随着你在 MyBatis 阶段越学越深，你会发现数据库连接、日志格式、MyBatis 驼峰转换等所有底层开关，全都要写在配置文件里。黑马程序员在这里为你梳理了 Spring Boot 中最核心的两种文件格式：**`properties`** 和 **`yaml / yml`**
+
+### 一、 Spring Boot 支持的配置文件形式
+
+
+![[Java Web笔记-73.png]]
+Spring Boot 官方提供了三种开箱即用的配置文件格式（通常存放在`src/main/resources` 目录下）：
+
+1. **`application.properties`**（传统经典，基本功）
+    
+2. **`application.yml`**（现代主流，企业高频 ⭐⭐⭐⭐⭐）
+    
+3. **`application.yaml`**（与 yml 完全一致，只是后缀名不同）
+    
+
+#### 核心考点：如果三个文件同时存在，谁说了算？（优先级大战）
+
+面试官特别喜欢问：_“如果我在一个项目里同时写了这三个文件，Spring Boot 会听谁的？”_
+
+根据官方底层的加载顺序，它们的**优先级从高到低**依次为：
+
+$$\text{properties} > \text{yml} > \text{yaml}$$
+
+> **大厂规范建议：**
+> 
+> 虽然 Spring Boot 会进行“互补配置”（即三个文件里不冲突的配置会合并生效），但在实际企业开发中，**严禁混合使用**！全公司或全项目必须统一只使用一种（基本全是 `.yml`），否则会导致配置覆盖混乱，排查 Bug 时会让人抓狂。
+
+### 二、 语法大对决：`properties` vs `yml`
+
+![[Java Web笔记-74.png]]
+#### 1. `properties` 语法：平铺直叙
+
+- **特点**：采用标准的 `key=value` 键值对格式。
+    
+- **缺点**：如果配置项很多，前缀会疯狂重复（比如一堆 `server.port`、`server.servlet.context-path`），当配置长达几百行时，阅读体验极差。
+    
+
+```Properties
+# 修改端口号
+server.port=8080
+# 配置数据库地址
+spring.datasource.url=jdbc:mysql://localhost:3306/db
+spring.datasource.username=root
+```
+
+#### 2. `yml` 语法：树状树形结构（企业绝对主力）
+
+- **特点**：采用 **YAML（YAML Ain't Markup Language）** 数据序列化语言。它以**数据为中心**，通过**缩进**来表示层级关系，极具可读性。
+    
+
+
+```YAML
+# 修改端口号
+server:
+  port: 8081 # 注意：冒号后面必须有一个空格！
+
+# 配置数据库（层级结构一目了然）
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/db
+    username: root
+```
+
+### 三、 YAML / YML 语法的“三大致死陷阱”
+
+很多新手刚从 properties 切换到 yml 时，项目经常启动报错，99% 都是因为踩了以下三个 YAML 的魔鬼细节：
+
+#### 陷阱 1：冒号后面的“神秘空格”
+
+- **铁律**：在 yml 中，每个 `key:` 冒号后面，**必须空一格**（敲一下空格键），然后再写具体的 `value`！
+    
+- **错误示范**：`port:8080`（没有空格，Spring 无法解析，启动直接挂掉）。
+    
+- **正确示范**：`port: 8080`。
+    
+
+#### 陷阱 2：严格的“缩进地狱”
+
+- **铁律**：YAML 是靠左侧的缩进来区分上下级关系的。**同级目录左侧必须完全对齐**。
+    
+- **致命细节**：缩进时**严禁混用 Space（空格键）和 Tab 键**！在很多编辑器里，混用会导致肉眼看不出来的对齐偏差，从而引发解析异常。
+    
+- _IDEA 提效技巧_：在 IDEA 里写 yml 时，直接顺手一路敲 `Enter`，IDEA 会智能帮你自动缩进对齐。
+    
+
+#### 陷阱 3：大小写极其敏感
+
+- **铁律**：不管是配置项（Key）还是具体的值（Value），大小写必须严丝合缝。例如 `port` 不能写成 `Port`。
+    
+
+### 四、 商业项目完全体：把常用配置翻译成大厂 YML 格式
+
+为了让你后面的开发更顺手，我为你把之前学到的 **三层架构、JDBC、连接池、MyBatis 日志/驼峰转换** 的所有 properties 配置，全盘打包翻译成了一份标准的 **`application.yml`** 模板。你可以直接拷进 IDEA 里备用：
+
+
+```YAML
+# ===================================================================
+# Spring Boot 全局商业核心配置文件 (YAML 格式)
+# ===================================================================
+
+# 1. 服务器配置
+server:
+  port: 8080 # 项目启动端口号
+  servlet:
+    context-path: /api # 全局项目请求前缀 (可选)
+
+# 2. Spring 全家桶基础配置
+spring:
+  datasource:
+    # 指定使用高性能的 HikariCP 连接池
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/mybatis_db?useSSL=false&serverTimezone=UTC&rewriteBatchedStatements=true
+    username: root
+    password: your_password
+    
+    # Hikari 连接池高级调优
+    hikari:
+      maximum-pool-size: 20 # 最大连接数
+      minimum-idle: 5       # 最小空闲连接
+
+# 3. MyBatis 框架专属配置
+mybatis:
+  # 开启经典转换：自动将数据库的下划线字段(dept_id)映射到Java的驼峰属性(deptId)
+  configuration:
+    map-underscore-to-camel-case: true
+    # 在控制台打印精美 SQL 语句执行日志
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 4. 日志级别细粒度控制 (可选)
+logging:
+  level:
+    com.itheima.mapper: debug # 打印具体 mapper 包下的 SQL 交互细节
+```
+
+---
+---
+
+

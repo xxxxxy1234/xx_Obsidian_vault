@@ -4029,7 +4029,677 @@ btn.addActionListener(e -> {
 ---
 
 
-## Java Swing 拼图游戏：界面刷新核心逻辑
+## 拼图游戏实战(未完善)
+
+
+### 项目层级
+
+```plaintext
+puzzle game
+├── .idea
+├── image
+│   ├── animal
+│   ├── girl
+│   ├── login
+│   ├── register
+│   ├── sport
+│   ├── about.png
+│   ├── background.png
+│   ├── damie.jpg
+│   ├── win.png
+│   └── xx.jpg
+├── out
+├── src
+│   └── com.xx
+│       ├── ui
+│       │   ├── GameJframe.java
+│       │   ├── LoginJframe.java
+│       │   └── RegisterJframe.java
+│       ├── util
+│       │   └── CodeUtil.java
+│       └── App.java
+├── .gitignore
+└── puzzle game.iml
+```
+
+### 主代码
+
+
+#### GameJframe.java
+
+```java
+package com.xx.ui;
+
+import javax.swing.*;
+import javax.swing.border.BevelBorder;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.util.Arrays;
+import java.util.Random;
+
+//JFrame是一个窗体对象，用来显示界面，GameJframe专门用来设置游戏界面
+public class GameJframe extends JFrame implements KeyListener, ActionListener {
+    //二维数组中的数据（存放打乱后的图片），如果用一维数组后续很难对图片定义上下左右移动功能
+    int[][] data = new int[4][4];
+
+    //win数组用于判断是否成功，即比较data和win数组是否完全相同
+    int[][] win = {
+            {1, 2, 3, 4},
+            {5, 6, 7, 8},
+            {9, 10, 11, 12},
+            {13, 14, 15, 0},
+    };
+
+    //记录空白图片在二维数组中的下标，便于后续进行上下左右移动
+    int x = 0;
+    int y = 0;
+
+    //记录步数
+    int step = 0;
+
+    //定义路径变量，方便后续修改
+    String path = "image/animal/animal1/";   //  最后的“/”切记不要忘记，不能丢，因为这不是完整路径，后面还有跟着的东西
+
+    //创建选项下面的条目对象，放在成员变量处才能被本类其他方法调用（actionPerformed（））
+    JMenuItem replayItem = new JMenuItem("重新游戏");
+    JMenuItem reLoginItem = new JMenuItem("重新登陆");
+    JMenuItem closeItem = new JMenuItem("关闭游戏");
+
+    JMenuItem girl =new JMenuItem("美女");
+    JMenuItem animal =new JMenuItem("动物");
+    JMenuItem sport =new JMenuItem("运动");
+
+    JMenuItem accountItem = new JMenuItem("公众号");
+
+    public GameJframe() {
+        initJframe();
+        initJMenuBar();
+        initData();
+        initImage();
+
+        this.setVisible(true);  //让界面显示出来，建议放在最后
+    }
+
+
+    //初始化数据
+    private void initData() {
+
+        //打乱一维数组中的数据（代表图片序号），注意这里图片中没有序号为0的，后面在加载图片时找不到这张图会创建一个空白的
+        int[] temp = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+        Random r = new Random();
+        for (int i = 0; i < temp.length; i++) {
+            int tempArr = r.nextInt(temp.length);
+            int m = temp[tempArr];
+            temp[tempArr] = temp[i];
+            temp[i] = m;
+        }
+
+        //放到二维数组中
+        //方式一：遍历一维数组同时放到二维数组中（行下标取模4.列下标取余4）
+        //方式二：遍历二维数组，用一维数组元素对其赋值
+        int m = 0;
+        for (int i = 0; i < data.length; i++) {  //arr.length代表行的长度
+            for (int q = 0; q < data[0].length; q++) {  //arr[0].length代表列的长度
+
+                //确定空白图片在二维数组中的位置，确定他的下标
+                if (temp[m] == 0) {
+                    x = i;
+                    y = q;
+                }
+
+                //正常把图片放到二维数组中
+                data[i][q] = temp[m];
+                m++;
+
+
+            }
+
+        }
+
+
+    }
+
+
+    //初始化图片
+    private void initImage() {
+        //清空内容面板上所有内容
+        this.getContentPane().removeAll();
+
+        //加载计数器
+        JLabel stepJ = new JLabel("步数：" + step);
+        stepJ.setBounds(50, 30, 200, 20);
+        this.getContentPane().add(stepJ);
+
+        //如果成功，加载胜利图片，并结束游戏（结束键盘监听）
+        /*这里有个小细节
+        按理说应把图片移动到正确位置（数组元素交换）并显示出来后（打印各个小图片位置）才能判断成功
+        也就是似乎应该把这里的判断条件放在this.getContentPane().repaint()后
+        但因为图片加载顺序的问题（先加载的在最上面），如果那样胜利的图标会被挡住
+        但必须放在this.getContentPane().removeAll()后
+        我们选择放在这里判断，只要数组元素交换后就判断是否成功，然后加载胜利图片，最后加载移动后的完整图片
+        */
+        if (Arrays.deepEquals(win, data)) {
+            JLabel winJ = new JLabel(new ImageIcon("image/win.png"));
+            winJ.setBounds(203, 283, 197, 73);
+            this.getContentPane().add(winJ);
+        }
+
+
+        //加载二维数组中的图片
+        for (int j = 0; j < 4; j++) {
+
+            for (int i = 0; i < 4; i++) {
+
+                //创建一个图片ImageIcon对象
+                //相对路径（相对于当前项目而言）或者绝对路径
+                //没有0.jpg，就加载一个空白图片
+                ImageIcon icon = new ImageIcon(path + data[j][i] + ".jpg");
+
+                //创建一个JLable对象（管理容器）
+                JLabel jLabel = new JLabel(icon);
+
+                //指定图片位置,指图片左上角的顶点在坐标中的位置
+                //面板的左上角是原点，向下为y轴正方向，向右为x轴正方向
+                jLabel.setBounds(105 * i + 83, 105 * j + 133, 105, 105);
+
+                //给图片添加边框
+                //0：图片凸起来  1：图片凹下去
+                jLabel.setBorder(new BevelBorder(1));
+
+                //把管理容器添加到界面中
+           /* Frame 本身：是相框的外框（包含标题栏、边框、关闭按钮）；
+              ContentPane（内容面板）：是相框内部的 “衬板”，所有照片（图片、按钮、标签等组件）都贴在衬板上，而不是直接贴在外框上；
+              JMenuBar（菜单栏）：是相框顶部专门挂菜单的位置，不属于衬板区域（这也是菜单不用加在 ContentPane 上的原因）。
+
+              this.add(jLabel);❌ 不推荐（语法糖优化，虽然 IDE 会自动转成加在 ContentPane 上，但不规范，前提是写了 this.setLayout(null);）
+            */
+                this.getContentPane().add(jLabel);
+            }
+        }
+        //加载背景图片
+        //先添加的在面板最上面，后添加的在先添加的下面，所以背景要在加载完图片后添加
+        ImageIcon bg = new ImageIcon("image/background.png");
+        JLabel background = new JLabel(bg);
+        background.setBounds(40, 40, 508, 560);
+        this.getContentPane().add(background);
+
+        //刷新一下界面
+        this.getContentPane().repaint();
+
+
+    }
+
+
+    //初始化菜单
+    private void initJMenuBar() {
+        //创建整个菜单的文件夹对象
+        JMenuBar jMenuBar = new JMenuBar();
+
+        //创建菜单上面的选项对象(功能  关于我们)
+        JMenu functionJMenu = new JMenu("功能");
+        JMenu aboutJMenu = new JMenu("关于我们");
+
+        JMenu changeImageJMenu=new JMenu("更换图片");
+
+
+
+        //将条目对象放到选项对象中
+        changeImageJMenu.add(girl);
+        changeImageJMenu.add(animal);
+        changeImageJMenu.add(sport);
+
+
+        functionJMenu.add(changeImageJMenu);
+        functionJMenu.add(replayItem);
+        functionJMenu.add(reLoginItem);
+        functionJMenu.add(closeItem);
+
+        aboutJMenu.add(accountItem);
+
+
+        //给条目绑定行为监听事件
+        girl.addActionListener(this);
+        animal.addActionListener(this);
+        sport.addActionListener(this);
+
+        replayItem.addActionListener(this);
+        reLoginItem.addActionListener(this);
+        closeItem.addActionListener(this);
+        accountItem.addActionListener(this);
+
+        //将选项对象放到菜单对象中
+        jMenuBar.add(functionJMenu);
+        jMenuBar.add(aboutJMenu);
+
+        //给界面设置菜单对象
+        this.setJMenuBar(jMenuBar);
+    }
+
+
+    //初始化界面
+    private void initJframe() {
+        this.setSize(603, 680);
+        this.setTitle("拼图小游戏");
+        this.setAlwaysOnTop(true);  //设置界面置顶，即便点击IDEA界面也依然在上面
+        this.setLocationRelativeTo(null); //界面显示在屏幕中央（让窗口在屏幕居中，和内部组件位置无关）
+        this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);  //关闭界面窗口之后，虚拟机也停止运行
+
+        //取消默认布局管理器（它默认是组件中的图片居中放置），只有取消了才能按照xy轴的方式添加图片
+        /*额外注意JMenuBar菜单栏组件只能显示在 JFrame 窗口的顶部边缘（无法居中、无法下移），
+         这是 Swing 内置的设计，和布局管理器无关，就算改布局也没法让菜单栏居中*/
+        this.setLayout(null);
+
+        /*把当前这个 GameJframe 对象绑定键盘监听事件
+        然后窗口显示出来，程序不会停止，Swing 会进入一个无限循环，叫：事件循环
+        一按方向键，Swing 检测到 → 自动调用 keyReleased(e)，（注意不是自己写代码调用的，是 Swing 线程（事件 dispatch 线程） 在调用。）
+        执行完 keyReleased 方法后，→ 方法结束，返回到 Swing 的事件循环里，→ 继续等着下一次按键*/
+        this.addKeyListener(this);
+
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    //按下不松会调用这个方法
+    @Override
+    public void keyPressed(KeyEvent e) {
+        int code = e.getKeyCode();
+        if (code == 65) {
+            //清空原图片
+            this.getContentPane().removeAll();
+            //加载完整图片
+            JLabel all = new JLabel(new ImageIcon(path + "all.jpg"));
+            all.setBounds(83, 134, 420, 420);
+            this.getContentPane().add(all);
+            //加载背景图片
+            ImageIcon bg = new ImageIcon("image\\background.png");
+            JLabel background = new JLabel(bg);
+            background.setBounds(40, 40, 508, 560);
+            this.getContentPane().add(background);
+            //刷新一下界面
+            this.getContentPane().repaint();
+
+        }
+
+    }
+
+
+    //松开会调用这个方法
+    @Override
+    public void keyReleased(KeyEvent e) {
+        /*对上下左右进行判断
+        左：37，上：38，右：39，下：40
+        移动的本质是让空白图片进行移动，所以获得空白图片的坐标（x，y）是必要的*/
+
+        //若游戏胜利，结束方法——return
+        if (Arrays.deepEquals(win, data)) {
+            return;
+        }
+
+
+        //获取被按下的按键，并返回code值
+        int code = e.getKeyCode();
+
+        if (code == 37) {
+            //移动前注意细节，数组越界访问，比如空白块如果在最右侧，按向左方向键，但他右边又没图片，y+1会越界
+            if (y == 3) return;
+
+            //向左移动，本质就是将空白的图片位置和在它右边的图片位置互换，即数组元素的互换
+            data[x][y] = data[x][y + 1];
+            data[x][y + 1] = 0;  //这里用了小技巧，因为空白图片它在数组中的值是0，不用借助第三方temp进行变量交换
+
+            y++;//更新图片在二维数组中的位置
+
+            step++;//计数器+1
+
+            //最后重新在布局中加载图片
+            //initImage() 只是刷新界面上的图片，它没有移除监听器，它没有停止事件循环，它没有关闭窗口
+            //所以：监听器还在，事件循环还在，随时等着下一次按键。
+            initImage();
+
+        } else if (code == 38) {
+            if (x == 3) return;
+            data[x][y] = data[x + 1][y];
+            data[x + 1][y] = 0;
+            x++;
+            initImage();
+
+        } else if (code == 39) {
+            if (y == 0) return;
+            data[x][y] = data[x][y - 1];
+            data[x][y - 1] = 0;
+            y--;
+            step++;
+            initImage();
+
+        } else if (code == 40) {
+            if (x == 0) return;
+            data[x][y] = data[x - 1][y];
+            data[x - 1][y] = 0;
+            x--;
+            step++;
+            initImage();
+
+        } else if (code == 65) {
+            //松开A后，恢复原样
+            initImage();
+        } else if (code == 87) {
+            //作弊码，一键通关
+            //这里是又new了一个二维数组，跟成员变量那边的不是一个
+            /*作弊码使用之后必须结束游戏
+             * 因为这时的空白图片位置不再是x、y下标记录的位置
+             * 如果再按方向键进行移动参照的是使用作弊码之前空白图片的位置
+             * 会有bug*/
+            data = new int[][]{
+                    {1, 2, 3, 4},
+                    {5, 6, 7, 8},
+                    {9, 10, 11, 12},
+                    {13, 14, 15, 0},
+            };
+            initImage();
+        }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        //获取被点击的条目对象
+        Object obj = e.getSource();
+        if(obj==animal){
+            //随机选择一张图片
+            Random r=new Random();
+            int index = r.nextInt(8) + 1;
+
+            //修改path的值
+            path="image/animal/animal"+index+"/";
+
+            //重新开始游戏(replayItem的逻辑)
+            step=0;
+            initData();
+            initImage();
+
+        } else if (obj == girl) {
+            Random r=new Random();
+            int index = r.nextInt(13) + 1;
+
+            path="image/girl/girl"+index+"/";
+
+            step=0;
+            initData();
+            initImage();
+
+        } else if (obj == sport) {
+            Random r=new Random();
+            int index = r.nextInt(10) + 1;
+
+            path="image/sport/sport"+index+"/";
+
+            step=0;
+            initData();
+            initImage();
+
+        }else if (obj == replayItem) {
+            //计步器清零（先清空计步器再加载图片，因为initImage里加载出计步器）
+            step=0;
+            //打乱图片
+            initData();
+            //重新加载图片
+            initImage();
+
+        } else if (obj == reLoginItem) {
+            //关闭游戏界面
+            this.setVisible(false);
+            //打开注册界面
+            new LoginJframe();
+
+        } else if (obj == closeItem) {
+            //直接关闭虚拟机即可
+            System.exit(0);
+
+        } else if (obj == accountItem) {
+            //创建一个弹框对象
+            JDialog jDialog=new JDialog();
+            //创建管理图片的容器对象jLabel
+            JLabel jLabel=new JLabel(new ImageIcon("image/xx.jpg"));
+            //设置jLabel的位置和宽高（这里是相对于jDialog而言）
+            //这里没设置setLayout(null)，x和y无论怎么修改都没影响
+            jLabel.setBounds(0,0,504,537);
+            //把图片添加到弹框中
+            jDialog.getContentPane().add(jLabel);
+            //给弹框设置大小
+            jDialog.setSize(500,500);
+            //弹框置顶
+            jDialog.setAlwaysOnTop(true);
+            //弹框居中
+            jDialog.setLocationRelativeTo(null);
+            //弹框不关闭则无法进行下面的操作
+            jDialog.setModal(true);
+            //让弹框显示出来
+            jDialog.setVisible(true);
+
+        }
+
+    }
+}
+```
+
+#### LoginJframe.java
+
+```java
+package com.xx.ui;
+
+import com.xx.util.CodeUtil;
+
+import javax.swing.*;
+import java.awt.*;
+
+public class LoginJframe extends JFrame {
+
+    //创建一个集合存储正确的用户名和密码
+   /* static ArrayList<User> list=new ArrayList<>();
+    static{
+        list.add(new User("xx","060202"));
+        list.add(new User("yy","060206"));
+    }*/
+
+
+    public LoginJframe(){
+        initJFrame();
+        initView();
+
+        this.setVisible(true);
+    }
+
+
+
+    public void initView() {
+        //添加“用户名”图片
+        JLabel usernameImage=new JLabel(new ImageIcon("image/login/用户名.png"));
+        usernameImage.setBounds(125,140,47,17);
+        this.getContentPane().add(usernameImage);
+
+        //添加用户名输入框
+        JTextField usernameField=new JTextField();
+        usernameField.setBounds(195,134,200,30);
+        this.getContentPane().add(usernameField);
+
+        //添加“密码”图片
+        JLabel passwordImage=new JLabel(new ImageIcon("image/login/密码.png"));
+        passwordImage.setBounds(130,200,32,16);
+        this.getContentPane().add(passwordImage);
+
+        //密码输入框
+        JTextField passwordField=new JTextField();
+        passwordField.setBounds(195,195,200,30);
+        this.getContentPane().add(passwordField);
+
+        //添加“验证码”图片
+        JLabel verifycodeImage=new JLabel(new ImageIcon("image/login/验证码.png"));
+        verifycodeImage.setBounds(100,256,100,30);
+        this.getContentPane().add(verifycodeImage);
+
+        //验证码输入框
+        JTextField verifycodeField=new JTextField();
+        verifycodeField.setBounds(195,256,100,30);
+        this.getContentPane().add(verifycodeField);
+
+        //随机生成验证码
+        String codeStr= CodeUtil.getCode();
+        //放到Jlabel对象中，setText方法用于给组件设置显示的文字
+        JLabel rightVerifyCode=new JLabel();
+        rightVerifyCode.setText(codeStr);
+        //设置位置,添加到界面
+        rightVerifyCode.setBounds(300,256,50,30);
+        this.getContentPane().add(rightVerifyCode);
+
+        //添加“登录”按钮
+        JButton loginButton=new JButton();
+        loginButton.setBounds(123,310,128,47);
+        loginButton.setIcon(new ImageIcon("image/login/登录按钮.png"));
+        loginButton.setBorderPainted(false); //去除按钮的默认边框
+        loginButton.setContentAreaFilled(false); //去掉按钮的默认背景
+        this.getContentPane().add(loginButton);
+
+        //添加“注册”按钮
+        JButton registerButton=new JButton();
+        registerButton.setBounds(256,310,128,47);
+        registerButton.setIcon(new ImageIcon("image/login/注册按钮.png"));
+        registerButton.setBorderPainted(false); //去除按钮的默认边框
+        registerButton.setContentAreaFilled(false); //去掉按钮的默认背景
+        this.getContentPane().add( registerButton);
+
+        //添加背景图片
+        JLabel background=new JLabel(new ImageIcon("image/login/background.png"));
+        background.setBounds(0,0,470,390);
+        this.getContentPane().add(background);
+
+    }
+
+    private void initJFrame(){
+        this.setSize(488,430);
+
+        this.setTitle("拼图 登录");
+        this.setAlwaysOnTop(true);  //设置界面置顶，即便点击IDEA界面也依然在上面
+        this.setLocationRelativeTo(null); //界面显示在屏幕中央
+        this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);  //关闭界面窗口之后，虚拟机也停止运行
+
+        this.setLayout(null);
+
+    }
+
+    public void showJDialog(String content){
+        //创建一个弹框对象
+        JDialog jDialog=new JDialog();
+        //给弹框设置大小
+        jDialog.setSize(200,150);
+        //让弹框置顶
+        jDialog.setAlwaysOnTop(true);
+        //让弹框居中
+        jDialog.setLocationRelativeTo(null);
+        //弹框不关闭无法操作下面的界面
+        jDialog.setModal(true);
+        //创建管理文字的容器对象jLabel
+        JLabel jLabel=new JLabel(content);
+        jLabel.setBounds(0,0,200,150);
+        //添加到弹框当中
+        jDialog.getContentPane().add(jLabel);
+        //让弹框显示出来
+        jDialog.setVisible(true);
+
+    }
+}
+```
+
+#### RegisterJframe.java
+
+```java
+package com.xx.ui;
+
+import javax.swing.*;
+
+public class RegisterJframe extends JFrame {
+    public RegisterJframe(){
+        this.setSize(488,500);
+
+        this.setTitle("拼图 注册");
+        this.setAlwaysOnTop(true);  //设置界面置顶，即便点击IDEA界面也依然在上面
+        this.setLocationRelativeTo(null); //界面显示在屏幕中央
+        this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);  //关闭界面窗口之后，虚拟机也停止运行
+
+
+
+
+        this.setVisible(true);
+    }
+
+
+}
+```
+
+#### CodeUtil.java
+
+```java
+package com.xx.util;
+
+import java.util.Random;
+
+public class CodeUtil {
+
+    //生成验证码并返回
+    public static String getCode() {
+        //1、将52个字母存放在数组中
+        char chs[] = new char[52];
+        for (int i = 0; i < chs.length; i++) {
+            if (i < 26) chs[i] = (char) (97 + i);   //利用ASCII码存储大小写字母
+            else chs[i] = (char) (65 + i - 26);
+
+        }
+
+        //2、利用循环获取数组的4个随机索引
+        String result = "";      //定义字符串记录最终结果
+        int randomIndex;
+        Random r = new Random();
+        for (int i = 0; i < 4; i++) {
+            randomIndex = r.nextInt(chs.length);
+            result = result + chs[randomIndex];
+        }
+
+        //3、最后加上数字
+        result = result + r.nextInt(10);
+        return result;
+
+    }
+
+
+}
+```
+
+
+#### App.java（程序入口）
+```java
+import com.xx.ui.GameJframe;
+import com.xx.ui.LoginJframe;
+
+public class App {
+    public static void main(String[] args) {
+    new LoginJframe();
+//        new RegisterJframe();
+        new GameJframe();
+    }
+}
+```
+
+
+
+
+
+---
+---
+
+## 补充：拼图游戏——界面刷新核心逻辑
 
 
 ### 1. 核心代码块
