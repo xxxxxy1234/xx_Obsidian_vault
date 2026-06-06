@@ -9777,3 +9777,129 @@ server: {
 ---
 ---
 
+
+## 部门管理——删除部门——接口开发
+
+
+### 1. 业务源头：需求分析与接口设计 
+
+![[Java Web笔记-86.png|697]]
+
+所有代码的编写都必须以**需求**和**接口文档**为准绳。
+
+- **原型需求**：用户在前端页面点击某一行部门数据的“删除”按钮。由于删除必须精准定位，不能误删，所以图上明确标注：**删除的条件是主键 ID**。
+    
+- **接口规范**：
+    
+    - **请求路径**：`/depts`
+        
+    - **请求方式**：`DELETE`（符合 RESTful 风格，删除操作使用 DELETE 请求）
+        
+    - **请求参数**：`id`，类型为 `number`（数字），且是**必须传递**的。
+        
+    - **请求示例**：`/depts?id=1`（Query 参数形式拼接在 URL 后面）
+        
+
+### 2. 核心演进：Controller 接收参数的三种进化 
+
+当前端发送 `DELETE /depts?id=8` 时，后端 Spring Boot 的 Controller 层有三种方式来拿到这个 `id=8`。视频里通过对比，带你走过了从古老到现代的进化之路：
+
+#### 方式一：传统原始的 `HttpServletRequest` 
+
+![[Java Web笔记-87.png]]
+
+```Java
+String idStr = request.getParameter("id");
+int id = Integer.parseInt(idStr);
+```
+
+- **原理**：直接调用底层原生的 Java Web API。
+    
+- **缺点**：非常繁琐！拿到的数据永远是 `String` 字符串，你必须手动写 `Integer.parseInt()` 进行类型转换。如果前端没传参数，还会报空指针异常（NullPointerException）。
+    
+
+#### 方式二：Spring 提供的 `@RequestParam` 注解
+
+![[Java Web笔记-88.png]]
+
+```Java
+public Result delete(@RequestParam("id",required = true) Integer deptId)
+```
+
+- **原理**：利用 Spring 的注解。Spring 会自动去请求参数里找名为 `"id"` 的值，并且**自动帮你转换成 Integer 类型**，然后赋值给形参 `deptId`。
+    
+- **特性**：默认情况下，该注解的 `required` 属性为 `true`（可省略不写）。这意味着如果前端发请求不带 `?id=xxx`，Spring 就会在前端直接报错（400 Bad Request），起到了强校验的作用。也可以手动改为false
+    
+
+#### 方式三：极简自动映射（省略注解） —— 🌟 推荐做法
+
+![[Java Web笔记-89.png]]
+
+```Java
+public Result delete(Integer id)
+```
+
+- **原理**：**如果你的核心形参名（`id`）和前端传过来的参数名（`id`）一模一样**，Spring Boot 会聪明地自动进行暗号对接，直接把值注入进来。
+    
+- **优点**：代码最清爽，没有任何多余的注解，开发效率最高。
+    
+
+### 3. 企业级闭环：标准三层架构的调用流水线 ：
+
+
+#### 第一层：Controller 控制层 (`DeptController`)
+
+- **职责**：负责接收网络请求，暴露 API 接口。
+    
+- **核心代码**：
+    
+    
+    
+    ```Java
+    @DeleteMapping("/depts")
+    public Result delete(Integer id) {
+        deptService.delete(id); // 转发给业务层
+        return Result.success(); // 统一返回标准JSON给前端
+    }
+    ```
+    
+- **大白话**：它像公司的“前台/接待员”，接到客户（前端）要“删除ID为id的部门”的单子后，它不做具体的活，直接把单子转交给后面的“业务部门（Service）”。
+    
+
+#### 第二层：Service 业务逻辑层 (`DeptServiceImpl`)
+
+- **职责**：处理核心业务逻辑（比如：删除部门前，要不要先检查这个部门下有没有员工？如果有，能不能删？）。虽然这个案例里只是简单的转发，但规范上必须走这一层。
+    
+- **核心代码**：
+    
+    
+    
+    ```Java
+    @Override
+    public void delete(Integer id) {
+        deptMapper.delete(id); // 调用数据访问层
+    }
+    ```
+    
+- **大白话**：它是公司的“主管/业务员”，负责把控业务规则。确认没问题后，通知“库管（Mapper）”去操作数据库。
+    
+
+#### 第三层：Dao/Mapper 数据访问层 (`DeptMapper`)
+
+- **职责**：专门负责和数据库打交道，执行具体的 SQL 语句。
+    
+- **核心代码**：
+    
+    
+    
+    ```Java
+    @Delete("delete from dept where id = #{id}")
+    void delete(Integer id);
+    ```
+    
+- **大白话**：它是公司的“库管/工人”。这里使用了 MyBatis 框架的注解开发，`#{id}` 是一个占位符，用来接收传过来的参数，最终在 MySQL 数据库中执行真正的删除整行数据的操作。
+    
+
+---
+---
+
