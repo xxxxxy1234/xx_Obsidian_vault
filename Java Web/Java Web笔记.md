@@ -9063,3 +9063,284 @@ Apifox 就是前后端分离时代的“全功能模拟浏览器”。它能：
 
 ---
 ---
+
+
+## 准备工作——工程搭建
+
+![[Java Web笔记-81.png]]
+
+### 一、 理解工程搭建的两种方案
+
+在实际开发中，搭建一个全新的 Spring Boot 工程通常有两种方式：
+
+1. **纯零开始（Spring Initializr）**：通过 IDEA 的新建项目向导，一步步勾选依赖自动生成（适合写小 Demo）。
+    
+2. **骨架导入（企业/课程主流 ⭐⭐⭐）**：正如你截图所示，老师已经提前把项目的骨架（包括前端静态资源、一些通用的工具类、基础 POJO 实体类）写好了，你只需要将其 **作为 Maven 项目导入到 IDEA 中**，然后集中精力攻克核心业务逻辑。
+    
+
+### 二、 核心核对指南：`pom.xml` 依赖大盘点
+
+项目导入到 IDEA 后，第一步也最重要的一步，就是打开根目录下的 **`pom.xml`**。我们需要向 Maven “点兵点将”，确保以下 **5 大核心依赖全家桶** 已经完好无损地加载进来：
+
+
+```XML
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.1.5</version> </parent>
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>3.0.2</version>
+    </dependency>
+
+    <dependency>
+        <groupId>com.mysql</groupId>
+        <artifactId>mysql-connector-j</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <optional>true</optional>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+        <scope>test</scope>
+    </dependency>
+</dependencies>
+```
+
+### 三、 实战避坑：骨架工程导入后的“三大体检”
+
+由于这个项目是导入的外部工程，不同电脑的环境（JDK 版本、Maven 路径）存在差异。为了防止项目一启动就疯狂报红，请在导入后顺手做完这三项体检：
+
+#### 1. 检查 Maven 绑定状态
+
+- **动作**：点击 IDEA 右侧边栏的 **Maven** 窗口。
+    
+- **确认**：看看里面的 Plugins 和 Dependencies 有没有报红线的。如果有，点击左上角的 **“刷新（Reload All Maven Projects）”** 循环箭头，让 IDEA 重新顺着网线把依赖完整的拉下来。
+    
+
+#### 2. 检查 JDK 版本是否对齐
+
+- **路径**：`File` ➔ `Project Structure` ➔ `Project`。
+    
+- **规范**：确保 **SDK** 和 **Language level** 选中的版本与你当前电脑安装的 JDK（比如 JDK 17 或 JDK 11）完全一致，防止因为“高级别 JDK 编译低级别项目”导致编译失败。
+    
+
+#### 3. 补齐配置文件（最容易遗漏的致命点 ）
+
+老师给的初始工程里，为了让你练手，`src/main/resources` 下的 **`application.yml`**（或 `properties`）可能是一片空白，或者账号密码是错的。
+
+- **开工铁律**：在项目启动前，**必须**把我们在前几步配置好的 MySQL 连接四大件、Hikari 连接池参数、以及 MyBatis 驼峰命名自动转换开关死死地贴进去！否则一启动，Spring Boot 找不到数据库，直接当场崩溃给你看。
+    
+
+### 四、 商业级工程目录完全体（骨架长相）
+
+当你把项目完美导入并拉取完依赖后，你的 IDEA 工程目录结构应该呈现出标准的 **企业级三层架构完全体**：
+
+
+```Plaintext
+tlias-backend (项目根目录)
+├── src
+│   ├── main
+│   │   ├── java
+│   │   │   └── com
+│   │   │       └── itheima
+│   │   │           ├── TliasApplication.java (整个项目的启动引导类)
+│   │   │           ├── controller (表现层：放接收网络请求的 Controller 类)
+│   │   │           ├── service    (业务逻辑层：放 Service 接口及 ServiceImpl 实现类)
+│   │   │           ├── mapper     (持久层：放 MyBatis 的 Mapper 接口)
+│   │   │           ├── pojo       (实体类：放 Emp、Dept 等纯粹的对象模型)
+│   │   │           └── utils      (工具类：放黑马预设好的统一响应结果 Result 类等)
+│   │   └── resources
+│   │       ├── application.yml   (核心全局配置文件：配数据库、端口、日志等)
+│   │       └── com
+│   │           └── itheima
+│   │               └── mapper     (重点！未来如果写复杂的 XML 映射文件，要存放在这里)
+│   └── test (测试目录)
+│       └── java
+│           └── com
+│               └── itheima
+│                   └── TliasApplicationTests.java (单元测试类)
+└── pom.xml (Maven 核心坐标依赖声明)
+```
+
+---
+---
+
+## 部门管理——列表查询——接口开发
+
+
+工程骨架搭好之后，我们正式打响实战第一枪：**部门管理——列表查询的接口开发**
+
+结合你上传的最新核心截图，这个接口的开发完全遵循我们前面复盘的**标准三层架构模式（Controller ➔ Service ➔ Mapper）**，并且严格对齐 **RESTful 规范**。
+
+
+### 统一响应结果回顾：开工前提
+
+在表现层给前端吐数据时，必须包裹在黑马工具包预设好的统一响应类 **`Result`** 中。它的 JSON 结构长这样：
+
+- 成功时：`{"code": 1, "msg": "success", "data": 具体的部门列表集合}`
+    
+
+### 核心开发三步走（从底向上构建）
+
+#### 1. 持久层（Mapper）：面向数据库
+
+在 `com.itheima.mapper` 包下创建（或打开） **`DeptMapper`** 接口。因为是一个非常简单的全表查询，直接使用 **`@Select` 注解** 开发最高效。
+
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Dept;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+import java.util.List;
+
+@Mapper // 告诉框架这是一个MyBatis的Mapper接口，Spring会自动为其创建代理实现类并放入容器
+public interface DeptMapper {
+    
+    /**
+     * 查询全部部门数据
+     */
+    @Select("select id, name, create_time, update_time from dept") // 编写原生SQL
+    List<Dept> list();
+}
+```
+
+#### 2. 业务逻辑层（Service）：承上启下
+
+按照规范，业务层必须包含 **Service 接口** 和 **ServiceImpl 实现类**。
+
+##### 1) 在 `com.itheima.service` 包下创建接口 **`DeptService`**：
+
+
+```Java
+package com.itheima.service;
+
+import com.itheima.pojo.Dept;
+import java.util.List;
+
+public interface DeptService {
+    /**
+     * 查询全部部门数据
+     */
+    List<Dept> list();
+}
+```
+
+##### 2) 在 `com.itheima.service.impl` 包下创建实现类 **`DeptServiceImpl`**：
+
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.DeptMapper;
+import com.itheima.pojo.Dept;
+import com.itheima.service.DeptService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service // 核心！打上该注解将实现类作为 Bean 放入 Spring IoC 容器中
+public class DeptServiceImpl implements DeptService {
+
+    @Autowired // 依赖注入：把刚才容器里的 DeptMapper 代理对象注入进来
+    private DeptMapper deptMapper;
+
+    @Override
+    public List<Dept> list() {
+        return deptMapper.list(); // 纯粹调用持久层拿到集合返回
+    }
+}
+```
+
+#### 3. 表现层（Controller）：接收请求并响应
+在 `com.itheima.controller` 包下创建 **`DeptController`**。
+
+- **RESTful 对齐**：查询全部部门的资源路径为 `/depts`，请求动作必须是 **`GET`**。
+    
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Dept;
+import com.itheima.pojo.Result; // 黑马统一响应结果包装类
+import com.itheima.service.DeptService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
+
+@Slf4j // Lombok提供的日志注解，自动生成全局的 log 对象用于打印日志
+@RestController // 复合注解：@Controller + @ResponseBody，表示当前类是控制器，且所有方法返回数据直接转为 JSON 吐回前端
+@RequestMapping("/depts") // 抽取公共路径，符合 RESTful 规范的名词复数
+public class DeptController {
+
+    @Autowired // 依赖注入：注入业务层接口 Bean
+    private DeptService deptService;
+
+    /**
+     * 查询全部部门数据
+     * 限定请求方式必须是 GET
+     */
+    @GetMapping // 对应 HTTP 的 GET 请求
+    public Result list() {
+        log.info("查询全部部门数据"); // 商业开发规范：必须用日志记录核心请求，严禁使用 System.out.println()
+        
+        // 1. 调用 Service 拿到原始的集合数据
+        List<Dept> deptList = deptService.list();
+        
+        // 2. 响应：用 Result.success() 强行套上标准外壳，变成标准的前后端分离协议
+        return Result.success(deptList);
+    }
+}
+```
+
+### 实战提效与避坑卡片
+
+1. **`@RequestMapping` 路径提取的艺术**：
+    
+    观察代码，我们在 Controller 类头上加了 `@RequestMapping("/depts")`。
+    
+    - 这样做的好处是：下面具体的查询方法上只需要贴一个空干净的 `@GetMapping` 即可。
+        
+    - 后面我们要写的“删除部门（`DELETE /depts/{id}`）”、“添加部门（`POST /depts`）”也全都可以省略前面的 `/depts` 前缀，让类的结构极其清晰漂亮。
+        
+2. **`log.info()` 的企业规范作用**：
+    
+    在截图中，老师高亮强调了 `log.info("查询全部部门数据");`。
+    
+    - 当项目发布到线上时，控制台是不可能有人盯着看的。所有的操作轨迹都必须通过 `log.info` 自动保存在服务器的 `.log` 文件中。一旦某天系统卡顿或者报错，运维和开发第一件事就是通过查日志来还原当时有哪些用户发起了什么请求。
+        
+
+### 接下来：联调验证！
+
+
+现在可以执行以下闭环操作进行验证：
+
+1. 在 IDEA 中右键运行 `TliasApplication` 引导类，确保项目成功在 `8080` 端口启动。
+    
+2. 打开 **Apifox**，找到你之前导入的“部门管理 ➔ 查询部门”接口。
+    
+3. 确保环境选择的是 `localhost:8080`，然后点击 **发送 (Send)** 按钮。
+    
+
+---
+---
+
