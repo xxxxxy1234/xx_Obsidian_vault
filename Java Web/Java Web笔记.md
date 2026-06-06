@@ -8794,3 +8794,272 @@ logging:
 ---
 
 
+## 准备工作——开发规范——RESTful
+
+
+### 一、 什么是 RESTful？
+
+![[Java Web笔记-77.png]]
+**REST（Representational State Transfer，表现层状态转移）**，它不是一种硬性的标准或技术，而是一种**软件架构风格、设计规范**。
+
+在前后端分离开发中，我们基于 REST 规范设计的 API 接口，就叫做 **RESTful API**。
+
+#### 传统风格 vs RESTful 风格（痛点对比）
+
+在没有这套规范之前，后端程序员写接口极其任性，URL 命名五花八门：
+
+- 增加员工：`http://localhost:8080/emp/addEmp`
+    
+- 删除员工：`http://localhost:8080/emp/delete?id=1`
+    
+- 查询员工：`http://localhost:8080/emp/getEmpById?id=1`
+    
+
+**痛点**：URL 极度混乱，里面充斥着各种动词（add, delete, get），前端开发人员必须拿着一份厚厚的文档去对每一个网址，极难维护。
+
+### 二、 RESTful 规范的核心“四大金刚”
+
+理解 RESTful 只需要记住它最核心的解耦思想：**路径代表“资源”，方法（HTTP Method）代表“动作”**。
+
+#### 1. 规则一：URL 中只能有名词，不能有动词
+
+在 RESTful 的世界里，网络上的每一个实体（比如员工、部门、订单）都被看作是一个“资源”**。既然是资源，URL 路径就必须是**名词，而且通常推荐使用**复数**。
+
+- **规范的名词路径**：`/emps`（代表员工资源）、`/depts`（代表部门资源）。
+    
+- **严禁出现**：`/deleteEmp`、`/updateDept`。
+    
+
+#### 2. 规则二：用 HTTP 请求方式（Method）来决定具体动作
+
+既然路径里全是名词，那我怎么区分我是想“删员工”还是“加员工”呢？
+
+RESTful 极其巧妙地利用了 **HTTP 自带的请求方式**来表达增删改查：
+
+|**HTTP 请求方式**|**对应增删改查动作**|**标准 RESTful URL 示例**|
+|---|---|---|
+|**`GET`**|**查询**（获取资源）|`GET /emps` （查询所有员工）<br><br>  <br><br>`GET /emps/1` （查询id为1的员工）|
+|**`POST`**|**新增**（新建资源）|`POST /emps` （新增一个员工，参数在请求体里）|
+|**`PUT`**|**修改**（更新资源）|`PUT /emps` （修改员工信息，参数在请求体里）|
+|**`DELETE`**|**删除**（销毁资源）|`DELETE /emps/1` （删除 id 为 1 的员工）|
+
+#### 3. 规则三：路径参数（ID）直接嵌在 URL 里
+
+仔细观察第二张截图里的删除和单个查询：
+
+- 传统做法是通过问号传参：`/emps?id=1`。
+    
+- RESTful 规范要求，定位到具体某一个资源的 ID 直接作为路径的一部分：`/emps/1`、`/emps/17`。
+    
+>[!tip]
+>1. REST 是风格，是约定方式，约定不是规定，可以打破。
+>2. 描述功能模块通常使用复数形式 (加 s)，表示此类资源，而非单个资源。如：users、books...
+
+### 三、 Spring Boot 如何完美落地 RESTful？
+
+为了支持 RESTful 风格，Spring Boot 提供了专门的注解全家桶。我们在后面的 tlias 实战中天天都要用到它们：
+
+```Java
+@RestController
+@RequestMapping("/emps") // 1. 统一提取公共资源根路径
+public class EmpController {
+
+    // 2. 查询全部：GET /emps
+    @GetMapping
+    public Result list() {
+        return Result.success("查询全部员工成功");
+    }
+
+    // 3. 根据ID查询单条：GET /emps/1 (这里的 {id} 是占位符)
+    @GetMapping("/{id}")
+    public Result getById(@PathVariable Integer id) { // @PathVariable 用来接收路径里的ID
+        return Result.success("查询id为" + id + "的员工");
+    }
+
+    // 4. 新增：POST /emps
+    @PostMapping
+    public Result save(@RequestBody Emp emp) { // @RequestBody 用来接收前端传来的 JSON 实体
+        return Result.success("新增员工成功");
+    }
+
+    // 5. 修改：PUT /emps
+    @PutMapping
+    public Result update(@RequestBody Emp emp) {
+        return Result.success("修改员工成功");
+    }
+
+    // 6. 删除：DELETE /emps/1
+    @DeleteMapping("/{id}")
+    public Result delete(@PathVariable Integer id) {
+        return Result.success("删除id为" + id + "的员工成功");
+    }
+}
+```
+
+### 终极避坑与面试卡片
+
+在实际开发和面试中，有两个关于 RESTful 的**魔鬼考点**需要注意：
+
+1. **`@PathVariable` vs `@RequestParam` 别搞混**：
+    
+    - 如果前端发的请求是 `/emps/10`，你后端必须用 **`@PathVariable Integer id`** 去抓取路径里的 10。
+        
+    - 如果前端发的请求是带问号条件查询 `/emps?name=张三&gender=1`，你后端依然使用普通的形参接收，或者用 **`@RequestParam`**。
+        
+2. **企业里真的会 100% 严格遵守 RESTful 吗？**
+    
+    - **答案是：不一定。** RESTful 是一种“风格”而不是“断头台式的法律”。
+        
+    - **真实场景**：比如“批量删除”员工。按照严格的 RESTful 规范，删除 `/emps/1,2,3` 看起来很怪。很多企业在遇到复杂的批量操作或超复杂的特殊业务时，依然会退回到 `POST /emps/delete` 这样的混合折中方案。所以我们在实际开发中，要**尊崇规范，但不要盲目死板**。
+        
+
+---
+---
+
+## 准备工作——Apifox
+
+
+既然前后端分离了，后端程序员写好 Controller 层的 RESTful 接口后，**在没有前端页面的情况下，我们必须自己验证接口能不能跑通、吐出的 JSON 对不对**。过去大家用 Postman，而现在国内企业最主流、全面推荐的就是 **Apifox**（宣称 API 设计、开发、测试一体化）。
+
+### 一、 为什么要用 Apifox？（痛点分析与工具进化）
+
+在没有专门的接口测试工具前，后端程序员测试接口简直是场噩梦：
+
+- **原始做法**：写完接口，自己打开浏览器，在地址栏输入 `http://localhost:8080/depts`。
+    
+- **致命缺陷**：浏览器地址栏默认**只能发送 `GET` 请求**！如果你想测试 `POST` 新增、`PUT` 修改、`DELETE` 删除，浏览器地址栏直接抓瞎，根本没办法传 JSON 参数或发送特定 HTTP 动作。
+    
+
+#### Apifox 的降维打击能力
+
+Apifox 就是前后端分离时代的“全功能模拟浏览器”。它能：
+
+1. **任意切换 HTTP 动作**：完美支持 RESTful 规范要求的 `GET`、`POST`、`PUT`、`DELETE` 等所有请求。
+    
+2. **可视化构造请求**：可以极其方便地在 `Body` 里塞入前端发过来的 JSON 字符串，或者在 URL 里强行插入路径参数（`Path`）。
+    
+3. **接口文档即测试**：它不仅能测试，还能直接作为团队沟通的“标准接口文档”。
+    
+
+
+### 接口测试步骤梳理
+
+
+![[Java Web笔记-78.png]]
+
+
+![[Java Web笔记-79.png]]
+
+
+![[Java Web笔记-80.png]]
+
+
+
+#### 1. 新建项目（第一张图）
+
+1. 在团队页面点击右上角【新建项目】；
+2. 项目类型选择 **HTTP**（另外可选 gRPC/Dubbo 协议）；
+3. 填写自定义**项目名称**，按需勾选「包含示例数据」，语言默认简体中文，点击【新建】完成项目创建。
+
+#### 2. 进入接口工作区（第二张图）
+
+项目创建完成后进入接口管理首页，提供 4 种核心新建选项：
+
+- **新建接口**：规范录入接口文档（请求方式、路径、入参、出参，用于接口文档管理）
+- **快捷请求**：临时快速调试接口（本次实操选用该功能）
+- 新建 Markdown：项目文档备注
+- 新建数据模型：统一管理返回 JSON 实体结构
+
+#### 3. 发送 GET 请求调试接口（第三张图）
+
+##### 请求配置
+
+1. 请求方式：`GET`
+2. 请求地址：`http://localhost:8080/hello`，拼接 Query 参数`name=Tom`（参数在 Params 标签页可视化配置，自动拼接 URL）
+3. 点击右上角【发送】发起请求
+
+##### 返回结果与耗时分析
+
+- 响应状态码：`200 OK`（请求成功），返回数据：`Hello Tom`
+- 耗时拆解：
+
+|阶段|耗时|
+|---|---|
+|准备 + Socket 初始化 + DNS+TCP 握手|约 46ms|
+|等待服务响应 (TTFB)|245.14ms（主要耗时，后端逻辑处理耗时）|
+|内容下载 + 处理|约 3.7ms|
+|**总耗时**|295.36ms|
+
+##### 补充说明：
+
+- `localhost:8080`代表**本地本机 8080 端口**，需要提前启动 SpringBoot 后端项目；
+- Query 参数就是 URL 问号后的拼接参数，在 Apifox 的 Params 表单填写更直观，无需手动拼写 URL；
+- 耗时弹窗可排查接口性能瓶颈，本案例瓶颈在后端接口处理等待（TTFB 耗时占比最高）。
+
+
+
+### 二、 实战：如何在 TLIAS 项目中配置并导入 Apifox 接口
+
+课程到了这一步，黑马老师通常会给你提供一个已经定义好的标准本地接口文件（通常是 `.json` 格式），让你一键导入，免去手动挨个敲网址的痛苦。
+
+#### 1. 完全体导入流水线
+
+1. 打开 Apifox 客户端，进入你的团队/项目，点击左侧导航栏的 **“项目设置 (Project Settings)”**。
+    
+2. 找到 **“导入数据 (Import Data)”** 菜单。
+    
+3. 数据格式选择 **`Apifox`** 官方格式（如果是从别处拿来的也可以选择 OpenAPI/Swagger）。
+    
+4. 将黑马提供的 `tlias智能学习辅助系统.json` 文件拖拽进去，点击 **“确认导入”**。
+    
+
+导入成功后，你会发现在左侧的“接口管理”里，**“部门管理”和“员工管理”的所有标准 RESTful 接口（如查询、删除、添加）全都自动排版好了**！
+
+### 三、 提效大招：配置“环境URL”（新手高频被坑点）
+
+很多同学导入接口后，兴高采烈地点击“发送请求”，结果百分之百报错：`连接被拒绝` 或者是 `404 Not Found`。
+
+这是因为你没有给 Apifox 配置**后端服务的基准通讯地址**。
+
+#### 核心配置三步走
+
+1. **确定启动端口**：
+    
+    看一下你刚才在 `application.yml`（或者 `properties`）文件里配的 `server.port` 是多少（例如黑马默认是 `8080`）。
+    
+2. **在 Apifox 中设置前置 URL**：
+    
+    - 在 Apifox 右上角找到环境切换下拉框，默认通常是“本地环境”或“默认环境”。
+        
+    - 点击管理环境，在 **“前置 URL (Base URL)”** 这一栏中，精细地填入你本地 Spring Boot 的根网线地址：
+        
+        $$\text{http://localhost:8080}$$
+        
+3. **实现原理**：
+    
+    配置好后，当你在 Apifox 里点击“查询部门”接口（路径为 `/depts`）并点击发送时，Apifox 会在底层自动帮你把它们**拼接**成一个完整的网络请求：
+    
+    $$\text{http://localhost:8080/depts}$$
+    
+    这个请求跨越本地网络，精准撞进你 IDEA 里的 `DeptController`。
+    
+
+### 四、 商业项目完全体体验
+
+把我们这两天梳理的所有散落的技术，用一条 **“Apifox 请求生命周期线”** 完美闭环：
+
+1. **在 IDEA 中**：点击绿色三角，启动 `TliasApplication`。控制台高亮闪过：`HikariPool-1 - Starting...`，接着显示 `Tomcat started on port(s): 8080`。
+    
+2. **在 Apifox 中**：找到“查询全部部门”接口。确认请求方式是 **`GET`**，路径是 `/depts`。点击大大的 **“发送 (Send)”** 按钮。
+    
+3. **数据走廊**：Apifox 模拟前端向 `http://localhost:8080/depts` 砸出一个异步请求。
+    
+4. **后端接收**：Spring Boot 拦截到请求，精准分发给带有 `@GetMapping` 的 **`DeptController`**。
+    
+5. **底层交互**：Controller ➔ Service ➔ **`DeptMapper.xml`** 执行 SQL。MyBatis 带着 `map-underscore-to-camel-case: true` 自动把下划线转换完，封装进 `Result.success(deptList)`。
+    
+6. **完美的终点**：Apifox 的返回面板（Response）里，瞬间吐出漂亮的、带有高亮缩进的 **JSON 格式的 `Result` 数据**！
+    
+
+---
+---
