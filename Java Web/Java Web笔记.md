@@ -9903,3 +9903,103 @@ public Result delete(Integer id)
 ---
 ---
 
+
+
+## 部门管理——新增部门——接口开发
+
+
+### 一、 需求分析与接口设计 
+
+![[Java Web笔记-90.png]]
+
+- **业务场景**：用户在页面点击“+ 新增部门”按钮，弹出一个输入框，输入部门名称（例如“教研部”），点击保存。
+    
+- **接口文档规范**：
+    
+    - **请求路径**：`/depts`（注意：和删除部门的路径一样，但**请求方式不同**）。
+        
+    - **请求方式**：`POST`（RESTful 风格中，新增操作统一使用 POST）。
+        
+    - **请求格式 (Content-Type)**：`application/json`。**这是一个关键点！** 意味着前端传过来的不是单纯的键值对，而是一个 JSON 字符串对象：`{"name": "教研部"}`。
+        
+
+### 二、 Controller 接收复杂参数：核心注解 `@RequestBody` 
+
+![[Java Web笔记-91.png]]
+
+当前端发送一个 JSON 对象过来时，后端不能再像之前那样直接写一个 `String name` 或者 `Integer id` 来接收了。
+
+#### 1. 为什么必须用 `@RequestBody`？
+
+当数据封装在 HTTP 的 **请求体（Body）** 中以 JSON 格式传输时，Spring Boot 默认是没办法直接读取的。
+
+你必须在方法形参前加上 **`@RequestBody`** 注解。它的核心作用是：**把前端传来的 JSON 字符串，自动反序列化（转换）为 Java 中的实体类对象（POJO）**。
+
+#### 2. 自动对接的“暗号规则”
+
+- **规则**：JSON 数据的**键名（Key）**，必须与 Java 实体类对象的属性名（Field）完全相同。
+    
+- **过程**：
+    
+    前端传的是 `{"name": "教研部"}` $\longrightarrow$ 对应 Java `Dept` 类里的 `private String name;` 属性。Spring Boot 识别到名字一致，自动调用 `setName("教研部")` 将值塞进 `dept` 对象里。
+    
+
+### 三、 标准三层架构的业务落地 
+
+
+#### 1. Controller 控制层 (`DeptController`)
+
+
+```Java
+@PostMapping("/depts")
+public Result add(@RequestBody Dept dept) {
+    deptService.add(dept);
+    return Result.success();
+}
+```
+
+- **作用**：打上 `@PostMapping` 标签，用 `@RequestBody` 把大门打开迎接口味为 JSON 的 `dept` 对象，然后不作停留，扔给 Service 层。
+    
+
+#### 2. Service 业务逻辑层 (`DeptServiceImpl`) —— 🌟 本节含金量最高点
+
+仔细看这一层的代码，它比删除部门多出了两行非常重要的逻辑：
+
+```Java
+@Override
+public void add(Dept dept) {
+    dept.setCreateTime(LocalDateTime.now());
+    dept.setUpdateTime(LocalDateTime.now());
+    deptMapper.add(dept);
+}
+```
+
+- **为什么要手动 `set` 时间？** 你在前端填写的表单里，只有“部门名称”，前端是不会（也不应该）把“创建时间”和“修改时间”传过来的。
+    
+- **业务规范**：作为合格的后端，**数据的安全性和完整性由后端兜底**。在把数据存入数据库之前，必须在 Service 层利用 `LocalDateTime.now()` 自动获取当前服务器的系统时间，把 `createTime` 和 `updateTime` 补全。
+    
+
+#### 3. Mapper 数据访问层 (`DeptMapper`)
+
+```Java
+@Insert("insert into dept(name, create_time, update_time) values(#{name}, #{createTime}, #{updateTime})")
+void add(Dept dept);
+```
+
+- **作用**：利用 MyBatis 的 `@Insert` 注解。
+    
+- **参数绑定**：`#{name}`、`#{createTime}`、`#{updateTime}` 里面的名字，对应的就是前面我们在 Service 层补全之后的 `dept` 对象的属性名。MyBatis 会自动提取对应的值，拼成一条完美的 `INSERT INTO` 语句发给 MySQL。
+    
+
+### 终极思维对比：新增 VS 删除
+
+学到这里，你可以把这两个接口放在一起做个对比，技术感立刻就上来了：
+
+|**业务**|**HTTP 方法**|**参数位置**|**Spring 接收注解**|**后端 Service 动作**|**SQL 语句类型**|
+|---|---|---|---|---|---|
+|**删除部门**|`DELETE`|URL 后面 (Query)|可省略（同名直导）|直接转发|`DELETE FROM ...`|
+|**新增部门**|`POST`|请求体中 (Body JSON)|**必须加 `@RequestBody`**|**需要补全基础时间字段**|`INSERT INTO ...`|
+
+---
+---
+
