@@ -9344,3 +9344,116 @@ public class DeptController {
 ---
 ---
 
+## 部门管理——列表查询——结果封装
+
+在刚刚把三层架构的代码闭环后，我们来深度解剖了**列表查询的结果封装细节**。
+
+**如何规范地定义统一响应结果类 `Result`**，以及在企业开发中，为什么**不论是成功、失败、还是查出空数据，都必须死死遵循这一套 JSON 规矩**。
+
+
+### 一、 为什么要进行“统一响应结果封装”？
+
+在传统混合开发里，后端可以直接让浏览器跳转页面。但在**前后端分离**时代，后端 Controller 的方法返回值如果是五花八门的（有的返回 `List`，有的返回 `String`，出错时直接抛出一堆大红报错文本），前端 Vue 的 Axios 请求拦截器就会彻底崩溃。
+
+前端在敲代码时，最希望的就是：**不管后端发生了什么，返回的永远是一个固定格式的“大盒子”。盒子打开后，固定有三个夹层：成功状态、提示消息、具体数据**。
+
+### 二、 标准 `Result` 响应类的全盘实现
+
+我们在项目的 `utils` 包（或者 `pojo` 包）下定义的 `Result` 结构，可以说是经典的商业项目通用模版：
+
+```Java
+package com.itheima.utils; // 或者在 com.itheima.pojo 包下
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data // Lombok 注解：自动生成所有字段的 getter/setter/toString
+@NoArgsConstructor // 自动生成无参构造方法
+@AllArgsConstructor // 自动生成全参构造方法
+public class Result {
+    private Integer code; // 响应状态码：1 代表成功 , 0 代表失败
+    private String msg;   // 响应提示信息：解释说明（比如 "success"、"用户名已存在"）
+    private Object data;  // 响应核心数据：可以是单个对象、List集合、分页Page对象等（用 Object 兼容万物）
+
+    /**
+     * 静态快捷方法：增删改等“不需要返回具体数据”的成功响应
+     */
+    public static Result success() {
+        return new Result(1, "success", null);
+    }
+
+    /**
+     * 静态快捷方法：查询等“需要向前端传递具体数据”的成功响应（最常用！）
+     */
+    public static Result success(Object data) {
+        return new Result(1, "success", data);
+    }
+
+    /**
+     * 静态快捷方法：系统出错、业务失败时的错误响应
+     */
+    public static Result error(String msg) {
+        return new Result(0, msg, null);
+    }
+}
+```
+
+
+### 补充：数据封装
+
+![[Java Web笔记-82.png]]
+
+![[Java Web笔记-83.png]]
+
+### 三、 深度解密：Apifox 联调成功后的 JSON 数据
+
+当你启动 Spring Boot 并在 Apifox 里点击发送 `GET /depts` 之后，返回的响应体就是对 `Result` 进行 **Jackson 序列化** 后的成果。
+
+
+```JSON
+{
+    "code": 1,
+    "msg": "success",
+    "data": [
+        {
+            "id": 1,
+            "name": "学工部",
+            "createTime": "2026-06-04T15:31:32",
+            "updateTime": "2026-06-06T13:53:30"
+        },
+        {
+            "id": 2,
+            "name": "教研部",
+            "createTime": "2026-06-04T15:36:07",
+            "updateTime": "2026-06-06T13:53:30"
+        }
+    ]
+}
+```
+
+#### 核心技术对齐分析
+
+1. **`"code": 1` 的作用**：前端 Vue 拿到这个响应后，代码里会写一条标准的 `if(res.data.code === 1)`。只有是 `1`，前端才会执行网页弹窗提示“加载成功”，并放行去解析 `data`。
+    
+2. **`data` 里的数组结构**：因为我们在 Controller 里塞给它的是 `List<Dept>`，Jackson 框架非常聪明，自动将 Java 中的 **`List` 集合转换为了 JSON 的中括号 `[]` 数组格式**。
+    
+3. **驼峰命名的胜利**：注意看 JSON 里的字段叫 `"createTime"`、`"updateTime"`。这证明我们在 `application.yml` 里配的 `map-underscore-to-camel-case: true` 不仅让 MyBatis 顺利从数据库查出了数，而且转化成 JSON 后也完美符合了前端的驼峰规范！
+    
+
+### 四、 融会贯通：前后端分离下的异常处理预告
+
+有了 `Result` 类，整个 TLIAS 系统的基础底层基石就彻底踩实了。但在企业开发里，还隐藏着一个非常关键的终极命题：
+
+> **思考：** > 现在的 `Result.error("错误信息")` 是我们在代码里手动通过 `return` 返回的。
+> 
+> 那么，如果程序在运行到 Service 层时突然抛出了空指针异常（`NullPointerException`）或者数据库断开异常，代码直接中断了，没能走到 Controller 的 `return` 语句，前端会收到什么？
+> 
+> **答案**：前端会直接收到 HTTP 500 大红报错，这就打破了“统一封装”的原则。
+> 
+> **黑马后置大招**：为了解决这个漏洞，课程后面会为你引出 **`@RestControllerAdvice`（全局异常处理器）**。它的作用就是在系统崩溃时，把死掉的异常拦截住，强制将其再次包装成 `Result.error("系统未知错误")` 吐给前端，确保系统永远优雅。
+
+---
+---
+
+
