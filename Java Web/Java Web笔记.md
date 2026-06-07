@@ -9241,7 +9241,7 @@ tlias-backend (项目根目录)
 
 工程骨架搭好之后，我们正式打响实战第一枪：**部门管理——列表查询的接口开发**
 
-结合你上传的最新核心截图，这个接口的开发完全遵循我们前面复盘的**标准三层架构模式（Controller ➔ Service ➔ Mapper）**，并且严格对齐 **RESTful 规范**。
+完全遵循我们前面复盘的**标准三层架构模式（Controller ➔ Service ➔ Mapper）**，并且严格对齐 **RESTful 规范**。
 
 
 ### 统一响应结果回顾：开工前提
@@ -9778,8 +9778,7 @@ server: {
 ---
 
 
-## 部门管理——删除部门——接口开发
-
+## 部门管理——删除部门
 
 ### 1. 业务源头：需求分析与接口设计 
 
@@ -9905,7 +9904,7 @@ public Result delete(Integer id)
 
 
 
-## 部门管理——新增部门——接口开发
+## 部门管理——新增部门
 
 
 ### 一、 需求分析与接口设计 
@@ -9999,6 +9998,236 @@ void add(Dept dept);
 |---|---|---|---|---|---|
 |**删除部门**|`DELETE`|URL 后面 (Query)|可省略（同名直导）|直接转发|`DELETE FROM ...`|
 |**新增部门**|`POST`|请求体中 (Body JSON)|**必须加 `@RequestBody`**|**需要补全基础时间字段**|`INSERT INTO ...`|
+
+---
+---
+
+
+## 部门管理——修改部门——查询回显
+
+
+### 一、 需求分析与核心概念：什么是路径参数？
+
+
+![[Java Web笔记-92.png]]
+
+
+- **业务场景**：通常用于点击“编辑”按钮时，前端需要先向后端把这一个部门的原有数据“回显”查出来，展示在修改弹窗里。
+    
+- **接口规范**：
+    
+    - **请求路径**：`/depts/{id}`（这里的 `{id}` 是一个占位符，代表实际的数字）。
+        
+    - **请求方式**：`GET`（查询操作统一使用 GET）。
+        
+    - **参数格式**：**路径参数**。
+        
+- **⚡ 核心对比：它和“删除部门”的参数有什么区别？**
+    
+    - **删除部门 (Query参数)**：`/depts?id=1`。参数是用 `?` 拼接在 URL 尾巴上的。
+        
+    - **根据ID查询 (路径参数)**：`/depts/1`。参数直接**变成了整个 URL 路径的一部分**。这种风格在现代 RESTful API 设计中非常流行，让网址看起来像个清晰的文件目录。
+        
+
+### 二、 Controller 接收路径参数：核心注解 `@PathVariable` 
+
+![[Java Web笔记-93.png]]
+
+既然参数已经变成了路径的一部分，Spring Boot 就必须在路由上做点特殊标记，才能把它“抠”出来。
+
+#### 1. 语法规则
+
+
+```Java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable("id") Integer deptId)
+```
+
+1. **第一步（挖坑）**：在 `@GetMapping("/depts/{id}")` 里，使用 **`{id}`** 告诉 Spring ：“这个位置的数据不是固定的路由，而是一个动态的变量”。
+    
+2. **第二步（萝卜带泥）**：在方法形参前加上 **`@PathVariable("id")`**，它的意思是：“去路径里把刚才那个名叫 `{id}` 的坑位里的值抠出来，赋值给我的形参 `deptId`”。
+    
+
+#### 2. 简写情况
+
+
+```Java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable Integer id)
+```
+
+- **偷懒规则**：如果你的形参名字直接就叫 `id`，和路径里的 `{id}` **一模一样**，那么 `@PathVariable` 后面的括号和名字就可以省略不写，Spring 会自动完成暗号对接。
+    
+
+### 三、 标准三层架构的业务落地
+
+这次的查询操作属于“向数据库要数据”，返回值不再是空（`void`），数据传递链如下：
+
+#### 1. Controller 控制层 (`DeptController`)
+
+
+```Java
+@GetMapping("/depts/{id}")
+public Result getInfo(@PathVariable Integer id) {
+    Dept dept = deptService.getInfo(id); // 调用业务层，要一个 Dept 对象
+    return Result.success(dept);        // 把查出来的对象塞进 Result 统一格式里返回
+}
+```
+
+#### 2. Service 业务逻辑层 (`DeptServiceImpl`)
+
+
+```Java
+@Override
+public Dept getInfo(Integer id) {
+    return deptMapper.getById(id); // 转发给数据访问层
+}
+```
+
+- **注意**：这里的方法返回值必须是 `Dept` 实体对象，因为我们要向上层返回一个完整的部门数据（包含 id, name, createTime, updateTime）。
+    
+
+#### 3. Mapper 数据访问层 (`DeptMapper`)
+
+
+```Java
+@Select("select id, name, create_time, update_time from dept where id = #{id}")
+Dept getById(Integer id);
+```
+
+- **作用**：使用 MyBatis 的 `@Select` 注解执行 SQL 查询。
+    
+- **底层自动映射**：MyBatis 执行完 `SELECT` 语句后，发现方法返回值是 `Dept` 对象，它会自动把数据库里的 `create_time`（下划线命名）字段的值，注入到 Java `Dept` 类的 `createTime`（驼峰命名）属性中。
+    
+
+### 总结：至此已掌握的 Spring 三大接收参数
+
+到目前为止，你已经把 Spring Boot 开发中最核心的 **三大传参姿势** 全部集齐了！我们来做一个终极复盘：
+
+|**传参姿势**|**前端请求示例**|**后端核心注解**|**适用场景**|
+|---|---|---|---|
+|**1. 简单/Query参数**|`/depts?id=8`|可省略 / `@RequestParam`|过滤、条件查询、删除单条|
+|**2. 路径参数 (PathVariable)**|`/depts/8`|**必须加 `@PathVariable`**|精准定位单条资源（查询、单条修改/删除）|
+|**3. 请求体参数 (JSON)**|Body: `{"name":"教研部"}`|**必须加 `@RequestBody`**|新增、批量修改等复杂对象传递|
+
+---
+---
+
+## 部门管理——修改部门——修改数据
+
+
+
+### 1. 需求分析与接口规范
+
+![[Java Web笔记-94.png]]
+
+- **业务场景**：用户点击某部门的“编辑”，弹窗里回显出原有名称（比如“学工部”）。用户将其改为“学工第一部”并点击确定，前端将新数据打包发送给后端。
+    
+- **接口规范**：
+    
+    - **请求路径**：`/depts`
+        
+    - **请求方式**：`PUT`（RESTful 风格中，**修改/更新**操作统一使用 `PUT`）。
+        
+    - **格式与参数**：`application/json`。由于修改需要知道“改哪一条”以及“改成了什么”，所以请求体（Body）里会传一个完整的 JSON 对象：`{"id": 1, "name": "教研部"}`。
+        
+
+### 2. 标准三层架构的业务落地
+
+#### Controller 控制层 (`DeptController`)
+
+
+```Java
+@PutMapping("/depts")
+public Result update(@RequestBody Dept dept) {
+    deptService.update(dept);
+    return Result.success();
+}
+```
+
+- **核心点**：使用 **`@PutMapping`**。因为前端传过来的是完整的 JSON 实体（包含 `id` 和 `name`），所以方法形参依然要加上 **`@RequestBody`** 把它反序列化成 Java 的 `Dept` 对象。
+    
+
+#### Service 业务逻辑层 (`DeptServiceImpl`)
+
+```Java
+@Override
+public void update(Dept dept) {
+    dept.setUpdateTime(LocalDateTime.now());
+    deptMapper.update(dept);
+}
+```
+
+- **细节决定成败**：还记得新增部门时我们要补全“两个时间”吗？但在**修改**时，数据的“创建时间（createTime）”是不允许变的。因此，在 Service 层，我们**只需要手动更新 `updateTime` 为当前的最新系统时间**即可。
+    
+
+#### Mapper 数据访问层 (`DeptMapper`)
+
+```Java
+@Update("update dept set name = #{name}, update_time = #{updateTime} where id = #{id}")
+void update(Dept dept);
+```
+
+- **SQL 落地**：使用 MyBatis 的 `@Update` 注解。通过 `where id = #{id}` 精准锁定那一行，并将名称和更新时间刷新进去。
+    
+
+### 补充：代码终极优化 —— `@RequestMapping` 
+
+![[Java Web笔记-95.png]]
+
+#### 1. 重构前的痛点
+
+看看你之前写的这四个方法，它们的路径全部以 `/depts` 开头：
+
+- 查询列表：`@GetMapping("/depts")`
+    
+- 删除部门：`@DeleteMapping("/depts")`
+    
+- 新增部门：`@PostMapping("/depts")`
+    
+- 根据ID查：`@GetMapping("/depts/{id}")`
+    
+
+这导致 `/depts` 这五个字母在每个方法上都写了一遍。在企业级开发中，如果一个 Controller 里有几十个方法，一旦路径要改（比如改成 `/api/v1/depts`），你就得吐血修改几十处。
+
+#### 2. 完美的解决方案
+
+把公共的路径提取到**类级别**！
+
+我们在 `public class DeptController` 的头顶上，直接加上一行：
+
+
+```Java
+@RequestMapping("/depts")
+```
+
+当你在类上声明了 `@RequestMapping("/depts")` 后，**下面所有方法上的路径都会自动摘除这个前缀**：
+
+- 查询列表直接变成：`@GetMapping`
+    
+- 删除部门直接变成：`@DeleteMapping`
+    
+- 新增部门直接变成：`@PostMapping`
+    
+- 根据ID查询变成：`@GetMapping("/{id}")`
+    
+
+> **完整路径公式**：
+> 
+> 一个接口的最终访问路径 = **类上的 `@RequestMapping` 路径** + **方法上的 `@XxxMapping` 路径**。
+
+这样一改，不仅代码看起来清爽了数倍，而且后期维护极为方便，尽显高级程序员的规范。
+
+### 阶段大总结：TLAS 部门管理全套通关！
+
+
+|**功能**|**HTTP 方法**|**类上注解**|**方法上注解**|**参数接收方式**|**Service核心动作**|
+|---|---|---|---|---|---|
+|**查询所有**|`GET`|`@RequestMapping("/depts")`|`@GetMapping`|无|直接调用 Mapper|
+|**删除部门**|`DELETE`|`@RequestMapping("/depts")`|`@DeleteMapping`|简单参数（同名直导）|直接调用 Mapper|
+|**新增部门**|`POST`|`@RequestMapping("/depts")`|`@PostMapping`|`@RequestBody Dept`|补全 `createTime` 和 `updateTime`|
+|**根据ID查**|`GET`|`@RequestMapping("/depts")`|`@GetMapping("/{id}")`|**`@PathVariable Integer id`**|返回 `Dept` 实体进行回显|
+|**修改部门**|`PUT`|`@RequestMapping("/depts")`|`@PutMapping`|`@RequestBody Dept`|**仅更新 `updateTime`**|
 
 ---
 ---
