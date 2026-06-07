@@ -10319,4 +10319,154 @@ public Result delete(Integer id) {
 
 ## 日志技术——Logback配置文件
 
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            
+            <FileNamePattern>D:/tlias-%d{yyyy-MM-dd}-%i.log</FileNamePattern>
+            
+            <MaxHistory>30</MaxHistory>
+            
+            <maxFileSize>10MB</maxFileSize>
+            
+        </rollingPolicy>
+        
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+        </encoder>
+        
+    </appender>
+
+    <root level="OFF">
+        <appender-ref ref="STDOUT" />
+        
+        <appender-ref ref="FILE" />
+    </root>
+
+</configuration>
+```
+
+
+### 一、 整体结构与基本概念
+
+XML 文件的最外层由 `<configuration>` 标签包裹，内部主要定义了两个输出端（Appender）和一个总开关（Root）。
+
+- **Appender（输出目的地）：** 这里定义了两个，一个叫 `STDOUT`（滋在控制台），一个叫 `FILE`（存进D盘文件）。
+    
+- **Encoder（格式化器）：** 负责控制每一行日志打印出来的长相。
+    
+- **Root（总开关）：** 负责决定哪些级别的日志可以通过，并分发给对应的 Appender。
+    
+
+### 二、 逐段核心代码详解
+
+#### 1. 控制台输出端配置（`STDOUT`）
+
+```XML
+<appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n</pattern>
+    </encoder>
+</appender>
+```
+
+- **`class="...ConsoleAppender"`**：明确指定这个输出端的目标是系统的控制台（IDEA底部的控制台窗口）。
+    
+- **`PatternLayoutEncoder`**：指定采用模式排版格式化器，用下面的一串表达式来定制日志长相。
+    
+- `<pattern>` 的具体含义：
+    
+    - `%d{yyyy-MM-dd HH:mm:ss.SSS}`：打印精确到毫秒的时间，例如 `2026-06-07 20:45:30.123`。
+        
+    - `[%thread]`：打印当前执行代码的线程名称，多线程并发时靠它区分是谁在运行。
+        
+    - `%-5level`：打印日志级别（INFO/WARN/ERROR等），`-5` 表示靠左对齐并且固定占 5 个字符的宽度，让日志排版更整齐。
+        
+    - `%logger{50}`：打印触发日志的 Java 类名，`50` 表示类名最长显示 50 个字符，超过了会自动缩写包名。
+        
+    - `- %msg%n`：`-` 是个纯文本分隔符；`%msg` 是你代码里写的具体日志内容（如“删除部门数据”）；`%n` 表示自动换行。
+        
+
+#### 2. 文件滚动存储输出端配置（`FILE`）
+
+
+```XML
+<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+```
+
+- **`class="...RollingFileAppender"`**：指定这是一个**滚动文件输出端**。它不单单是把日志写进文件，还能在满足一定条件（比如时间到了、或者文件太大了）时，自动把文件切分归档，防止单个日志文件无限变大把服务器硬盘撑爆。
+    
+
+##### 滚动策略配置部分（`rollingPolicy`）：
+
+
+```XML
+<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+    <FileNamePattern>D:/tlias-%d{yyyy-MM-dd}-%i.log</FileNamePattern>
+    <MaxHistory>30</MaxHistory>
+    <maxFileSize>10MB</maxFileSize>
+</rollingPolicy>
+```
+
+- **`SizeAndTimeBasedRollingPolicy`**：基于**大小和时间**双重标准的滚动策略。
+    
+- **`<FileNamePattern>`（核心）**：定义历史日志文件的存放路径和命名规则。这里直接存放在 **D盘根目录** 下。
+    
+    - `%d{yyyy-MM-dd}` 意味着按天切分文件（每天过了午夜12点，昨天的日志就会变成 `tlias-2026-06-07-x.log` 并锁存起来）。
+        
+    - `%i` 是个数字序号。如果一天之内产生的日志太多，就会触发下面的大小限制，切分成序号 `0`、`1`、`2`。
+        
+- **`<MaxHistory>30</MaxHistory>`**：日志只保留最近 **30 天**。超过 30 天的历史日志文件会被 Logback 自动在后台硬盘里物理删除。
+    
+- **`<maxFileSize>10MB</maxFileSize>`**：单个日志文件的最大上限是 **10MB**。如果今天一天的日志有 25MB，那么它会拆分成三个文件：`tlias-2026-06-07-0.log` (10MB)、`tlias-2026-06-07-1.log` (10MB)、`tlias-2026-06-07-2.log` (5MB)。
+    
+
+##### 文件内部的排版格式（`encoder`）：
+
+```XML
+<encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+    <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50}-%msg%n</pattern>
+</encoder>
+```
+
+- 这部分的含义和控制台一模一样，确保写入 D 盘文件里的日志信息同样清晰、规范。
+    
+
+#### 3. 日志总开关配置（`root`）
+
+
+```XML
+<root level="OFF">
+    <appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+- **`<root>`**：全局日志控制塔。
+    
+- **`level="OFF"`（重点注意！）**：当前配置的级别是 `OFF`。这意味着**关闭所有日志输出**！无论是你代码里写的 `log.info()`、`log.error()` 还是 MyBatis 执行的 SQL 语句，**通通不会在控制台显示，也不会写进 D 盘文件**。
+    
+    可修改级别：
+	- `ALL`：开启所有日志输出
+	- `DEBUG`：开发调试用（输出最详细）
+	- `INFO`：生产环境用（输出正常信息）
+	- `WARN`：只输出警告
+	- `ERROR`：只输出错误
+	
+- **`<appender-ref ref="STDOUT" />`**：绑定控制台输出端。只有大门放行的日志，才会交给 `STDOUT` 去打印。
+    
+- **`<appender-ref ref="FILE" />`**：绑定文件输出端。只有大门放行的日志，才会交给 `FILE` 去写盘。
+
+---
+---
 
