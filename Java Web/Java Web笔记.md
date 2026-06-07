@@ -10232,3 +10232,98 @@ void update(Dept dept);
 ---
 ---
 
+
+## 日志技术——Logback快速入门
+
+
+恭喜你完成了部门管理（CRUD）全套接口的开发！现在课程带你进入了后端开发中另一个极其重要的企业级基础设施——**日志技术（Logging）**。
+
+在之前的开发中，我们习惯用 `System.out.println(...)` 来在控制台打印信息。但在真正的生产环境里，**天天用 `System.out.println(...)` 是会被开除的**。
+
+### 一、 为什么抛弃 `System.out.println`？日志技术的优势 
+
+![[Java Web笔记-96.png]]
+
+|**维度**|**System.out.println**|**日志技术 (如 Logback)**|
+|---|---|---|
+|**位置控制**|只能打印到控制台，项目重启后记录就消失了。|**多渠道输出**。既能同时在控制台打印，也能**自动保存到服务器的本地日志文件**中，供日后排查。|
+|**开关控制**|代码一旦写死，只能手动删除或注释掉。|**一键开关**。可以通过修改配置文件，灵活控制哪些日志显示，哪些日志隐藏，无需修改任何代码。|
+|**性能损耗**|是一个**同步阻塞**的操作，高并发下严重拖慢系统性能。|采用**异步/缓冲机制**，性能极高，专门针对企业级高并发做了优化。|
+|**信息完整度**|只有你写的那串字符串。|自动带有：**时间、线程名、日志级别、类名、方法名**等超详细排查线索。|
+
+### 二、 核心概念：门面模式（SLF4J 与 Logback 的关系）
+
+![[Java Web笔记-97.png]]
+
+你会发现一个细节：我们引入的依赖和配置文件叫 `logback`，但是在 Java 代码里导入的类却全都是 `org.slf4j`。这是为什么？
+
+- **SLF4J (Simple Logging Facade for Java)**：它是**日志门面（接口）**。它不负责干活，只负责制定打印日志的规范和 API 标杆（比如定义了 `Logger` 接口）。
+    
+- **Logback**：它是**日志实现（工人）**。它是目前市面上性能最好、最主流的日志框架，专门负责按照 SLF4J 的标准去实现把日志写到控制台或文件里的具体工作。
+    
+- **大白话**：SLF4J 就像是**手机充电协议（标准）**，而 Logback 就是**支持这个协议的充电头（具体实现）**。我们面向接口（SLF4J）编程，以后万一想把底层的 Logback 换成 Log4j2，Java 代码一句都不用改，改个依赖就行！
+    
+
+### 三、 Logback 快速入门三步走
+
+![[Java Web笔记-98.png]]
+
+在 Spring Boot（包含黑马 TLAS 案例使用的 `spring-boot-starter-web` 核心起步依赖）中，其实已经默认集成了 SLF4J 和 Logback，所以我们不需要再额外手动引入 jar 包依赖了。
+
+#### 第一步：引入配置文件 `logback.xml`
+
+把老师提供的 `logback.xml` 文件，直接复制到你项目的 `src/main/resources` 目录下（这个目录是专门放各种配置文件的）。
+
+> **这个文件是做什么的？** 它里面配置了日志的格式、日志文件的存放路径、以及什么级别的日志可以被打印。
+
+#### 第二步：在类中获取日志记录器对象 
+
+在你要打印日志的类（比如你的 `DeptController`）中，定义一个静态常量 `log`：
+
+```Java
+// 注意：导入的包全都是 org.slf4j
+import org.slf4j.Logger;
+import import org.slf4j.LoggerFactory;
+
+public class DeptController {
+    // 固定的获取日志对象写法：把当前类的 Class 对象传进去
+    private static final Logger log = LoggerFactory.getLogger(DeptController.class);
+}
+```
+
+#### 第三步：在代码中优雅地打印日志
+
+有了 `log` 对象后，你就可以彻底告别 `System.out.println` 了：
+
+```Java
+@DeleteMapping
+public Result delete(Integer id) {
+    // 优雅地打印日志信息
+    log.info("根据ID删除部门数据: {}", id); 
+    
+    deptService.delete(id);
+    return Result.success();
+}
+```
+
+- **🌟 超实用的花括号 `{}` 占位符语法**：Logback 允许你使用 `{}` 作为占位符，后面紧跟你要注入的变量（如 `id`）。它会自动把变量值拼进去，再也不用像以前那样写苦哈哈的 `+` 号去拼接字符串了！
+    
+
+### 四、 核心预习：日志级别（Log Level）
+
+在上面你会看到 `log.info(...)` 这样的写法。这里的 `info` 就是日志级别的一种。Logback 的日志级别从小到大排列如下：
+
+$$\text{TRACE (最细碎)} \longrightarrow \text{DEBUG (调试)} \longrightarrow \text{INFO (重要普通信息)} \longrightarrow \text{WARN (警告)} \longrightarrow \text{ERROR (错误/崩溃)}$$
+
+- **规则**：你在配置文件里设置了什么级别，系统就**只能看到该级别以及比它级别更高**的日志。
+    
+- 例如：Spring Boot 默认级别是 `INFO`，那么 `DEBUG` 和 `TRACE` 级别的日志就会被自动隐藏，控制台只输出 `INFO`、`WARN`、`ERROR`。
+    
+
+有了这个技术，以后在部门管理的任何一个接口里，你都能一眼看出到底是谁在什么时候发了什么请求，排查 Bug 的效率直接翻倍。
+
+你在写获取日志对象的这行代码时，里面的 `LoggerFactory` 和 `Logger` 对应的包有没有一不小心导成 `java.util.logging` 的？记得一定要认准 `org.slf4j` 噢！
+
+---
+---
+
