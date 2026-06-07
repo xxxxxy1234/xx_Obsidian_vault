@@ -10454,7 +10454,7 @@ XML 文件的最外层由 `<configuration>` 标签包裹，内部主要定义了
 
 - **`<root>`**：全局日志控制塔。
     
-- **`level="OFF"`（重点注意！）**：当前配置的级别是 `OFF`。这意味着**关闭所有日志输出**！无论是你代码里写的 `log.info()`、`log.error()` 还是 MyBatis 执行的 SQL 语句，**通通不会在控制台显示，也不会写进 D 盘文件**。
+- **`level="OFF"`（重点注意！）**：当前配置的日志级别是 `OFF`。这意味着**关闭所有日志输出**！无论是你代码里写的 `log.info()`、`log.error()` 还是 MyBatis 执行的 SQL 语句，**通通不会在控制台显示，也不会写进 D 盘文件**。
     
     可修改级别：
 	- `ALL`：开启所有日志输出
@@ -10466,6 +10466,111 @@ XML 文件的最外层由 `<configuration>` 标签包裹，内部主要定义了
 - **`<appender-ref ref="STDOUT" />`**：绑定控制台输出端。只有大门放行的日志，才会交给 `STDOUT` 去打印。
     
 - **`<appender-ref ref="FILE" />`**：绑定文件输出端。只有大门放行的日志，才会交给 `FILE` 去写盘。
+
+---
+---
+
+
+## 日志技术——日志级别
+
+
+
+### 一、 什么是日志级别？
+
+日志级别用于区分日志信息的类型和严重程度。在实际开发中，我们通过给不同的日志赋予不同的级别，来控制哪些日志需要被记录，哪些需要被忽略。
+
+#### 日志级别顺序（由低到高）
+
+常见的日志级别严格按照以下顺序排列：
+
+$$\text{trace} < \text{debug} < \text{info} < \text{warn} < \text{error}$$
+
+|**日志级别**|**说明**|**常见记录方式**|**使用频率与场景**|
+|---|---|---|---|
+|**trace**|**追踪**：记录程序运行的最详细轨迹。|`log.trace("...")`|使用很少。|
+|**debug**|**调试**：记录程序调试过程中的详细信息。|`log.debug("...")`|实际应用中通常视其为**最低级别**，使用较多（开发/测试阶段）。|
+|**info**|**常规信息**：记录程序运行的关键事件。|`log.info("...")`|生产环境默认级别，如：网络连接、I/O操作、业务核心节点。**使用很多**。|
+|**warn**|**警告**：记录潜在的、可能导致错误的有损情况。|`log.warn("...")`|虽不影响当前运行，但需要引起注意。**使用较多**。|
+|**error**|**错误**：记录程序运行中的异常、崩溃等严重问题。|`log.error("...")`|必须要人工介入处理的错误。**使用很多**。|
+
+### 二、 日志输出控制（过滤机制）
+
+> **只有大于或等于配置文件中所配置的日志级别的日志，才会最终输出。**
+
+#### 举个例子：
+
+如果在配置文件（如 `logback.xml`）中设置了根日志级别为 `info`：
+
+
+```XML
+<root level="info">
+    <appender-ref ref="STDOUT" />
+    <appender-ref ref="FILE" />
+</root>
+```
+
+- **允许输出**：`info`、`warn`、`error`（因为它们 $\ge$ `info`）
+    
+- **被拦截/不输出**：`trace`、`debug`（因为它们 $<$ `info`）
+    
+
+通过这种机制，我们可以在**开发环境**配置为 `debug` 以查看详细过程，而在**生产环境**切换为 `info` 或 `warn` 以节省磁盘空间并提高性能。
+
+### 三、 代码实战：从繁到简的优化
+
+
+#### 1. 传统写法
+
+在没有使用高级注解时，你需要手动声明并初始化一个静态的 `Logger` 对象：
+
+```Java
+@RestController
+public class DeptController {
+    // 手动创建 Logger 对象，每次写新类都要复制并修改类名
+    private static final Logger log = LoggerFactory.getLogger(DeptController.class);
+    
+    @Autowired
+    private DeptService deptService;
+
+    @DeleteMapping("/depts")
+    public Result delete(Integer id){
+        // 替代了落后的 System.out.println()，采用占位符 {} 动态输出
+        log.info("根据ID删除部门: {}", id); 
+        deptService.delete(id);
+        return Result.success();
+    }
+}
+```
+
+#### 2. 优雅的优化写法
+
+利用 **Lombok** 提供的 `@Slf4j` 注解，可以彻底消灭那行臃肿的静态变量声明：
+
+```Java
+@Slf4j // 核心优化：加上这个注解后，Lombok 会在编译时自动为你生成上面的 `log` 对象
+@RestController
+public class DeptController {
+
+    @Autowired
+    private DeptService deptService;
+
+    @DeleteMapping("/depts")
+    public Result delete(Integer id){
+        // 直接使用 log 对象，代码极其干净
+        log.info("根据ID删除部门: {}", id); 
+        deptService.delete(id);
+        return Result.success();
+    }
+}
+```
+
+#### 为什么用 `log.info(...)` 替代 `System.out.println(...)`？
+
+1. **性能更高**：`System.out.println` 是同步阻塞的，高并发下严重拖慢系统；而日志框架支持异步写入。
+    
+2. **灵活可控**：`println` 打印出来的东西无法轻易关闭；而日志可以通过修改配置文件（如改成 `warn`），一键让所有 `info` 级别的日志消失。
+    
+3. **格式结构化**：日志能自带时间戳、线程名、日志级别、类名等丰富信息，更方便排查问题。
 
 ---
 ---
