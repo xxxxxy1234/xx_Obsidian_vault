@@ -10309,16 +10309,6 @@ public Result delete(Integer id) {
 - **🌟 超实用的花括号 `{}` 占位符语法**：Logback 允许你使用 `{}` 作为占位符，后面紧跟你要注入的变量（如 `id`）。它会自动把变量值拼进去，再也不用像以前那样写苦哈哈的 `+` 号去拼接字符串了！
     
 
-### 四、 核心预习：日志级别（Log Level）
-
-在上面你会看到 `log.info(...)` 这样的写法。这里的 `info` 就是日志级别的一种。Logback 的日志级别从小到大排列如下：
-
-$$\text{TRACE (最细碎)} \longrightarrow \text{DEBUG (调试)} \longrightarrow \text{INFO (重要普通信息)} \longrightarrow \text{WARN (警告)} \longrightarrow \text{ERROR (错误/崩溃)}$$
-
-- **规则**：你在配置文件里设置了什么级别，系统就**只能看到该级别以及比它级别更高**的日志。
-    
-- 例如：Spring Boot 默认级别是 `INFO`，那么 `DEBUG` 和 `TRACE` 级别的日志就会被自动隐藏，控制台只输出 `INFO`、`WARN`、`ERROR`。
-    
 
 有了这个技术，以后在部门管理的任何一个接口里，你都能一眼看出到底是谁在什么时候发了什么请求，排查 Bug 的效率直接翻倍。
 
@@ -10326,4 +10316,7 @@ $$\text{TRACE (最细碎)} \longrightarrow \text{DEBUG (调试)} \longrightarrow
 
 ---
 ---
+
+## 日志技术——Logback配置文件
+
 
