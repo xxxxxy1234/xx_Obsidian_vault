@@ -10576,3 +10576,143 @@ public class DeptController {
 
 # Web后端实战——员工管理
 
+
+## 员工管理——准备工作
+
+![[Java Web笔记-99.png]]
+
+当前进入了**员工管理**模块的开发阶段。在正式编写“分页查询”和“条件分页查询”的业务逻辑之前，需要按照规范完成以下三步**准备工作**：
+
+### 1. 准备数据库表
+
+你需要确保数据库中已经存在并初始化好了以下两张表：
+
+- **`emp`**：员工基本信息表（包含姓名、性别、头像、所属部门、职位、入职日期、最后操作时间等核心字段）。
+    
+- **`emp_expr`**：员工工作经历表（与 `emp` 表通常是一对多的关系，用来记录员工过去的工作履历）。
+    
+
+
+```sql
+create table emp(
+    id int unsigned primary key auto_increment comment 'ID,主键',
+    username varchar(20) not null unique comment '用户名',
+    password varchar(32) default '123456' comment '密码',
+    name varchar(10) not null comment '姓名',
+    gender tinyint unsigned not null comment '性别, 1:男, 2:女',
+    phone char(11) not null unique comment '手机号',
+    job tinyint unsigned comment '职位, 1 班主任, 2 讲师 , 3 学工主管, 4 教研主管, 5 咨询师',
+    salary int unsigned comment '薪资',
+    image varchar(255) comment '头像',
+    entry_date date comment '入职日期',
+    dept_id int unsigned comment '部门ID',
+    create_time datetime comment '创建时间',
+    update_time datetime comment '修改时间'
+) comment '员工表';
+```
+
+```sql
+create table emp_expr(
+    id int unsigned primary key auto_increment comment 'ID, 主键',
+    emp_id int unsigned comment '员工ID',
+    `begin` date comment '开始时间',
+    `end` date comment '结束时间',
+    company varchar(50) comment '公司名称',
+    job varchar(50) comment '职位'
+)comment '工作经历';
+```
+
+### 2. 准备实体类 (Entity / POJO)
+
+在 Java 后端项目中创建与数据库表一一对应的实体类，用于数据的封装和传输：
+
+- **`Emp`**：对应 `emp` 表。可以使用 Lombok 的 `@Data`、`@NoArgsConstructor`、`@AllArgsConstructor` 注解来简化 Getter/Setter 的编写。
+    
+- **`EmpExpr`**：对应 `emp_expr` 表。
+    
+#### 员工基本信息实体类：`Emp.java`
+
+位于 `com.itheima.pojo` 包下：
+
+```Java
+package com.itheima.pojo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+/**
+ * 员工基本信息实体类
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Emp {
+    private Integer id;          // ID，主键
+    private String username;     // 用户名
+    private String password;     // 密码
+    private String name;         // 姓名
+    private Integer gender;      // 性别，1:男，2:女
+    private String phone;        // 手机号
+    private Integer job;         // 职位，1:班主任，2:讲师，3:学工主管，4:教研主管，5:咨询师
+    private Integer salary;      // 薪资
+    private String image;        // 头像（图片URL路径）
+    private LocalDate entryDate; // 入职日期
+    private Integer deptId;      // 关联的部门ID
+    private LocalDateTime createTime; // 创建时间
+    private LocalDateTime updateTime; // 修改时间
+}
+```
+
+#### 2. 员工工作经历实体类：`EmpExpr.java`
+
+位于 `com.itheima.pojo` 包下：
+```Java
+package com.itheima.pojo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.time.LocalDate;
+
+/**
+ * 员工工作经历实体类
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class EmpExpr {
+    private Integer id;        // ID，主键
+    private Integer empId;     // 关联的员工ID（外键）
+    private LocalDate begin;   // 开始时间
+    private LocalDate end;     // 结束时间
+    private String company;    // 公司名称
+    private String job;        // 在职职位
+}
+```
+
+
+### 3. 准备三层架构的基本代码结构
+
+按照标准的三层架构设计，创建好对应的类和接口，以便后续在里面直接填充业务代码：
+
+- **控制层 (Controller)**
+    
+    - 创建 `EmpController` 类，加上 `@RestController` 和 `@RequestMapping("/emps")` 注解，用于接收前端的请求并响应数据。
+        
+- **业务逻辑层 (Service)**
+    
+    - 定义 `EmpService` 接口。
+        
+    - 创建 `EmpServiceImpl` 实现类，并加上 `@Service` 注解。
+        
+- **数据访问层 (Mapper / DAO)**
+    
+    - 创建 `EmpMapper` 接口，并加上 `@Mapper` 注解，用于编写操作数据库的持久层方法（如使用 MyBatis 或 MyBatis-Plus）。
+        
+
+---
+---
+
