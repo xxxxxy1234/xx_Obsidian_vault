@@ -11887,3 +11887,152 @@ public interface EmpMapper {
 
 ---
 ---
+
+
+
+## 员工管理——新增员工——保存员工基本信息
+
+
+
+现在我们进入**新增员工**模块。前端通过表单提交员工数据。这里的核心变化在于：**前端发送的是 POST 请求，并且数据是以 JSON 格式封装在请求体（Request Body）中的。** 因此，后端在接收数据时，必须使用 **`@RequestBody`** 注解。以下是完整的三层架构开发落地代码：
+
+
+### 1. 控制层：`EmpController.java`
+
+- **技术关键点**：
+    
+    1. 使用 `@PostMapping` 映射请求路径 `/emps`。
+        
+    2. 必须加上 **`@RequestBody`** 注解，Spring Boot 才会自动把前端传过来的 JSON 字符串反序列化为 Java 的 `Emp` 实体类对象。
+        
+
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+public class EmpController {
+
+    @Autowired
+    private EmpService empService;
+
+    /**
+     * 新增员工基本信息
+     */
+    @PostMapping("/emps")
+    public Result save(@RequestBody Emp emp) {
+        log.info("新增员工，收到数据: {}", emp);
+        
+        // 调用 Service 层保存数据
+        empService.save(emp);
+        
+        // 按照接口文档响应成功提示
+        return Result.success();
+    }
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+
+```Java
+package com.itheima.service;
+
+import com.itheima.pojo.Emp;
+
+public interface EmpService {
+    /**
+     * 新增员工
+     */
+    void save(Emp emp);
+}
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **企业规范点**：除了前端传来的基本信息（如姓名、用户名、手机号等），数据库里还有两个非常关键的审计字段——**`create_time`（创建时间）** 和 **`update_time`（修改时间）**。这两个字段必须由后端在业务层通过代码动态补全。
+    
+
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public void save(Emp emp) {
+        // 补充基础审计信息：创建时间和修改时间都初始化为当前系统时间
+        emp.setCreateTime(LocalDateTime.now());
+        emp.setUpdateTime(LocalDateTime.now());
+
+        // 调用 Mapper 执行插入
+        empMapper.insert(emp);
+    }
+}
+```
+
+### 3. 数据访问层：`EmpMapper.java`
+
+- **技术选择**：因为新增员工涉及的字段非常全，使用注解写一条又长又臭的 `insert` 语句极其容易写错逗号或括号。因此，推荐使用 **MyBatis 注解**编写基础插入，或者将其放入 XML 中。这里先为你提供经典的 SQL 注解方式：
+    
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface EmpMapper {
+
+    /**
+     * 插入员工基本信息
+     */
+    @Insert("insert into emp(username, name, gender, image, job, entry_date, dept_id, create_time, update_time) " +
+            "values(#{username}, #{name}, #{gender}, #{image}, #{job}, #{entryDate}, #{deptId}, #{createTime}, #{updateTime})")
+    void insert(Emp emp);
+}
+```
+
+### 核心细节分析（避坑高频）
+
+1. **忘记写 `@RequestBody` 导致数据全是 `null`**：
+    
+    这是新手最容易犯的错误。如果不加 `@RequestBody`，Spring Boot 就会尝试去 URL 的 Query 参数（或常规表单提交）里找同名属性。由于前端是通过 JSON Body 提交的，后端会一条都拿不到，最后对象里的属性全是 `null`。
+    
+2. **默认密码处理**：
+    
+    从页面上可以看到，新增员工的表单里**没有**让输入密码的输入框。通常在企业开发中，我们会给员工一个“初始密码”（比如 `123456`），你可以在 Service 层通过 `emp.setPassword("123456");` 进行硬编码或者 MD5 加密后再存入数据库。
+    
+3. **两张表关联问题（留个悬念）**：
+    
+    注意到你在“准备工作”里建立了两张表：`emp`（员工表）和 `emp_expr`（工作经历表）。目前的业务我们只保存了**员工基本信息**。如果后续表单底部加上了“添加工作经历”的动态表格，就需要用到 MyBatis 的 **主键返回（`@Options(useGeneratedKeys = true, keyProperty = "id")`）** 机制来同时往两张表插数据了。
+    
+
+---
+---
