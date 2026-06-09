@@ -7526,6 +7526,82 @@ public class EmpController {
 ---
 ---
 
+
+## 关于三层架构的接口和实现类问题
+
+
+### 一、为什么 Service 层要先定义接口、再写实现类，不能直接写类？
+
+#### 1. 符合面向接口编程思想（解耦核心）
+
+- **接口是规范契约**：`Service`接口只定义业务行为方法（如`listEmp()`、`addEmp()`），不写具体逻辑；`ServiceImpl`才写真实业务代码。
+- 上层`Controller`只依赖**接口**，不依赖实现类：
+    
+    ```java
+    // Controller里只注入接口，不碰ServiceImpl
+    @Autowired
+    private EmpService empService; 
+    ```
+    
+    后续如果更换业务实现逻辑（比如换缓存方案、换计算规则），只需要新建一个`EmpServiceNewImpl`实现同一个接口，Controller 代码**一行不用改**，完全解耦。
+- 如果直接写一个`EmpService`实体类，Controller 硬依赖这个类，改逻辑就要动 Controller 代码，牵一发动全身。
+
+#### 2. 方便单元测试、Mock 模拟
+
+写单元测试时，可以随便造一个 Mock 实现类实现同一个 Service 接口，屏蔽数据库、复杂依赖，只测 Controller 逻辑；
+
+如果是实体类耦合，Mock 替换难度极大。
+
+#### 3. AOP、动态代理的底层依赖
+
+Spring 事务、日志切面等 AOP 功能，本质是**JDK 动态代理**，JDK 代理要求目标对象**必须实现接口**。
+
+- Service 有接口：Spring 自动用 JDK 代理包装实现类，加事务、日志；
+- 若只有实体类无接口：Spring 只能切换 CGLIB 字节码代理，性能略差、部分场景有兼容坑。
+
+#### 4. 分层职责清晰
+
+接口对外暴露能力，实现类藏内部细节；多人协作时，先定接口规范，前后端、多开发可以并行开发。
+
+---
+
+### 二、为什么 Controller 层几乎不写接口？
+
+#### 1. Controller 是请求入口，本身不需要多实现替换
+
+Controller 职责单一：接收 HTTP 请求、参数校验、调用 Service、封装返回结果。
+
+几乎不会出现 “一套接口两套 Controller 实现” 的业务场景，没有多实现替换需求，自然不需要抽接口。
+
+#### 2. SpringMVC 绑定机制绑定实体类
+
+`@RestController`、`@RequestMapping`这类注解直接打在**实体类**上，SpringMVC 扫描实体类、解析里面的`@GetMapping/@PostMapping`映射路径。
+
+如果抽 Controller 接口，注解放接口还是实现类？会徒增冗余，框架原生设计就是 Controller 用实体类承载路由。
+
+#### 3. 代理需求极低
+
+Controller 很少需要 AOP 代理替换；就算要做全局切面（请求日志、全局异常），直接对 Controller 实体类做 CGLIB 代理完全够用，没必要强行套一层接口。
+
+#### 4. 减少冗余代码
+
+Controller 本身代码量不大，大多是转发调用 Service，抽一层纯接口只会多一倍文件，毫无收益，行业通用规范都是 Controller 直接写实体类。
+
+---
+
+### 三、补充对比 Mapper 层（MyBatis）
+
+Mapper 也是只写接口，没有 Java 实现类：MyBatis 动态生成代理对象实现 SQL 逻辑，原理和 Service 接口逻辑同源 —— 靠接口做契约，框架自动填实现。
+
+简单总结：
+
+- Service：多实现、解耦、代理刚需 → 接口 + 实现类
+- Controller：单一职责、无替换场景、框架绑定实体类 → 直接实体类
+
+
+---
+---
+
 # Mysql
 
 [Mysql笔记](obsidian://open?vault=xx_Obsidian_vault&file=mysql%2FMySQL%E7%AC%94%E8%AE%B0)
@@ -10834,6 +10910,316 @@ $$\text{起始索引} = (\text{page} - 1) \times \text{pageSize}$$
     
 3. **Mapper 层**：编写上面提到的两条 SQL 语句。
     
+
+
+---
+---
+
+
+## 员工管理——分页查询——原始方式
+
+
+原始的分页查询方式核心就在于：**手动计算 MySQL `limit` 的起始索引 `start`**，并**手动执行两条 SQL 语句**（一条查总数，一条查列表）。
+
+### 1. 控制层：`EmpController.java`
+
+- **职责**：接收前端传入的 `page` 和 `pageSize` 参数（带默认值），调用 Service 层，并将结果封装在 `Result.success()` 中返回。
+    
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+public class EmpController {
+
+    @Autowired
+    private EmpService empService;
+
+    @GetMapping("/emps")
+    public Result page(@RequestParam(defaultValue = "1") Integer page,
+                       @RequestParam(defaultValue = "10") Integer pageSize) {
+        // 记录日志
+        log.info("分页查询参数: {}, {}", page, pageSize);
+        
+        // 调用 Service 层进行分页查询
+        PageResult<Emp> pageResult = empService.page(page, pageSize);
+        
+        // 响应成功结果
+        return Result.success(pageResult);
+    }
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+```Java
+package com.itheima.service;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+
+public interface EmpService {
+    /**
+     * 条件分页查询
+     * @param page 页码
+     * @param pageSize 每页记录数
+     * @return 分页结果封装对象
+     */
+    PageResult<Emp> page(Integer page, Integer pageSize);
+}
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **关键点**：在这里计算 `Integer start = (page - 1) * pageSize;`。
+    
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public PageResult<Emp> page(Integer page, Integer pageSize) {
+        // 1. 调用 Mapper 获取总记录数
+        Long count = empMapper.count();
+
+        // 2. 计算 MySQL limit 查询的起始索引
+        Integer start = (page - 1) * pageSize;
+
+        // 3. 调用 Mapper 获取当前页的数据列表
+        List<Emp> empList = empMapper.list(start, pageSize);
+
+        // 4. 组装并返回分页结果对象
+        return new PageResult<>(count, empList);
+    }
+}
+```
+
+### 3. 数据访问层：`EmpMapper.java`
+
+- **关键点**：使用左外连接（`LEFT JOIN`）关联部门表 `dept`，以确保员工的部门名称（`deptName`）能被同时查询出来。
+    
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+import java.util.List;
+
+@Mapper
+public interface EmpMapper {
+
+    /**
+     * 查询员工总记录数
+     */
+    @Select("select count(*) from emp e left join dept d on e.dept_id = d.id")
+    public Long count();
+
+    /**
+     * 分页查询当前页的员工数据列表
+     * @param start 起始索引
+     * @param pageSize 每页展示条数
+     */
+    @Select("select e.*, d.name deptName from emp e left join dept d on e.dept_id = d.id limit #{start}, #{pageSize}")
+    public List<Emp> list(Integer start, Integer pageSize);
+}
+```
+
+### 注意事项（避坑指南）
+
+1. **实体类属性匹配**：在 `EmpMapper.java` 的 `list` 查询中，使用了 `d.name deptName` 为部门名称起了别名。请确保你的 `Emp` 实体类中额外增添 `private String deptName;` 属性，否则 MyBatis 将无法自动封装部门名称。
+    
+2. **多表联合原因**：这里之所以使用多表左外连接（`LEFT JOIN`），是为了实现之前的“所属部门”列能正常显示名称（如：教研部），而不仅仅是显示一个数字 `dept_id`。
+
+
+
+### 详解@RequestParam注解
+
+#### 一、核心作用
+
+用来接收两类参数：
+
+1. **GET 请求**：URL 问号后的查询参数（`/emp?name=张三&age=20`）
+2. **POST 表单请求**：`application/x-www-form-urlencoded` 表单键值对
+    
+    **不能接收 JSON 请求体**（JSON 要用`@RequestBody`）
+
+#### 二、三大核心属性
+
+
+```java
+@RequestParam(
+    value = "前端参数名", // 别名，前后名字不一样时指定
+    required = true,     // 默认true
+    defaultValue = "默认值" // 不传时赋默认值，设置后required自动失效
+)
+```
+
+##### 1. value（name）匹配参数名
+
+前后参数名不一致时必须指定：
+
+
+```java
+// 前端传 ?empName=张三
+@GetMapping("/emp")
+public Result getEmp(@RequestParam("empName") String name){
+    // name = "张三"
+}
+```
+
+前后名字完全一致时，注解里可以不写值：
+
+
+```java
+@GetMapping("/emp")
+public Result getEmp(@RequestParam String empName){}
+```
+
+> 小细节：SpringBoot2.3+ 默认开启参数编译保留，直接裸参数（不加注解）同名也能接收，但规范建议简单参数显式加`@RequestParam`
+
+##### 2. required 必填控制
+
+- `required=true`（默认）：前端不传此参数 → 直接返回 400 错误
+- `required=false`：参数可传可不传，变量值为 null
+
+
+```java
+// age是非必填
+@GetMapping("/emp")
+public Result getEmp(
+    @RequestParam String name,
+    @RequestParam(required = false) Integer age
+){}
+```
+
+##### 3. defaultValue 默认值
+
+设置默认值后，不管`required`是 true 还是 false，不传参数都会填充默认值，不会报错：
+
+
+```java
+// 不传page就默认1，不传size默认10
+@GetMapping("/emp/list")
+public Result page(
+    @RequestParam(defaultValue = "1") Integer page,
+    @RequestParam(defaultValue = "10") Integer size
+){}
+```
+
+#### 三、支持接收的参数类型
+
+1. **基础简单类型**：String、Integer、int、Boolean、Double 等
+2. **数组**：前端传 `?ids=1&ids=2&ids=3`
+    
+    ```java
+    public Result del(@RequestParam Integer[] ids){}
+    ```
+    
+3. **List 集合**（需要配合配置，SpringMVC 原生支持）
+    
+    ```java
+    public Result batch(@RequestParam List<Long> idList){}
+    ```
+    
+4. **文件上传**：搭配`MultipartFile`接收上传文件
+    
+    ```java
+    @PostMapping("/upload")
+    public Result upload(@RequestParam MultipartFile file){}
+    ```
+    
+
+#### 四、POST 表单场景示例
+
+前端提交 form 表单（content-type: x-www-form-urlencoded）
+
+```java
+@PostMapping("/login")
+public Result login(
+    @RequestParam String username,
+    @RequestParam String password
+){
+    // 校验账号密码
+}
+```
+
+#### 五、容易踩的坑
+
+1. **不能接收 JSON**
+    
+    如果前端请求体是`application/json` JSON 字符串，用`@RequestParam`拿不到数据，必须换`@RequestBody`。
+2. **基本类型 int 不能为 null**
+    
+    如果参数设`required=false`，变量不能用`int`（基础类型不能 null），要用包装类`Integer`。
+    
+    错误写法：
+    ```java
+    // 不传age会空指针
+    @RequestParam(required = false) int age
+    ```
+    
+    正确写法：
+    ```java
+    @RequestParam(required = false) Integer age
+    ```
+    
+3. **批量多参数可以封装实体**
+    
+    参数太多时，不用一个个写 @RequestParam，直接写 POJO 实体，Spring 会自动同名绑定，底层原理和 RequestParam 一致：
+    
+    ```java
+    // Emp实体有name、age、deptId字段
+    @GetMapping("/emp")
+    public Result list(Emp emp){
+        // 自动把?name=xx&age=xx赋值给emp对象
+    }
+    ```
+    
+
+#### 六、和另外两个常用注解快速区分
+
+
+|注解|接收数据位置|适用场景|
+|---|---|---|
+|@RequestParam|URL 查询串 / 表单键值|GET 查询、表单提交、简单键值|
+|@PathVariable|URL 路径占位符 /emp/{id}|RESTful 路径参数|
+|@RequestBody|请求体 JSON|POST 提交复杂 JSON 对象|
+
+##### 最简记忆
+
+- 问号后面的参数 → `@RequestParam`
+- 大括号路径变量 → `@PathVariable`
+- 请求体 JSON → `@RequestBody`
 
 
 ---
