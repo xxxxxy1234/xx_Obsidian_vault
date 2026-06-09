@@ -8661,7 +8661,7 @@ public interface EmpMapper {
 </select>
 ```
 
-
+![[Java Web笔记-105.png]]
 
 ### 核心区别对比
 
@@ -11630,8 +11630,6 @@ public class EmpServiceImpl implements EmpService {
 
 ### 3. 数据访问层（关键：MyBatis 动态 SQL）
 
-因为前端传过来的条件是可选的（可能只查姓名，不查性别；或者不输入任何条件直接点查询），所以我们不能再用 `@Select` 注解硬编码 SQL，而应该使用 **XML 映射文件** 来通过 `<where>` 和 `<if>` 标签动态拼接 SQL 语句。
-
 #### ① Mapper 接口：`EmpMapper.java`
 
 
@@ -11664,6 +11662,201 @@ public interface EmpMapper {
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.itheima.mapper.EmpMapper">
 
+   <select id="list" resultType="com.itheima.pojo.Emp">
+    select e.*, d.name as deptName from emp e left join dept d on e.dept_id = d.id
+    where e.name like concat('%',#{name},'%') and e.gender = #{gender} and e.entry_date between #{begin} and #{end}
+   </select>
+
+</mapper>
+```
+
+### 核心细节拆解（面试/避坑高频）：
+
+1. **关于 `concat('%', #{name}, '%')`**：
+    
+    如果用`e.name like = %#{name}%`，编译出来的sql语句是`e.name like = '%？%'`，会变成普通的字符串，即不是占位符的形式，无法识别为一个参数
+    
+    但绝对不要图省事在 XML 里写 `like '%${name}%'`。使用 `${}` 是通过字符串拼 接 机制组装 SQL，容易导致 **SQL 注入** 安全风险。使用 `concat` 函数结合 `#{}` 是企业推荐的安全做法。
+    
+2. **PageHelper 的魔法依然生效**：
+    
+    虽然我们把复杂 SQL 挪到了 XML 里面，但因为我们在 Service 层执行了 `PageHelper.startPage`，插件依然会把这个动态拼接完成后的复杂 SQL 自动拿去拦截、改写出一个 `count` 和一个带 `limit` 的语句，非常省心。
+
+
+---
+---
+
+
+## 员工管理——条件分页查询——程序优化
+
+
+![[Java Web笔记-106.png]]
+
+![[Java Web笔记-107.png]]
+
+企业级开发的核心演进过程：**消灭散装参数，统一封装对象。** 下面为你详细介绍“请求参数接收优化-方案”和“动态 SQL 优化”
+
+### 为什么要优化？（技术痛点）
+
+1. **Controller 方法签名太冗长**：原本的 `page` 方法后面挂了 6 个散装参数（`page`, `pageSize`, `name`, `gender`, `begin`, `end`）。如果以后产品经理说还要加上“手机号查询”、“职位查询”，方法参数就会无限膨胀，极难维护。
+    
+2. **DTO 思想的落地**：在企业开发中，我们会专门定义一个 **查询参数封装类（通常叫 QueryParam 或 DTO）**，让 Spring Boot 自动把前端传来的 Query 参数转为实体对象。
+    
+
+### 优化后的完整三层架构实现
+
+#### 1. 新增参数封装类：`EmpQueryParam.java`
+
+
+```java
+package com.itheima.pojo;
+
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
+
+@Data
+public class EmpQueryParam {
+    private Integer page = 1;      // 当前页码，赋默认值 1
+    private Integer pageSize = 10;  // 每页记录数，赋默认值 10
+    private String name;           // 员工姓名
+    private Integer gender;        // 员工性别
+    
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate begin;       // 入职开始日期
+    
+    @DateTimeFormat(pattern = "yyyy-MM-dd")
+    private LocalDate end;         // 入职结束日期
+}
+```
+
+#### 2. 控制层优化：`EmpController.java`
+
+- **变化**：原本一长串的参数，现在缩减为只有一个 `EmpQueryParam`。Spring Boot 会自动根据请求参数名与对象的属性名进行绑定。
+    
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.EmpQueryParam;
+import com.itheima.pojo.PageResult;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+public class EmpController {
+
+    @Autowired
+    private EmpService empService;
+
+    // 前端请求路径依然是: /emps?name=张&gender=1&begin=2007-09-01&end=2022-09-01&page=1&pageSize=10
+    @GetMapping("/emps")
+    public Result page(EmpQueryParam empQueryParam) {
+        log.info("优化后接收到的组合查询参数: {}", empQueryParam); // 打印出来的将是个紧凑的对象
+        
+        PageResult pageResult = empService.page(empQueryParam); // 整个对象直接传给 Service
+        return Result.success(pageResult);
+    }
+}
+```
+
+#### 3. 业务逻辑层优化
+
+##### ① 接口：`EmpService.java`
+
+
+```Java
+package com.itheima.service;
+
+import com.itheima.pojo.EmpQueryParam;
+import com.itheima.pojo.PageResult;
+
+public interface EmpService {
+    PageResult page(EmpQueryParam empQueryParam);
+}
+```
+
+##### ② 实现类：`EmpServiceImpl.java`
+
+- **变化**：从 `empQueryParam` 里面通过 get 方法取出 `page` 和 `pageSize` 喂给 PageHelper，剩余的参数整体传递给 Mapper 层。
+    
+
+```Java
+package com.itheima.service.impl;
+
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.EmpQueryParam;
+import com.itheima.pojo.PageResult;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public PageResult page(EmpQueryParam empQueryParam) {
+        // 1. 从封装对象中取出分页参数，启动 PageHelper
+        PageHelper.startPage(empQueryParam.getPage(), empQueryParam.getPageSize());
+
+        // 2. 将整个查询参数对象传给 Mapper
+        List<Emp> empList = empMapper.list(empQueryParam);
+
+        // 3. 强转并转换返回结果
+        Page<Emp> p = (Page<Emp>) empList;
+        return new PageResult(p.getTotal(), p.getResult());
+    }
+}
+```
+
+#### 4. 数据访问层优化
+
+##### ① Mapper 接口：`EmpMapper.java`
+
+- **变化**：接口方法不再接收多个散参数，直接接收 `EmpQueryParam` 对象。
+    
+
+```Java
+
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.EmpQueryParam;
+import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
+
+@Mapper
+public interface EmpMapper {
+    /**
+     * 参数直接变为封装好的实体对象
+     */
+    List<Emp> list(EmpQueryParam empQueryParam);
+}
+```
+
+##### ② XML 映射文件：`EmpMapper.xml`
+
+因为前端传过来的条件是可选的（可能只查姓名，不查性别；或者不输入任何条件直接点查询），所以我们不能再用 `@Select` 注解硬编码 SQL，而应该使用 **XML 映射文件** 来通过 `<where>` 和 `<if>` 标签动态拼接 SQL 语句。
+
+```XML
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpMapper">
+
     <select id="list" resultType="com.itheima.pojo.Emp">
         select e.*, d.name as deptName 
         from emp e 
@@ -11685,18 +11878,12 @@ public interface EmpMapper {
 </mapper>
 ```
 
-### 核心细节拆解（面试/避坑高频）：
+### 总结本次“优化”解决的根本问题
 
-1. **关于 `concat('%', #{name}, '%')`**：
+1. **高内聚，低耦合**：未来前端如果增加新的搜索框（比如按“职位”查），后台只需要在 `EmpQueryParam` 里加一个 `private Integer job;` 属性，并在 XML 中加一个 `<if>` 即可。**Controller 层、Service 层的接口和实现类的方法签名完全不需要变动。**
     
-    如果用`e.name like = %#{name}%`，编译出来的sql语句是`e.name like = '%？%'`，会变成普通的字符串，即不是占位符的形式，无法识别为一个参数
+2. **彻底攻克空指针隐患**：利用 `<where>` 和 `<if>` 标签，让 SQL 随用户在前端输入的实际条件动态变化，真正做到了工业级的按需拼接。
     
-    但绝对不要图省事在 XML 里写 `like '%${name}%'`。使用 `${}` 是通过字符串拼 接 机制组装 SQL，容易导致 **SQL 注入** 安全风险。使用 `concat` 函数结合 `#{}` 是企业推荐的安全做法。
-    
-2. **`<where>` 标签的神奇作用**：
-    
-    如果前端只有性别传了过来（`gender=1`，`name` 为空），按上面的规则，生成的第一个条件会是 `and e.gender = 1`。MyBatis 的 `<where>` 标签非常聪明，它发现多了一个 `and` 导致语法错误时，会**自动把第一个不合时宜的 `and` 裁剪掉**，保障 SQL 的合法性。
-    
-3. **PageHelper 的魔法依然生效**：
-    
-    虽然我们把复杂 SQL 挪到了 XML 里面，但因为我们在 Service 层执行了 `PageHelper.startPage`，插件依然会把这个动态拼接完成后的复杂 SQL 自动拿去拦截、改写出一个 `count` 和一个带 `limit` 的语句，非常省心。
+
+---
+---
