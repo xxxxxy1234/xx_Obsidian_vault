@@ -11338,6 +11338,73 @@ $$\text{Page<E>} \rightarrow \text{ArrayList<E>} \rightarrow \text{List<E>}$$
 
 这就是为什么 `empMapper.list()` 返回的明明是 `List<Emp>` 集合，我们却能安全地通过 `(Page<Emp>) empList` 强转它的原因。强转后，我们就能通过 `p.getTotal()` 轻松拿到刚才自动查出来的总数了。
 
+
+### 注意事项：
+
+
+#### 注意事项 a：SQL 语句结尾不要加分号 (`;`)
+
+
+在使用原生 MyBatis 写普通查询时，SQL 结尾加不加分号通常不影响执行。但是在配合 **PageHelper** 分页时，加分号会直接导致**程序抛出 SQL 语法异常**（`BadSqlGrammarException`）。
+
+##### 原理剖析：
+
+正如我们前面分析的 PageHelper 实现机制，它在底层会通过拦截器**动态篡改**你的 SQL 语句。
+
+- **你写的原始 SQL**：
+    
+    `select e.* from emp e left join dept d on e.dept_id = d.id;`
+    
+- **PageHelper 改写后的 SQL**：
+    
+    `select e.* from emp e left join dept d on e.dept_id = d.id; limit ?, ?`
+    
+
+> **结果**：MySQL 识别到分号 `;` 就认为这条语句已经结束了，后面莫名其妙多出来的 `limit ?, ?` 就会被视为语法错误。因此，**在 Mapper 层编写用于分页的 SQL 时，尾部务必保持干净，绝不能带分号**。
+
+
+#### 注意事项 b：PageHelper 只会对紧跟在其后的第一条 SQL 语句进行分页处理
+
+这是一个非常隐蔽的业务逻辑坑，如果不注意，会导致数据错乱或者分页失效。
+
+##### 核心机制：
+
+`PageHelper.startPage(page, pageSize)` 的原理是利用了 Java 的 **`ThreadLocal`（线程局部变量）**。它会把分页参数绑定到当前的执行线程上。
+
+当执行 Mapper 查询时，PageHelper 的拦截器会去检查当前线程有没有分页参数：
+
+1. 如果有，就把参数拿出来，**应用到接下来的第一条 SQL 上**。
+    
+2. 只要这条 SQL 执行完毕，PageHelper 就会**立刻自动清理**掉当前线程绑定的分页参数（执行 `ThreadLocal.remove()`）。
+    
+
+##### 错误示范：
+
+如果你在 `startPage` 后面连续调用了两次查询，只有第一个会分页，第二个会变成全表查询！
+
+
+```Java
+// 1. 设置分页参数
+PageHelper.startPage(1, 10);
+
+// 2. 第一条SQL：成功被拦截，执行 limit 0, 10
+List<Emp> empList = empMapper.list(); 
+
+// 3. 第二条SQL：此时分页参数已被清除！执行的是全表查询，分页失效！
+List<Dept> deptList = deptMapper.list(); 
+```
+
+#### 最佳实践法则：
+
+为了保证线程安全和分页正确，在编写 Service 层代码时，**务必保证 `PageHelper.startPage(...)` 语句与你需要分页的那个 Mapper 查询方法之间，不要塞入任何其他的查询或者无关代码**。让它们紧紧贴在一起：
+
+
+```Java
+// 正确：紧跟其后，绝不分离
+PageHelper.startPage(page, pageSize);
+List<Emp> empList = empMapper.list(); 
+```
+
 ### 总结
 
 使用 PageHelper 后：
