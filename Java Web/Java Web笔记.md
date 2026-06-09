@@ -11412,3 +11412,195 @@ List<Emp> empList = empMapper.list();
 - **优点**：Mapper 层解耦，不需要再为每个分页查询专门手写 `count` 语句和 `limit` 占位符；Service 层代码量骤降，不需要手动算 `(page - 1) * pageSize`。
     
 - **开发效率**：大大提升，是目前国内绝大多数企业配合 MyBatis 开发时的标配。
+
+
+
+---
+---
+
+
+## 员工管理——条件分页查询——基本实现
+
+
+![[Java Web笔记-104.png]]
+
+
+### 1. 控制层：`EmpController.java`
+
+- **技术痛点**：当前端传入像 `2022-09-01` 这样的日期字符串时，Spring Boot 默认无法直接将其转换为 Java 的 `LocalDate` 对象。
+    
+- **解决方案**：必须使用 **`@DateTimeFormat`** 注解，通过 `pattern` 属性指定日期格式。
+    
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import java.time.LocalDate;
+
+@Slf4j
+@RestController
+public class EmpController {
+
+    @Autowired
+    private EmpService empService;
+
+    @GetMapping("/emps")
+    public Result page(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            String name,
+            Integer gender,
+            @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate begin,
+            @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end) {
+        
+        // 打印日志，方便控制台调试观察
+        log.info("条件分页查询参数: {}, {}, {}, {}, {}, {}", page, pageSize, name, gender, begin, end);
+        
+        // 调用 Service 层处理业务
+        PageResult<Emp> pageResult = empService.page(page, pageSize, name, gender, begin, end);
+        return Result.success(pageResult);
+    }
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+
+```Java
+package com.itheima.service;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import java.time.LocalDate;
+
+public interface EmpService {
+    PageResult<Emp> page(Integer page, Integer pageSize, String name, Integer gender, LocalDate begin, LocalDate end);
+}
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **最佳实践**：我们继续使用已经掌握的 **PageHelper** 插件来简化代码。由于 PageHelper 只对其后紧跟的第一条查询生效，因此把 `startPage` 紧贴着 Mapper 的调用。
+    
+
+
+```Java
+package com.itheima.service.impl;
+
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public PageResult<Emp> page(Integer page, Integer pageSize, String name, Integer gender, LocalDate begin, LocalDate end) {
+        // 1. 设置 PageHelper 分页参数
+        PageHelper.startPage(page, pageSize);
+
+        // 2. 执行 Mapper 层多条件组合查询
+        List<Emp> empList = empMapper.list(name, gender, begin, end);
+
+        // 3. 强转并封装为 PageResult 统一对象返回
+        Page<Emp> p = (Page<Emp>) empList;
+        return new PageResult<>(p.getTotal(), p.getResult());
+    }
+}
+```
+
+### 3. 数据访问层（关键：MyBatis 动态 SQL）
+
+因为前端传过来的条件是可选的（可能只查姓名，不查性别；或者不输入任何条件直接点查询），所以我们不能再用 `@Select` 注解硬编码 SQL，而应该使用 **XML 映射文件** 来通过 `<where>` 和 `<if>` 标签动态拼接 SQL 语句。
+
+#### ① Mapper 接口：`EmpMapper.java`
+
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Mapper;
+import java.time.LocalDate;
+import java.util.List;
+
+@Mapper
+public interface EmpMapper {
+    /**
+     * 根据多条件动态查询员工列表（PageHelper 插件会自动基于此方法拦截改写 count 和 limit 语句）
+     */
+    List<Emp> list(String name, Integer gender, LocalDate begin, LocalDate end);
+}
+```
+
+#### ② XML 映射文件：`EmpMapper.xml`
+
+在 `src/main/resources` 下创建对应的目录结构，建立 `com/itheima/mapper/EmpMapper.xml` 文件：
+
+
+```XML
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpMapper">
+
+    <select id="list" resultType="com.itheima.pojo.Emp">
+        select e.*, d.name as deptName 
+        from emp e 
+        left join dept d on e.dept_id = d.id
+        <where>
+            <if test="name != null and name != ''">
+                e.name like concat('%', #{name}, '%')
+            </if>
+            <if test="gender != null">
+                and e.gender = #{gender}
+            </if>
+            <if test="begin != null and end != null">
+                and e.entry_date between #{begin} and #{end}
+            </if>
+        </where>
+        order by e.update_time desc
+    </select>
+
+</mapper>
+```
+
+### 核心细节拆解（面试/避坑高频）：
+
+1. **关于 `concat('%', #{name}, '%')`**：
+    
+    如果用`e.name like = %#{name}%`，编译出来的sql语句是`e.name like = '%？%'`，会变成普通的字符串，即不是占位符的形式，无法识别为一个参数
+    
+    但绝对不要图省事在 XML 里写 `like '%${name}%'`。使用 `${}` 是通过字符串拼 接 机制组装 SQL，容易导致 **SQL 注入** 安全风险。使用 `concat` 函数结合 `#{}` 是企业推荐的安全做法。
+    
+2. **`<where>` 标签的神奇作用**：
+    
+    如果前端只有性别传了过来（`gender=1`，`name` 为空），按上面的规则，生成的第一个条件会是 `and e.gender = 1`。MyBatis 的 `<where>` 标签非常聪明，它发现多了一个 `and` 导致语法错误时，会**自动把第一个不合时宜的 `and` 裁剪掉**，保障 SQL 的合法性。
+    
+3. **PageHelper 的魔法依然生效**：
+    
+    虽然我们把复杂 SQL 挪到了 XML 里面，但因为我们在 Service 层执行了 `PageHelper.startPage`，插件依然会把这个动态拼接完成后的复杂 SQL 自动拿去拦截、改写出一个 `count` 和一个带 `limit` 的语句，非常省心。
