@@ -12103,7 +12103,6 @@ public class EmpServiceImpl implements EmpService {
     private EmpExprMapper empExprMapper; // 注入操作经历表的 Mapper
 
     @Override
-    @Transactional // 核心保障：涉及两张表的操作，必须加事务注解，确保要么同时成功，要么同时失败！
     public void save(Emp emp) {
         // 1. 保存员工基本信息
         emp.setCreateTime(LocalDateTime.now());
@@ -12204,10 +12203,120 @@ public interface EmpExprMapper {
     
     绝对不要在 for 循环里去调普通的 `insert` 语句。如果一个人有 3 段经历，在循环里调单条插入会导致程序和数据库交互 3 次；而用 `<foreach>` 标签在底层只会拼出一条形如 `values (1,...), (1,...), (1,...)` 的大 SQL，**只需与数据库交互 1 次**，性能提升几十倍。
     
-3. **别忘了 `@Transactional`**：
+
+
+### 详解@Options注解
+
+#### 一、基础说明
+
+`@Options` **不属于 Spring Boot 原生注解**，是**MyBatis**提供的注解（包：`org.apache.ibatis.annotations.Options`），SpringBoot 整合 MyBatis 时在 Mapper 接口方法上使用，用来定制 SQL 执行行为，对标 XML mapper 里`<insert>/<select>/<update>/<delete>`标签的属性配置。
+
+作用范围：仅加在 Mapper 接口的 SQL 方法上（`@Insert/@Select/@Update/@Delete`配合使用）。
+
+#### 二、核心常用属性
+
+##### 1. 主键回填（最常用，仅 Insert 生效）
+
+```java
+@Options(
+    useGeneratedKeys = true,
+    keyProperty = "id",
+    keyColumn = "id"
+)
+```
+
+- **useGeneratedKeys**：默认`false`；`true`开启 JDBC 自增主键回填，MySQL 自增主键必须开；Oracle 序列不用这个，用`@SelectKey`。
+- **keyProperty**：实体类里接收主键的属性名（必填，多个逗号分隔）。
+- **keyColumn**：数据库表主键字段名；字段名和实体属性名一致时可省略。
+
+示例完整插入：
+
+```java
+public interface UserMapper {
+    @Insert("INSERT INTO user(name,age) VALUES(#{name},#{age})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(User user);
+}
+```
+
+调用后直接拿主键：
+
+```java
+User u = new User();
+u.setName("张三");
+mapper.insert(u);
+System.out.println(u.getId()); // 自动回填自增id
+```
+
+##### 2. 缓存控制
+
+- **useCache**：默认`true`，当前查询是否使用 MyBatis 二级缓存（只对 Select 有效）。
+- **flushCache**：
     
-    多表关联保存必须具备原子性。万一员工基本信息保存成功了，但批量插经历时因为数据格式报错了，如果没有加事务，数据库就会多出一个“没有工作经历的半成品员工”。加上 `@Transactional` 可以确保任何一步出错后，全盘自动回滚。
+    - Insert/Update/Delete：默认`true`，执行后清空缓存；
+    - Select：默认`false`；强制刷新缓存设为`true`。
     
+
+```java
+// 查询强制刷新缓存、不使用二级缓存
+@Select("select * from user where id=#{id}")
+@Options(useCache = false, flushCache = true)
+User getById(Long id);
+```
+
+##### 3. 执行性能参数
+
+- **timeout**：SQL 执行超时时间（单位秒，-1 用全局默认）。
+- **fetchSize**：大批量查询时 JDBC 每次抓取行数，大数据分页优化。
+- **statementType**：语句类型 `PREPARED`(默认)/`CALLABLE`(存储过程)/`STATEMENT`。
+- **resultSetType**：结果集滚动类型 `FORWARD_ONLY`/`SCROLL_SENSITIVE`/`SCROLL_INSENSITIVE`。
+
+#### 三、完整源码属性一览
+
+
+```java
+public @interface Options {
+    boolean useCache() default true;
+    boolean flushCache() default false;
+    ResultSetType resultSetType() default ResultSetType.FORWARD_ONLY;
+    StatementType statementType() default StatementType.PREPARED;
+    int fetchSize() default -1;
+    int timeout() default -1;
+    boolean useGeneratedKeys() default false;
+    String keyProperty() default "id";
+    String keyColumn() default "";
+    String[] resultSets() default {};
+}
+```
+
+#### 四、易混淆区分
+
+1. **@Options vs @SelectKey**
+    
+    - MySQL 自增主键：优先`@Options`，简洁；
+    - Oracle/PostgreSQL 序列、复杂主键生成：用`@SelectKey`；
+        
+        两者共存时，`@SelectKey`优先级更高，覆盖 Options 主键配置。
+    
+2. 和 XML 配置等价
+    
+
+```xml
+<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO user(name) VALUES(#{name})
+</insert>
+```
+
+等价于注解版`@Options(useGeneratedKeys=true,keyProperty="id")`
+
+#### 五、常见踩坑
+
+1. 实体没有对应`keyProperty`属性，回填失效；
+2. Oracle 等无自增主键库，强行开`useGeneratedKeys=true`会报错；
+3. 多参数入参（如`@Param("u") User u`）：keyProperty 要写`u.id`；
+4. 批量插入时，部分数据库驱动不支持批量回填主键，需改用循环单插或数据库特定语法。
+
+
 
 ---
 ---
