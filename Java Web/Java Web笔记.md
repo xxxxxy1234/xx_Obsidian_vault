@@ -8397,7 +8397,7 @@ public interface EmpMapper {
 
 #### 1. 标准项目中的写法（使用 `concat` 函数）
 
-直接在 Java 代码里拼接 `%` 会导致维护混乱，黑马课程推荐使用 MySQL 的 `concat` 字符串连接函数：
+直接在 Java 代码里拼接 `%` 会导致维护混乱，推荐使用 MySQL 的 `concat` 字符串连接函数：
 
 
 
@@ -8624,6 +8624,102 @@ public interface EmpMapper {
 ---
 
 
+## MyBatis 的动态 SQL 标签（`<where>` 和 `<if>`）
+
+
+
+下面的两段sql标签语句核心区别在于 **是否使用了 MyBatis 的动态 SQL 标签（`<where>` 和 `<if>`）**。
+
+前者是**硬编码（静态）条件查询**，而后者是真正的**动态条件查询**。
+
+在实际开发中，它们的区别带来的直接后果是：**第一段代码在前端不传完整参数时会直接报错，而第二段代码能够完美兼容各种查询场景。**
+
+```xml
+<select id="list" resultType="com.itheima.pojo.Emp">
+    select e.*, d.name as deptName from emp e left join dept d on e.dept_id = d.id
+    where e.name like concat('%',#{name},'%') and e.gender = #{gender} and e.entry_date between #{begin} and #{end}
+</select>
+```
+
+```XML
+<select id="list" resultType="com.itheima.pojo.Emp">
+    select e.*, d.name as deptName 
+    from emp e 
+    left join dept d on e.dept_id = d.id
+    <where>
+        <if test="name != null and name != ''">
+                e.name like concat('%', #{name}, '%')
+        </if>
+        <if test="gender != null">
+                and e.gender = #{gender}
+        </if>
+        <if test="begin != null and end != null">
+                and e.entry_date between #{begin} and #{end}
+        </if>
+    </where>
+    order by e.update_time desc
+</select>
+```
+
+
+
+### 核心区别对比
+
+| **对比维度**     | **第一段代码**                                                                        | **第二段代码（文本中的动态 SQL）**                             |
+| ------------ | -------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **SQL 结构**   | 固定不变。无论前端传了几个条件，`WHERE` 子句和三个 `AND` 条件都会硬塞给数据库。                                  | 动态拼接。根据前端实际传过来的参数，实时生成最合理的 `WHERE` 语句。            |
+| **参数为空时的表现** | 如果前端没有输入姓名（`name = null`），SQL 会变成 `like '%null%'`；如果没选日期，直接报 **SQL 语法错误或空指针异常**。 | 如果某个参数没有传，该条件对应的 `<if>` 块就会被直接无视，**不影响其他条件正常查询**。 |
+| **业务场景适用性**  | 仅适用于**所有查询条件必填**的死板场景。                                                           | 完美适用于企业级**条件组合可选**的复杂搜索框。                         |
+
+### 场景模拟：如果前端“只按性别查询”
+
+假设用户在网页上只勾选了“性别：男”，姓名框留空，入职时间也没选。我们来看看两段代码分别会向 MySQL 发送什么样的 SQL 语句：
+
+#### 第一段代码生成的 SQL（会导致报错）：
+
+```SQL
+select e.*, d.name as deptName 
+from emp e 
+left join dept d on e.dept_id = d.id
+where e.name like concat('%', NULL, '%') 
+  and e.gender = 1 
+  and e.entry_date between NULL and NULL;  -- 致命错误：between null and null 导致查询逻辑崩溃或直接报错
+```
+
+#### 第二段代码生成的 SQL（完美运行）：
+
+MyBatis 的 `<where>` 标签和 `<if>` 标签会协同工作：
+
+1. 检测到 `name` 为空，跳过第一个 `<if>`。
+    
+2. 检测到 `gender` 有值，保留 `and e.gender = #{gender}`。
+    
+3. 检测到 `begin/end` 为空，跳过第三个 `<if>`。
+    
+4. **`<where>` 自动裁剪**：由于第一个生效的条件自带了一个 `and`，`<where>` 标签会自动把这个多余的 `and` 删掉，拼接出完美的 SQL：
+    
+
+```SQL
+select e.*, d.name as deptName 
+from emp e 
+left join dept d on e.dept_id = d.id
+WHERE e.gender = 1 -- 自动裁剪了开头的 and，干净利落！
+order by e.update_time desc;
+```
+
+### 总结落地建议
+
+- **第一种写法**：适合用于练习、或者业务逻辑上拍板保证“前端一定会打包传递所有搜索项”的情况（几乎不存在）。
+    
+- **第二种写法**：是**企业标准的正规写法**。只要涉及多条件组合筛选，一律老老实实加上 `<where>` 和 `<if>` 动态标签。
+    
+
+
+
+
+
+---
+---
 
 ## Spring Boot项目配置文件
 
