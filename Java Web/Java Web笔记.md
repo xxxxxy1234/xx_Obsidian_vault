@@ -11226,3 +11226,122 @@ public Result login(
 ---
 
 
+## 员工管理——分页查询——PageHelper插件
+
+
+![[Java Web笔记-101.png]]
+正如图片中所对比的，原始方式需要写两条 SQL（`count` 和 `limit`），并在 Service 层手动计算索引。而 **PageHelper** 作为 MyBatis 的第三方分页插件，**完全接管了计算与拼接的过程，极大地简化了代码**。
+
+下面为你拆解 PageHelper 的使用步骤、核心代码以及它底层的运作机制。
+
+### 一、 PageHelper 使用三步走
+
+![[Java Web笔记-102.png]]
+#### 1. 引入 Maven 依赖 (`pom.xml`)
+
+在你的 Spring Boot 项目中引入 PageHelper 的 Starter：
+
+```XML
+<dependency>
+    <groupId>com.github.pagehelper</groupId>
+    <artifactId>pagehelper-spring-boot-starter</artifactId>
+    <version>1.4.7</version>
+</dependency>
+```
+
+#### 2. 编写 Mapper 接口（无需考虑分页参数）
+
+对比原始写法，现在你的 SQL **不需要**写 `COUNT(*)`，也**不需要**手动在 SQL 后面拼接 `limit ?, ?`。只需要写最纯粹的查询全部的 SQL 即可：
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+import java.util.List;
+
+@Mapper
+public interface EmpMapper {
+    /**
+     * 查询全部员工数据（PageHelper 会自动在此 SQL 基础上动态拦截并改写）
+     */
+    @Select("select e.*, d.name deptName from emp e left join dept d on e.dept_id = d.id order by e.update_time desc")
+    public List<Emp> list();
+}
+```
+
+#### 3. 在 Service 方法中实现分页查询
+
+在调用 Mapper 之前，使用一行核心代码 `PageHelper.startPage(page, pageSize)` 开启分页。
+
+```Java
+package com.itheima.service.impl;
+
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.PageResult;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public PageResult<Emp> page(Integer page, Integer pageSize) {
+        // 1. 设置分页参数（告诉 PageHelper 当前是第几页，每页多少条）
+        PageHelper.startPage(page, pageSize);
+
+        // 2. 执行查询（正常调用查询全部的方法）
+        List<Emp> empList = empMapper.list();
+
+        // 3. 强转为 Page<E> 对象以获取分页数据（PageHelper 返回的实际实现类就是 Page）
+        Page<Emp> p = (Page<Emp>) empList;
+
+        // 4. 解析并封装结果返回
+        return new PageResult<>(p.getTotal(), p.getResult());
+    }
+}
+```
+
+### 二、 PageHelper 实现机制（核心原理）
+
+![[Java Web笔记-103.png]]
+
+根据图片展示的控制台日志，为什么我们只调了一个 `list()` 方法，数据库却执行了**两条 SQL** 呢？
+
+#### 1. 动态拦截与 SQL 改写
+
+PageHelper 的底层是利用了 MyBatis 的**拦截器机制（Interceptor）**：
+
+- 当你在代码中执行了 `PageHelper.startPage(page, pageSize)`，它会在当前线程的上下文中绑定分页参数。
+    
+- 当程序紧接着执行到 `empMapper.list()` 时，MyBatis 拦截器会“偷看”并拦截这条即将发送给 MySQL 的普通 SQL。
+    
+- **第一步：智能生成 count 语句**。它会自动把原 SQL 改写为 `SELECT count(0) FROM ...` 发给数据库，以此拿到**总记录数**。
+    
+- **第二步：动态拼接 limit 语句**。它会根据绑定的 `page` 和 `pageSize` 自动计算好偏移量，在原 SQL 尾部强行接上 `LIMIT ?, ?`，以此拿到**当前页的数据列表**。
+    
+
+#### 2. `Page<E>` 对象的秘密
+
+`Page<E>` 实际上是继承自 Java 标准集合 `ArrayList<E>` 的：
+
+$$\text{Page<E>} \rightarrow \text{ArrayList<E>} \rightarrow \text{List<E>}$$
+
+这就是为什么 `empMapper.list()` 返回的明明是 `List<Emp>` 集合，我们却能安全地通过 `(Page<Emp>) empList` 强转它的原因。强转后，我们就能通过 `p.getTotal()` 轻松拿到刚才自动查出来的总数了。
+
+### 总结
+
+使用 PageHelper 后：
+
+- **优点**：Mapper 层解耦，不需要再为每个分页查询专门手写 `count` 语句和 `limit` 占位符；Service 层代码量骤降，不需要手动算 `(page - 1) * pageSize`。
+    
+- **开发效率**：大大提升，是目前国内绝大多数企业配合 MyBatis 开发时的标配。
