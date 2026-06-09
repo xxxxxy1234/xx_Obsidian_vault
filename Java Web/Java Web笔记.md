@@ -11892,7 +11892,7 @@ public interface EmpMapper {
 
 ## 员工管理——新增员工——保存员工基本信息
 
-
+![[Java Web笔记-108.png]]
 
 现在我们进入**新增员工**模块。前端通过表单提交员工数据。这里的核心变化在于：**前端发送的是 POST 请求，并且数据是以 JSON 格式封装在请求体（Request Body）中的。** 因此，后端在接收数据时，必须使用 **`@RequestBody`** 注解。以下是完整的三层架构开发落地代码：
 
@@ -12036,3 +12036,179 @@ public interface EmpMapper {
 
 ---
 ---
+
+
+## 员工管理——新增员工——批量保存工作经历
+
+![[Java Web笔记-109.png]]
+现在来到了新增员工的高级进阶阶段：**批量保存工作经历**。此时的业务是一个典型的**多表关联保存**：
+
+1. 先保存员工的基本信息到 `emp` 表。
+    
+2. **核心痛点**：工作经历表 `emp_expr` 中有一个外键字段 `emp_id`，用来指定这段经历属于谁。而这个 `emp_id` 是由数据库在第一步自增生成的，我们在 Java 代码里一开始根本拿不到！
+    
+
+为了解决这个问题，我们需要引入 MyBatis 的 **主键返回** 机制，并配合动态 SQL 的 **`<foreach>`** 标签实现批量插入。
+
+
+
+### 1. 修改 `Emp.java` 实体类
+
+首先，我们需要在 `Emp` 实体类中增加一个集合属性，用来接收前端一并传过来的工作经历列表：
+
+
+```Java
+// 在 Emp 类中追加这行属性，以便接收嵌套的 JSON 数组
+private List<EmpExpr> exprList; // 工作经历列表
+```
+
+### 2. 控制层：`EmpController.java`
+
+控制层完全不需要修改！因为前端依然是发送一个大 JSON，Spring Boot 会自动把 JSON 里的经历数组反序列化并塞进 `Emp` 的 `exprList` 属性中。
+
+
+### 3. 业务逻辑层实现：`EmpServiceImpl.java`
+
+- **关键设计**：
+    
+    1. 调用 `empMapper.insert(emp)` 后，由于配置了主键返回，`emp.getId()` 就会被自动赋值。
+        
+    2. 拿到自增的 `empId` 后，遍历工作经历集合，动态把 `empId` 灌进去，最后交给 `empExprMapper` 批量插入。
+        
+
+
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.EmpExprMapper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.EmpExpr;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+    
+    @Autowired
+    private EmpExprMapper empExprMapper; // 注入操作经历表的 Mapper
+
+    @Override
+    @Transactional // 核心保障：涉及两张表的操作，必须加事务注解，确保要么同时成功，要么同时失败！
+    public void save(Emp emp) {
+        // 1. 保存员工基本信息
+        emp.setCreateTime(LocalDateTime.now());
+        emp.setUpdateTime(LocalDateTime.now());
+        empMapper.insert(emp); // 执行完这一行后，emp 对象的 id 属性就被悄悄赋值了！
+
+        // 2. 批量保存该员工的工作经历
+        List<EmpExpr> exprList = emp.getExprList();
+        
+        // 健壮性判断：只有前端传了经历数据时，才进行批量插入
+        if (!CollectionUtils.isEmpty(exprList)) {
+            // 遍历经历集合，为每一条经历赋予刚刚生成的员工ID外键
+            for (EmpExpr expr : exprList) {
+                expr.setEmpId(emp.getId()); // 关键：获取第一步主键返回的 ID
+            }
+            // 调用经历表的 Mapper 批量保存
+            empExprMapper.insertBatch(exprList);
+        }
+    }
+}
+```
+
+### 4. 数据访问层实现
+
+#### ① 员工表 Mapper 改造：`EmpMapper.java`
+
+为了能拿到自增的 `id`，我们需要使用 **`@Options`** 注解来开启主键回调。
+
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Options;
+
+@Mapper
+public interface EmpMapper {
+
+    @Options(useGeneratedKeys = true, keyProperty = "id") // 开启主键返回，将自增主键封装回 emp 对象的 id 属性中
+    @Insert("insert into emp(username, name, gender, image, job, entry_date, dept_id, create_time, update_time) " +
+            "values(#{username}, #{name}, #{gender}, #{image}, #{job}, #{entryDate}, #{deptId}, #{createTime}, #{updateTime})")
+    void insert(Emp emp);
+}
+```
+
+#### ② 经历表 Mapper 创建：`EmpExprMapper.java`
+
+因为批量插入的 SQL 较长，我们使用 XML 的方式实现。
+
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.EmpExpr;
+import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
+
+@Mapper
+public interface EmpExprMapper {
+    /**
+     * 批量保存工作经历
+     */
+    void insertBatch(List<EmpExpr> exprList);
+}
+```
+
+#### ③ 经历表 XML 映射：`EmpExprMapper.xml`
+
+在 `resources` 对应目录下创建 `com/itheima/mapper/EmpExprMapper.xml`：
+
+
+```XML
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.EmpExprMapper">
+
+    <insert id="insertBatch">
+        insert into emp_expr(emp_id, begin, end, company, job) values
+        <foreach collection="exprList" item="expr" separator=",">
+            (#{expr.empId}, #{expr.begin}, #{expr.end}, #{expr.company}, #{expr.job})
+        </foreach>
+    </insert>
+
+</mapper>
+```
+
+### 核心原理背书（避坑指南）
+
+1. **`@Options(useGeneratedKeys = true, keyProperty = "id")` 的原理**：
+    
+    当 MySQL 成功插入员工并生成自增的 `id`（比如 `99`）后，MyBatis 会在驱动层把这个 `99` 拦截下来，并通过反射调用 `emp.setId(99)`。这就是为什么我们在 Service 层紧接着可以通过 `emp.getId()` 拿到它的原因。
+    
+2. **为什么要用 `<foreach>` 批量插入？**
+    
+    绝对不要在 for 循环里去调普通的 `insert` 语句。如果一个人有 3 段经历，在循环里调单条插入会导致程序和数据库交互 3 次；而用 `<foreach>` 标签在底层只会拼出一条形如 `values (1,...), (1,...), (1,...)` 的大 SQL，**只需与数据库交互 1 次**，性能提升几十倍。
+    
+3. **别忘了 `@Transactional`**：
+    
+    多表关联保存必须具备原子性。万一员工基本信息保存成功了，但批量插经历时因为数据格式报错了，如果没有加事务，数据库就会多出一个“没有工作经历的半成品员工”。加上 `@Transactional` 可以确保任何一步出错后，全盘自动回滚。
+    
+
+---
+---
+
