@@ -12432,23 +12432,158 @@ public class EmpServiceImpl implements EmpService {
 }
 ```
 
-### 一个极为重要的面试高频考点（提前避坑）：
-
-Spring 的 `@Transactional` 默认**只会对 `RuntimeException`（运行时异常）和 `Error` 进行回滚**。
-
-如果你的方法里抛出的是 **编译时异常 / 受检异常（Checked Exception，比如 `IOException`、`SQLException`）**，Spring 默认是**不会**帮你回滚的！
-
-为了让事务更稳健，企业中通常会这样配置注解（全范围捕获回滚）：
-
-```Java
-@Transactional(rollbackFor = Exception.class) // 让所有类型的异常都触发回滚，这是企业级开发的标准标配！
-```
-
-
-
 
 ---
 ---
 
 
 ## Spring事务管理——进阶
+
+
+### 进阶点一：`rollbackFor` 属性（异常回滚控制）
+
+Spring 默认的事务回滚策略存在一个隐藏的“死角”。
+
+
+![[Java Web笔记-112.png]]
+
+
+#### 默认痛点：
+
+Spring 的 `@Transactional` 注解默认**只在程序抛出 `RuntimeException`（运行时异常）或 `Error` 时才会触发数据回滚**。
+
+如果你的代码中抛出了 **受检异常/编译时异常**（例如：`Exception`、`IOException`、`ClassNotFoundException`、`SQLException` 等），Spring 默认**不会**帮你回滚数据，而是直接照常提交事务。
+
+#### 解决方案（企业标准标配）：
+
+为了确保所有类型的异常发生时，数据库都能安全回滚，必须手动通过 `rollbackFor` 属性扩大捕获范围，将其指定为最高的 `Exception.class`。
+
+```Java
+// 企业级标准写法：管你是什么异常，通通触发回滚！
+@Transactional(rollbackFor = Exception.class) 
+public void deleteDept(Integer id) throws Exception {
+    deptMapper.deleteById(id); // 删除部门
+    
+    // 故意抛出一个受检异常（编译时异常）
+    if(true){
+        throw new Exception("发生了解析或文件读取异常..."); 
+    }
+    
+    empMapper.deleteByDeptId(id); // 删除该部门下的员工
+}
+```
+
+### 进阶点二：`propagation` 属性（事务传播行为）
+
+
+![[Java Web笔记-113.png]]
+
+
+**事务传播行为**指的是：**当一个事务方法被另一个事务方法调用时，这个方法应该如何运行。**
+
+Spring 定义了 7 种传播行为，但我们在日常开发中真正要烂熟于心的只有最核心的 2 种：
+
+| **传播行为属性值**                                   | **含义与特性**                                                                                      | **适用场景**                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **`REQUIRED`**<br><br>  <br><br>_(Spring默认值)_ | 如果当前有事务，则**加入**该事务；如果当前没有事务，则**新建**一个事务。<br><br>  <br><br>**效果**：合并为一个整体事务，任何一个地方报错，大事务整体全部回滚。 | **绝大多数普通业务**（如：删除部门的同时删除员工，必须一荣俱荣一损俱损）。             |
+| **`REQUIRES_NEW`**                            | 无论当前有没有事务，都会**新建一个独立的事务**运行。<br><br>  <br><br>**效果**：开启一个新事务并挂起当前事务。新旧事务**互不干扰**，独立提交或回滚。      | **审计日志记录、敏感操作存盘**（如：不论业务转账成功还是失败，日志都必须100%成功记入数据库）。 |
+
+### 经典案例演练：解散部门与记录日志
+
+我们来实现一个经典的“无论业务是否成功，日志都必须雷打不动存入数据库”的解散部门逻辑：
+
+#### 1. 日志记录服务（独立新事务运行）：`DeptLogServiceImpl.java`
+
+- **关键点**：这里必须声明传播行为为 `Propagation.REQUIRES_NEW`。
+    
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.DeptLogMapper;
+import com.itheima.pojo.DeptLog;
+import com.itheima.service.DeptLogService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class DeptLogServiceImpl implements DeptLogService {
+
+    @Autowired
+    private DeptLogMapper deptLogMapper;
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // 核心：开启独立新事务
+    public void create(DeptLog deptLog) {
+        deptLogMapper.insert(deptLog); // 将日志强行写入数据库，不跟解散部门的事务同流合污
+    }
+}
+```
+
+#### 2. 解散部门服务（主事务控制）：`DeptServiceImpl.java`
+
+- **关键点**：在 `delete` 核心业务方法上包裹 `try...finally`，确保就算后面抛出了异常引发回滚，写日志的方法也一定能被安全触发。
+    
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.DeptMapper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.DeptLog;
+import com.itheima.service.DeptLogService;
+import com.itheima.service.DeptService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+
+@Service
+public class DeptServiceImpl implements DeptService {
+
+    @Autowired
+    private DeptMapper deptMapper;
+    @Autowired
+    private EmpMapper empMapper;
+    @Autowired
+    private DeptLogService deptLogService; // 注入刚才处理日志的 Service
+
+    @Override
+    @Transactional(rollbackFor = Exception.class) // 主业务事务：默认就是 REQUIRED
+    public void delete(Integer id) {
+        try {
+            // 1. 删除部门
+            deptMapper.deleteById(id);
+            
+            // 模拟意外：中途突发运行时异常
+            int i = 1 / 0;
+
+            // 2. 删除该部门下的所有员工
+            empMapper.deleteByDeptId(id);
+        } finally {
+            // 3. 无论上面的业务成功还是失败抛异常，finally 块都必执行！
+            DeptLog deptLog = new DeptLog();
+            deptLog.setCreateTime(LocalDateTime.now());
+            deptLog.setDescription("执行了删除解散 " + id + " 号部门的操作");
+            
+            // 调用带有 REQUIRES_NEW 的方法
+            deptLogService.create(deptLog);
+        }
+    }
+}
+```
+
+#### 最终神奇的执行效果：
+
+当调用 `deptService.delete(1)` 时，由于执行到 `1 / 0` 触发了异常：
+
+1. **主事务（REQUIRED）回滚**：删除部门的操作被撤销，部门 1 在数据库里完好无损。
+    
+2. **子事务（REQUIRES_NEW）提交成功**：由于它在独立的新事务中运行，不受主事务回滚的影响，`dept_log` 表中成功多出了一条“执行了删除解散 1 号部门的操作”的审计记录。
+    
+
+---
+---
+
