@@ -10485,7 +10485,7 @@ Java 中异常的处理方式主要分为三大类。这就像是一个“责任
 
 ### ② 自己处理（捕获异常）
 
-通过 `try...catch` 块将异常拦截在方法内部。这符合 **image_8503fa.jpg** 中提到的“功能需要满足当前需求”的原则——你发现问题，并现场给出解决方案。
+通过 `try...catch` 块将异常拦截在方法内部，并现场给出解决方案。
 
 - **格式**：
  
@@ -12153,7 +12153,7 @@ public class CopyDirDemo {
 
 - **栈内存**：每进入一层子文件夹，程序就会在栈内存开辟一个新的方法栈帧。如果文件夹嵌套太深（如几千层），可能会触发 `StackOverflowError`。
     
-- **堆内存（缓冲区）**：参考 **image_66bf91.jpg**，我们在 `copyFile` 中定义的 `byte[] buffer` 会在内存中开辟空间提高搬运效率。
+- **堆内存（缓冲区）**：我们在 `copyFile` 中定义的 `byte[] buffer` 会在内存中开辟空间提高搬运效率。
     
 
 #### 3. 关于 `mkdirs()` 的细节
@@ -12949,7 +12949,7 @@ public class FileWriterDetailDemo {
             // --- 此时：如果你去打开 a.txt，它是空的！ ---
             // 因为数据还没达到 8192 字节，也还没手动刷新或关流
 
-            // 3. 手动刷新 (对应 image_65f4bb.jpg 情况2)
+            // 3. 手动刷新
             // 作用：将缓冲区现有的字节全部“推”入硬盘，但流还没关，可以继续写
             fw.flush();
             fw.write("刷新后还能写数据");
@@ -12957,7 +12957,7 @@ public class FileWriterDetailDemo {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            // 4. 释放资源 (对应 image_65f4bb.jpg 情况1的补丁)
+            // 4. 释放资源
             // close() 动作包含：先自动执行 flush()，再关闭流释放系统资源
             if (fw != null) {
                 try {
