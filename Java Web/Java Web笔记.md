@@ -13061,3 +13061,119 @@ Bucket（桶）是 OSS 的全局命名空间，相当于你在云端存放文件
 ---
 
 
+## 文件上传——阿里云OSS——入门程序
+
+![[Java Web笔记-115.png]]
+
+完成了前面的准备工作，现在我们来落实阿里云 OSS 的**入门程序（Demo 运行）**。
+
+官方提供了一个标准的 Java 测试用例。它的核心逻辑其实非常简单：**在测试类中创建一个本地文件，然后调用阿里云的 SDK 将其推送到云端服务器上。**
+
+下面为你提供可以直接复制运行的完整测试代码，并进行逐行拆解。
+
+### 官方基础测试代码：`AliOssTest.java`
+
+请在你的 Spring Boot 项目的 `src/test/java` 目录下，找一个测试包（比如 `com.itheima`），新建以下测试类：
+
+
+```Java
+package com.itheima;
+
+import com.aliyun.oss.ClientException;
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.OSSException;
+import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.PutObjectResult;
+import org.junit.jupiter.api.Test;
+import java.io.FileInputStream;
+import java.io.InputStream;
+
+public class AliOssTest {
+
+    @Test
+    public void testOssUpload() throws Exception {
+        // 1. 填入你在上一节准备好的 4 个核心阿里云配置参数
+        String endpoint = "https://oss-cn-hangzhou.aliyuncs.com"; // 示例：以杭州地域为例
+        String accessKeyId = "你的AccessKeyId";                  // 填入你的AccessKey ID
+        String accessKeySecret = "你的AccessKeySecret";          // 填入你的AccessKey Secret
+        String bucketName = "tlias-web-management-avatar";       // 填入你在控制台创建的桶名
+
+        // 2. 填写你想让文件存放在云端叫什么名字 (ObjectKey)
+        // 💡 知识点：如果名字写成 "images/01.jpg"，OSS 会自动在桶内创建一个 images 文件夹
+        String objectName = "01.jpg";
+
+        // 3. 指定你要上传的本地文件路径
+        String localFilePath = "D:\\images\\avatar.jpg"; // 请确保你本地磁盘这个路径下真的有这张图
+
+        // 4. 创建 OSSClient 实例（相当于打开了与云端通信的客户端大门）
+        OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
+
+        try {
+            // 5. 将本地文件读取为文件输入流
+            InputStream inputStream = new FileInputStream(localFilePath);
+            
+            // 6. 创建 PutObjectRequest 上传请求对象
+            PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, inputStream);
+
+            // 7. 调用官方 API 执行上传
+            PutObjectResult result = ossClient.putObject(putObjectRequest);
+            
+            System.out.println("====== 文件上传到阿里云 OSS 成功了！ ======");
+
+        } catch (OSSException oe) {
+            // 当服务返回非 2xx 的错误码时，捕获此异常
+            System.out.println("Caught an OSSException, which means your request made it to OSS, "
+                    + "but was rejected with an error response for some reason.");
+            System.out.println("Error Message:" + oe.getErrorMessage()); // 打印错误原因
+            System.out.println("Error Code:" + oe.getErrorCode());
+        } catch (ClientException ce) {
+            // 客户端自身网络异常时捕获
+            System.out.println("Error Message:" + ce.getMessage());
+        } finally {
+            // 8. ⚠️ 极其关键：最后无论成功或失败，必须关闭连接释放资源
+            if (ossClient != null) {
+                ossClient.shutdown();
+            }
+        }
+    }
+}
+```
+
+### 入门程序的底层核心三步
+
+虽然官方提供的测试 Demo 里为了稳健性加了冗长的 `try-catch` 结构，但抛开异常处理不看，它的骨架其实非常清晰，只干了三件事：
+
+```
+graph TD
+    A[1. 建立连接: OSSClient] --> B[2. 传送数据: putObject]
+    B --> C[3. 断开连接: shutdown]
+```
+
+1. **`OSSClientBuilder().build(...)`**：传入账号密码（AccessKey）和服务器地址（Endpoint），向阿里云申请建立一条临时的网络数据通道。
+    
+2. **`ossClient.putObject(...)`**：这是最核心的动作。将数据流（`InputStream`）像推铅球一样打包推送到指定的桶（`Bucket`）里，并命名为指定的云端名字（`ObjectName`）。
+    
+3. **`ossClient.shutdown()`**：网络交互完毕，优雅关闭客户端，释放 JVM 内存和底层 TCP 连接。
+    
+
+### 测试运行后如何验证？
+
+
+![[Java Web笔记-116.png]]
+
+![[Java Web笔记-117.png]]
+
+1. 选中测试方法 `testOssUpload` 右键点击 **Run** 运行。
+    
+2. 控制台如果顺利打印出 `====== 文件上传到阿里云 OSS 成功了！ ======` 且没有报红。
+    
+3. 打开你的浏览器，登录进入阿里云 **OSS 控制台 -> 你的 Bucket -> 文件管理**。
+    
+4. 在列表里如果能看到一张名为 **`01.jpg`** 的图片，并且点击它能正常在浏览器里预览放大，说明你的测试程序完全跑通了！
+    
+
+
+---
+---
+
