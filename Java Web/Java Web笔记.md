@@ -12587,3 +12587,108 @@ public class DeptServiceImpl implements DeptService {
 ---
 ---
 
+
+
+## 文件上传——介绍
+
+
+完成了前面的业务开发和事务进阶，现在我们进入全新的功能模块——**文件上传**。在员工管理模块中，新增或修改员工时需要上传员工的“头像图片”，这就涉及文件的上传与存储。
+
+![[Java Web笔记-114.png]]
+### 1. 文件上传的前端三要素
+
+网页上普通表单提交文字（如用户名、密码）很简单，但如果要上传一个二进制文件（如图片、视频、PDF），前端的 HTML 表单必须严格满足以下**三个硬性条件**：
+
+- **① 表单项的类型必须是文件域**：`<input type="file" ... />`，只有这样浏览器才会渲染出“选择文件”或“浏览”的按钮。
+    
+- **② 表单的提交方式必须是 POST**：文件的体积通常比较大，GET 请求由于 URL 长度限制且无法携带大数据，绝对不适合文件上传。
+    
+- **③ 表单的编码格式必须指定为二进制传输**：`enctype="multipart/form-data"`（多部分表单数据）。
+    
+
+> 💡 **特别注意：**
+> 
+> 普通表单默认的 `enctype` 是 `application/x-www-form-urlencoded`（会将数据转为键值对字符串）。如果不手动改为 `multipart/form-data`，浏览器就只会把文件的“名字”作为普通字符串发给后端，文件真正的“内容”是根本不会发送的。
+
+### 2. 深入理解：前端发送的请求长什么样？
+
+当表单设置成 `multipart/form-data` 并提交时，浏览器会把整个请求体拆分成多个独立的部分（Part）。
+
+每一部分都用一段随机生成的复杂字符串（称为 **boundary 分隔符**）隔开。请求体内部的结构大致如下：
+
+
+```HTTP
+POST /upload HTTP/1.1
+Host: localhost:8080
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="username"
+
+张三
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="image"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+[这里是图片的原始二进制数据/码流...]
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+```
+
+### 3. 后端 Spring Boot 如何接收文件？
+
+面对这种被拆分成好几部分的特殊请求体，在旧时代的 Java Web 开发中（比如 Servlet 时代），需要手动用第三方的 Apache Commons-FileUpload 组件去解析流，代码极其恶心。
+
+而在 **Spring Boot** 中，框架已经内置好了强大的解析器。我们只需要在 Controller 的方法参数中声明一个 **`MultipartFile`** 类型的参数即可，**参数名必须与前端 `<input name="xxx">` 的 name 属性保持绝对一致**。
+
+#### 基础演练代码
+
+我们先写一个最基础的控制层代码，来看看后端能不能成功拿到文件：
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Result;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+@Slf4j
+@RestController
+public class UploadController {
+
+    @PostMapping("/upload")
+    public Result upload(String username, MultipartFile image) {
+        // 1. 打印普通文本参数
+        log.info("上传文件附带的用户名为: {}", username);
+        
+        if (image != null) {
+            // 2. 获取文件的原始文件名（例如：avatar.jpg）
+            String originalFilename = image.getOriginalFilename();
+            // 3. 获取文件的大小（字节数数）
+            long size = image.getSize();
+            
+            log.info("成功接收到文件！文件名: {}, 大小: {} 字节", originalFilename, size);
+            
+            // TODO: 接下来的核心任务是：如何把这个文件保存起来？
+        }
+        
+        return Result.success();
+    }
+}
+```
+
+### 接下来需要解决的现实问题
+
+一旦后端成功用 `MultipartFile` 接收到了文件，紧接着就要考虑**文件存在哪儿**。常见演进方案有以下几种：
+
+1. **本地存储（基本功）**：直接利用 `image.transferTo(new File("D:/images/..."))` 存到服务器电脑的硬盘上（存在严重的分布式集群读取问题）。
+    
+2. **云存储 / 对象存储（企业标配）**：把文件直接丢给大厂提供的成熟云服务（如**阿里云 OSS**、腾讯云 COS、华为云 OBS 等），安全、快速、全球加速。
+    
+
+---
+---
+
+
