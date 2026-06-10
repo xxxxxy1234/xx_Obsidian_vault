@@ -12321,3 +12321,133 @@ public @interface Options {
 ---
 ---
 
+
+
+## Spring事务管理——基础
+
+
+### 一、 为什么需要事务管理？（业务痛点）
+
+![[Java Web笔记-110.png]]
+
+在转账、下订单、或者像我们之前的“新增员工（多表操作）”等业务中，一个业务往往包含**多个数据库操作步骤**。
+
+#### 场景痛点：
+
+1. 步骤一：成功往 `emp` 表里插入了员工基本信息。
+    
+2. **发生意外**：此时程序抛出异常（如服务器宕机、代码写错引发空指针、网络抖动）。
+    
+3. 步骤二：原本应该往 `emp_expr` 里插入的经历数据**没有执行**。
+    
+
+> **惨状**：数据不一致！数据库里留下了一个没有工作经历的“半成品员工”，这就是典型的数据垃圾。
+
+#### 解决方案（事务的基本特性）：
+
+事务（Transaction）就是把这多个步骤**打包成一个整体**。
+
+- **成功**：所有步骤必须全部成功执行，数据才最终写入数据库（**提交 - Commit**）。
+    
+- **失败**：只要有任何一步抛出异常，前面哪怕已经成功执行的步骤，也必须全盘撤销，恢复到业务执行前的状态（**回滚 - Rollback**）。
+    
+
+### 二、 Spring 事务管理的核心：`@Transactional`
+
+
+![[Java Web笔记-111.png]]
+
+在 Spring 框架中，我们不需要苦哈哈地手写 `connection.setAutoCommit(false)`、`commit()` 和 `rollback()`。Spring 为我们提供了无侵入式的**声明式事务管理**。
+
+#### 1. 注解怎么用？
+
+- **核心注解**：`@Transactional`
+    
+- **可以加在哪里？**
+    
+    - **加在方法上**：当前方法交由 Spring 进行事务管理（最推荐，精准控制）。
+        
+    - **加在类上**：该类中所有的 **`public` 方法**都会自动开启事务管理。
+        
+    - **加在接口上**：该接口的所有实现类方法都会开启事务（通常不推荐，建议加在具体的 Service 实现类或方法上）。
+        
+
+### 三、 底层运作机制
+
+Spring 的事务并不是魔法，它是通过 **AOP（面向切面编程）底层的动态代理** 来实现的。
+
+当你给一个 Service 方法加上 `@Transactional` 注解后，Spring 在初始化时并不会直接把这个 Service 对象注入给 Controller，而是悄悄为它生成一个 **代理对象（Proxy）**。
+
+#### 事务执行的完整生命周期：
+
+1. **Controller 发起调用**：调用目标方法。实际上，请求首先被 **代理对象** 拦截。
+    
+2. **开启事务（Before）**：代理对象先跟数据库连接池要一个连接，并执行 `connection.setAutoCommit(false);`，帮你在暗中**开启事务**。
+    
+3. **执行业务逻辑**：代理对象去调用你写的真正 Service 目标方法（如执行多表插入）。
+    
+4. **走向分支 A：业务正常结束（After Success）**：
+    
+    - 如果方法顺利执行完，没有抛出任何异常，代理对象就会帮我们执行 `connection.commit();`，**数据真正落盘**。
+        
+5. **走向分支 B：业务抛出异常（After Exception）**：
+    
+    - 如果你的代码里触发了任何未捕获的运行时异常（如 `NullPointerException`、`ArithmeticException`），代理对象会敏锐地捕捉到，并立刻执行 `connection.rollback();`。
+        
+    - **结果**：前面第一步即使插进了 `emp` 表，也会被数据库**彻底擦除**，保证一荣俱荣、一损俱损。
+        
+
+### 基础落地代码规范
+
+我们在 Service 实现类上落地时，标准形态长这样：
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.EmpMapper;
+import com.itheima.pojo.Emp;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    @Transactional // 开启Spring声明式事务
+    public void save(Emp emp) {
+        // 1. 插入员工基本信息
+        empMapper.insert(emp);
+        
+        // 模拟一个隐蔽的运行时异常（比如除以0）
+        // int i = 1 / 0; 
+        
+        // 2. 批量插入工作经历
+        empExprMapper.insertBatch(emp.getExprList());
+    }
+}
+```
+
+### 一个极为重要的面试高频考点（提前避坑）：
+
+Spring 的 `@Transactional` 默认**只会对 `RuntimeException`（运行时异常）和 `Error` 进行回滚**。
+
+如果你的方法里抛出的是 **编译时异常 / 受检异常（Checked Exception，比如 `IOException`、`SQLException`）**，Spring 默认是**不会**帮你回滚的！
+
+为了让事务更稳健，企业中通常会这样配置注解（全范围捕获回滚）：
+
+```Java
+@Transactional(rollbackFor = Exception.class) // 让所有类型的异常都触发回滚，这是企业级开发的标准标配！
+```
+
+
+
+
+---
+---
+
+
