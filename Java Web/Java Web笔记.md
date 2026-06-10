@@ -12692,3 +12692,218 @@ public class UploadController {
 ---
 
 
+## 文件上传——本地存储
+
+
+在了解了文件上传的基础三要素后，我们来落实第一种存储方案：**本地存储**。
+
+### 痛点一：文件名重复导致覆盖
+
+如果两个用户都上传了 `1.jpg`，后上传的会残忍覆盖掉先上传的。
+
+**解决方案**：利用 **`UUID`** 生成 36 位随机字符串作为新文件名，再配合字符串截取拼接上原文件的后缀名（如 `.jpg`）。
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Result;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.File;
+import java.io.IOException;
+import java.util.UUID;
+
+@Slf4j
+@RestController
+public class UploadController {
+
+    @PostMapping("/upload")
+    public Result upload(String username, MultipartFile image) throws IOException {
+        log.info("文件上传接收 - 用户名: {}, 文件名: {}", username, image.getOriginalFilename());
+
+        // 1. 获取原始文件名 (例如: "avatar.png")
+        String originalFilename = image.getOriginalFilename();
+
+        // 2. 构造唯一的新文件名防止覆盖 (UUID + 后缀名)
+        // 2.1 截取原始文件的后缀名 (从最后一个点 . 开始截取)
+        String extName = originalFilename.substring(originalFilename.lastIndexOf("."));
+        // 2.2 拼装新文件名
+        String newFileName = UUID.randomUUID().toString() + extName;
+        log.info("新生成的唯一文件名: {}", newFileName);
+
+        // 3. 指定本地硬盘的存储目录
+        String saveDir = "D:/images/";
+        File dir = new File(saveDir);
+        // 健壮性判断：如果服务器上该文件夹不存在，需要自动创建出来
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+
+        // 4. 将内存/临时目录中的文件，彻底转存到本地磁盘
+        image.transferTo(new File(saveDir + newFileName));
+
+        // 5. 响应给前端
+        return Result.success();
+    }
+}
+```
+
+### 痛点二：文件大小超限报错解决方案
+
+当你上传一个稍微大一点的图片（如超过 1MB）时，控制台会抛出恶心的异常：
+
+> `MaxUploadSizeExceededException: Maximum upload size exceeded`
+
+#### 为什么会报这个错？
+
+Spring Boot 框架为了保护服务器的带宽和内存，默认限制了**单个文件上传最大为 1MB**，**单次请求总文件大小最大为 10MB**。
+
+#### 修复方案：
+
+我们需要在项目的核心配置文件 **`application.properties`**（或 `application.yml`）中，手动把这个限制的阀门调大。
+
+若使用 `application.properties`，请追加以下配置：
+
+
+```Properties
+# 允许单个上传文件的最大值 (改为 10MB，根据企业真实业务调整)
+spring.servlet.multipart.max-file-size=10MB
+
+# 允许单个请求中所有文件及表单数据的总最大值
+spring.servlet.multipart.max-request-size=100MB
+```
+
+### 思考：本地存储在生产环境下的缺陷
+
+虽然本地存储实现起来很简单，只需要调用一条 `transferTo` 方法，但它存在着无法绕过的**硬伤**：
+
+1. **无法直接通过浏览器公网访问**：文件只是躺在你的 `D:/images/` 下，前端网页根本拿不到一个可以用来预览的 `http://...` 网址。
+    
+2. **集群环境下的灾难**：在企业生产环境中，后端服务往往会部署在多台服务器上。如果用户把头像传到了服务器 A 上，下次他发起请求被轮询到了服务器 B 上，服务器 B 的硬盘里根本没有这张图，头像就会直接裂开。
+    
+
+因此，本地存储往往只作为线下开发调试和交作业的临时方案。真正上生产，我们接下来必须学习使用**云存储（如阿里云 OSS）**。
+
+
+
+### 补充：getOriginalFilename () 和 getName () 的核心区别
+
+
+这两个方法**99% 的场景都用在 Spring MVC 文件上传**（`MultipartFile` 接口），**核心区别一句话总结**：
+
+- **`getOriginalFilename()`**：获取**用户本地电脑上的原始文件名**（最常用）
+- **`getName()`**：获取**表单里的 input 标签 name 属性值**（文件上传的字段名）
+
+
+#### 1. 先看代码定义
+
+
+```java
+// Spring 上传文件对象
+MultipartFile file = ...;
+
+// 1. 用户电脑里的真实文件名（重点）
+String originalFilename = file.getOriginalFilename(); 
+
+// 2. 前端表单的字段名（不是文件名！）
+String fieldName = file.getName(); 
+```
+
+
+
+#### 2. 最直观的例子
+
+##### 前端表单代码
+
+```html
+<!-- 前端上传文件的表单 -->
+<form action="/upload" method="post" enctype="multipart/form-data">
+  <!-- name="avatar" 就是 getName() 返回的值 -->
+  <input type="file" name="avatar"> 
+  <button>上传</button>
+</form>
+```
+
+##### 用户操作
+
+用户在自己电脑选择了一个文件：`D:\照片\me.jpg`
+
+##### 后端结果
+
+```java
+file.getOriginalFilename() → "me.jpg" （用户本地真实文件名）
+file.getName()             → "avatar" （前端input的name属性）
+```
+
+
+
+#### 3. 详细区别对比表
+
+|方法|含义|来源|实际用途|
+|---|---|---|---|
+|**getOriginalFilename()**|**原始文件名**|用户本地文件的真实名称|保存文件、判断文件类型、生成下载名|
+|**getName()**|**表单字段名**|前端 `<input name="xxx">`|一个接口接收多个文件时，区分哪个字段传的文件|
+
+
+
+#### 4. 真实业务场景
+
+##### 场景 1：保存上传文件（必须用 getOriginalFilename ()）
+
+```java
+// 错误用法：用 getName() 会保存成 "avatar" 而不是文件名
+// Files.write(Paths.get("D:/upload/" + file.getName()), bytes);
+
+// 正确用法
+String fileName = file.getOriginalFilename(); // me.jpg
+Files.write(Paths.get("D:/upload/" + fileName), file.getBytes());
+```
+
+##### 场景 2：一个接口接收多个文件
+
+```html
+<input type="file" name="avatar">  <!-- 头像 -->
+<input type="file" name="license"> <!-- 证件 -->
+```
+
+```java
+for (MultipartFile file : files) {
+    // 判断是哪个字段上传的文件
+    if ("avatar".equals(file.getName())) {
+        // 处理头像
+    } else if ("license".equals(file.getName())) {
+        // 处理证件
+    }
+}
+```
+
+
+
+#### 5. 重要注意事项
+
+1. **`getOriginalFilename()` 存在安全风险**
+    
+    部分浏览器会传回**完整路径**（如 `C:\Users\file\test.jpg`），需要处理：
+    ```java
+    // 安全获取纯文件名
+    String fileName = Paths.get(file.getOriginalFilename()).getFileName().toString();
+    ```
+    
+2. **`getName()` 永远不会变**
+    
+    它只和前端 `input` 的 `name` 有关，和文件本身无关。
+
+
+
+#### 总结
+
+1. **要文件名 → 用 `getOriginalFilename()`**（保存、下载、判断格式）
+2. **要表单字段名 → 用 `getName()`**（区分多个上传字段）
+3. 日常开发**90% 都只用 getOriginalFilename ()**
+
+---
+---
+
