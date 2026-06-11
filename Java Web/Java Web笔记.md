@@ -8624,7 +8624,7 @@ public interface EmpMapper {
 ---
 
 
-## MyBatis 的动态 SQL 标签（`<where>` 和 `<if>`）
+## MyBatis的动态SQL标签（`<where>` 和 `<if>`）
 
 
 
@@ -14364,4 +14364,94 @@ void updateById(Emp emp);
 ---
 
 
-## 
+## 员工管理——修改员工——程序优化（动态更新）
+
+
+![[Java Web笔记-123.png]]
+
+在之前的实现中，持久层的 `UPDATE` 语句是全字段直接覆写的。然而在实际开发中，前端表单在修改员工时，用户可能**只修改了其中一两个字段**（例如只改了薪资，而姓名、账号等保持不变）。
+
+如果采用传统的死 SQL，每次更新都会把不需要修改的字段重新赋值一遍，这不仅存在安全隐患，而且当某些字段在前端没传值（为 `null`）时，还会直接把数据库里的原有正确数据覆盖成 `null`。因此，我们需要将其重构为 **动态更新**。
+
+### 优化前后的直观对比
+
+#### 优化前：硬编码 `SET`（不灵活、扩展性差）
+
+```XML
+<update id="updateById">
+    UPDATE emp
+    SET
+        username = #{username},
+        password = #{password},
+        name = #{name},
+        gender = #{gender},
+        ...
+    WHERE id = #{id}
+</update>
+```
+
+- **痛点：** 
+	1. 如果前端某个可选字段没传（如 `image` 为空），执行该 SQL 会强制把数据库里的原头像抹除。
+    
+    2. 哪怕只改了一个字，也会全表字段扫描更新一遍，对大表来说性能极低。
+    
+
+#### 优化后：使用 `<set>` 与 `<if>`（智能按需更新）
+
+利用 MyBatis 提供的动态标签，我们可以做到：**传了什么字段，SQL 就只拼接、修改什么字段。**
+
+```XML
+<update id="updateById">
+    UPDATE emp
+    <set>
+        <if test="username != null and username != ''">username = #{username},</if>
+        <if test="password != null and password != ''">password = #{password},</if>
+        <if test="name != null and name != ''">name = #{name},</if>
+        <if test="gender != null">gender = #{gender},</if>
+        <if test="phone != null and phone != ''">phone = #{phone},</if>
+        <if test="job != null">job = #{job},</if>
+        <if test="salary != null">salary = #{salary},</if>
+        <if test="image != null and image != ''">image = #{image},</if>
+        <if test="entryDate != null">entry_date = #{entryDate},</if>
+        <if test="deptId != null">dept_id = #{deptId},</if>
+        <if test="updateTime != null">update_time = #{updateTime}</if>
+    </set>
+    WHERE id = #{id}
+</update>
+```
+
+### 核心代码落地
+
+由于这一步仅仅是对持久层（Mapper）渲染 SQL 的逻辑重构，Controller 层和 Service 层的 Java 代码可以保持不动。
+
+#### 1. 数据访问层（Mapper）XML 详解
+
+##### 动态SQL标签`<set>`
+
+在面试中，常会被问到 `<set>` 标签既然在 SQL 里直接手写 `SET` 也能跑，为什么一定要用标签？
+
+1. **自动生成 `SET`**：它能在内部至少有一个 `<if>` 条件成立时，自动在 SQL 中加上 `SET` 关键字。
+    
+2. **完美去除多余逗号 `,`（最核心）**：
+    
+    在上面的动态 SQL 中，每个 `<if>` 块的结尾都挂了一个英文逗号 `,`。如果用户恰好修改的是最后一个字段 `deptId`，或者倒数第二个字段，那么动态拼接后，SQL 结尾就会多出一个无法避免的逗号。
+    
+    > 例如：`UPDATE emp SET dept_id = 2, WHERE id = 1` （这在 MySQL 里会直接报语法错误错误）。
+    
+    **而 MyBatis 的 `<set>` 标签会在生成最终 SQL 前，自动扫描并抹除掉由于条件不成立导致的末尾多余逗号。**
+    
+
+### 总结：企业级开发规范
+
+1. **字符串与数值型判空的区别：**
+    
+    - 对于 **字符串** 类型的字段（如 `username`、`name`），在 `<if>` 的 `test` 条件中要坚持使用两重校验：`test="username != null and username != ''"`（防止把空字符串更新进数据库）。
+        
+    - 对于 **数值/日期** 类型的字段（如 `gender`、`salary`、`entryDate`），只需要判空即可：`test="gender != null"`。**切记不要加 `!= ''`**，因为在 MyBatis 某些老版本中，会将数字 `0` 误判为空字符串，从而导致 `0` 无法被更新。
+        
+2. **安全性提升：** 经过这样重构后，无论是只修改姓名，还是全表单修改，这一条 SQL 都能完美支持，既灵活又稳健。
+
+---
+---
+
+
