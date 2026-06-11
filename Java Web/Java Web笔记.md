@@ -13185,42 +13185,18 @@ graph TD
 
 测试完了阿里云 OSS 的入门 Demo 之后，接下来就是最关键的一步：**将阿里云 OSS 真正集成到我们的员工管理项目（tlias）中**。
 
-规范的企业级开发并不会把阿里云的参数和工具代码硬编码在 Controller 中，而是会做**两项技术解耦与封装**：
 
-1. **属性配置解耦**：把密钥、桶名等敏感、多变的信息提取到 `application.properties` 中。
-    
-2. **工具类封装**：编写一个专门的 `AliOSSUtils` 工具类并交由 Spring 容器管理，让它暴露出一个简单的上传方法，返回图片在公网的访问 URL。
-    
+### 第一步：编写并封装工具类 `AliOSSUtils.java`
 
-下面为你梳理并提供完整集成的三步走核心代码：
-
-### 第一步：在 `application.properties` 中配置参数
-
-首先将本地硬编码的四大核心参数提取到配置文件中。
-
-```Properties
-# 阿里云OSS配置参数
-aliyun.oss.endpoint=https://oss-cn-hangzhou.aliyuncs.com
-aliyun.oss.bucketName=tlias-web-management-avatar
-aliyun.oss.accessKeyId=你的AccessKeyId
-aliyun.oss.accessKeySecret=你的AccessKeySecret
-```
-
-### 第二步：编写并封装工具类 `AliOSSUtils.java`
-
-我们使用 **`@Value`** 注解来动态注入配置文件里的参数，并通过 Spring 的 **`@Component`** 注解将该工具类声明为 IoC 容器中的一个 Bean。
 
 - **核心逻辑**：接收前端传来的二进制文件 `MultipartFile`，用 `UUID` 改名后推送到 OSS，最后拼装出该图片的**公网绝对路径网址**返回。
     
-
 
 ```Java
 package com.itheima.utils;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13229,22 +13205,14 @@ import java.util.UUID;
 @Component // 交给Spring容器管理，后续在Controller中可以直接@Autowired注入使用
 public class AliOSSUtils {
 
-    @Value("${aliyun.oss.endpoint}")
-    private String endpoint;
-
-    @Value("${aliyun.oss.bucketName}")
-    private String bucketName;
-
-    @Value("${aliyun.oss.accessKeyId}")
-    private String accessKeyId;
-
-    @Value("${aliyun.oss.accessKeySecret}")
-    private String accessKeySecret;
+    // 传统方式：直接将阿里云的四大核心参数硬编码定义为常量或局部变量
+    private String endpoint = "https://oss-cn-hangzhou.aliyuncs.com";
+    private String accessKeyId = "你的AccessKeyId";
+    private String accessKeySecret = "你的AccessKeySecret";
+    private String bucketName = "tlias-web-management-avatar";
 
     /**
      * 实现上传图片到OSS
-     * @param file 前端传过来的文件流
-     * @return 返回该图片在公网的可访问绝对路径 URL
      */
     public String upload(MultipartFile file) throws IOException {
         // 1. 获取上传的文件的输入流
@@ -13255,25 +13223,24 @@ public class AliOSSUtils {
         String extName = originalFilename.substring(originalFilename.lastIndexOf("."));
         String fileName = UUID.randomUUID().toString() + extName;
 
-        // 3. 上传文件到整个阿里云 OSS
+        // 3. 上传文件到阿里云 OSS
         OSS ossClient = new OSSClientBuilder().build(endpoint, accessKeyId, accessKeySecret);
         ossClient.putObject(bucketName, fileName, inputStream);
 
-        // 4. 拼装出文件在公网的访问路径 (规范格式: https://桶名.地域域名/文件名)
+        // 4. 拼装出文件在公网的访问路径
         String url = endpoint.split("//")[0] + "//" + bucketName + "." + endpoint.split("//")[1] + "/" + fileName;
 
-        // 5. ⚠️ 极其关键：记得关闭 OSSClient
+        // 5. 关闭 OSSClient
         ossClient.shutdown();
 
-        // 返回铺平后的公网图片网址
+        // 返回公网图片网址
         return url;
     }
 }
 ```
 
-### 第三步：在 `UploadController.java` 中调用工具类
+### 第二步：在 `UploadController.java` 中调用工具类
 
-我们的上传控制层变得极其干净和优雅。
 
 ```Java
 package com.itheima.controller;
@@ -13312,13 +13279,10 @@ public class UploadController {
 }
 ```
 
-### 为什么这种集成方案是企业标配？
+### 流程总结
 
-1. **零硬编码**：万一公司以后更换了阿里云账号，或者把文件仓库从 `华东1（杭州）` 搬迁到了 `华北2（北京）`，开发人员**不需要改动任何一行 Java 代码**，只需要去修改 `application.properties` 里的配置项即可，完美实现解耦。
-    
-2. **前后端完美闭环**：
-    
-    - 前端先把图片单独发给 `/upload` 接口。
+
+- 前端先把图片单独发给 `/upload` 接口。
         
     - 后端返回一个网址：`https://tlias-web-management-avatar.oss-cn-hangzhou.aliyuncs.com/xxxx.jpg`。
         
@@ -13326,6 +13290,7 @@ public class UploadController {
         
     - 最终在数据库的 `emp` 表中，`image` 字段存的就是这个公网网址，实现了高效的读写分离。
         
+
 
 ---
 ---
