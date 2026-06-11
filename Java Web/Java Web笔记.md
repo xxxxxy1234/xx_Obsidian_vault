@@ -14230,3 +14230,138 @@ Emp getById(Integer id);
 ---
 
 
+## 员工管理——修改员工——修改数据
+
+
+当用户在回显页面修改完信息并点击“保存”时，前端会发送一个请求，后端需要将更新后的员工基本信息以及**全新的工作经历列表**同步更新到数据库中。
+
+这里涉及到企业级开发中处理“一对多关系更新”最经典的先删后加（先清空旧关联，再插入新关联）的业务逻辑。下面按照三层架构为你梳理核心落地代码：
+
+
+
+### 1. 控制层：`EmpController.java`
+
+- **技术关键点：**
+    
+    1. 采用 Restful 规范，修改数据使用 `@PutMapping` 注解。
+        
+    2. 前端提交的是复杂的 JSON 字符串（包含员工基本属性和嵌套的 `exprList` 数组），因此后端必须使用 **`@RequestBody`** 注解，将其自动反序列化封装进 `Emp` 对象。
+        
+
+```Java
+/**
+ * 修改员工
+ */
+@PutMapping
+public Result update(@RequestBody Emp emp){
+    log.info("修改员工: {}", emp);
+    // 调用 service 层执行修改逻辑
+    empService.update(emp);
+    return Result.success();
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+```Java
+/**
+ * 修改员工信息
+ * @param emp 员工完整信息对象（包含工作经历列表）
+ */
+void update(Emp emp);
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **企业规范点（核心业务）：** 工作经历的更新不能直接用 `UPDATE` 语句。因为用户在前端可能会新增一行工作经历，也可能会删除一行旧的。
+    
+- **经典解决方案**：
+    
+    1. 更新员工主表信息。
+        
+    2. **通过员工 ID 直接清空原有的一切旧工作经历。**
+        
+    3. **将前端传过来的最新工作经历列表批量重新插入。**
+        
+- **事务保障：** 涉及对两张表的三步连续写操作，必须加上 **`@Transactional(rollbackFor = Exception.class)`**，确保数据一致性。
+    
+
+```Java
+@Transactional(rollbackFor = Exception.class)
+@Override
+public void update(Emp emp) {
+    // 1. 根据ID修改员工基本信息
+    emp.setUpdateTime(LocalDateTime.now()); // 记录修改时间
+    empMapper.updateById(emp);
+
+    // 2. 根据ID修改员工的工作经历信息
+    // 2.1 先根据员工ID删除原有的所有工作经历
+    // Arrays.asList(emp.getId()) 是为了复用之前的批量删除 Mapper 方法
+    empExprMapper.deleteByEmpIds(Arrays.asList(emp.getId()));
+
+    // 2.2 再批量添加这个员工全新的工作经历
+    List<EmpExpr> exprList = emp.getExprList();
+    // 健壮性判断：如果前端传过来的经历列表不为空，才进行遍历和批量插入
+    if(!CollectionUtils.isEmpty(exprList)){
+        // 关键一步：前端传过来的经历对象里可能没有携带 empId，插入前需要循环手动绑定
+        exprList.forEach(empExpr -> empExpr.setEmpId(emp.getId()));
+        // 调用批量插入接口
+        empExprMapper.insertBatch(exprList);
+    }
+}
+```
+
+### 3. 数据访问层（Mapper）
+
+针对上面的业务逻辑，涉及到员工基本信息的 `UPDATE` SQL。
+
+#### ① `EmpMapper.java` 接口
+
+
+```Java
+/**
+ * 根据ID更新员工基本信息
+ */
+void updateById(Emp emp);
+```
+
+#### ② `EmpMapper.xml` 映射配置
+
+在 XML 中使用标准的 `UPDATE` 语法对主表各个字段进行覆盖：
+
+```XML
+<update id="updateById">
+    UPDATE emp
+    SET
+        username = #{username},
+        password = #{password},
+        name = #{name},
+        gender = #{gender},
+        phone = #{phone},
+        job = #{job},
+        salary = #{salary},
+        image = #{image},
+        entry_date = #{entryDate},
+        dept_id = #{deptId},
+        update_time = #{updateTime}
+    WHERE id = #{id}
+</update>
+```
+
+### 难点攻克：为什么工作经历要“先删后加”？
+
+如果直接对 `emp_expr` 表执行 `UPDATE`，会遇到极难解决的同步冲突：
+
+- **场景 A**：员工原来有两段工作经历（数据库 2 条记录），用户在前端删掉了一条，只留下一条点保存。如果用 `UPDATE`，数据库残留的那条脏数据怎么识别？
+    
+- **场景 B**：员工原来有两段经历，用户又新加了一条。
+    
+- **完美解法（先清空再重新跑批）**：直接把该员工在 `emp_expr` 表里挂载的历史记录**一刀切全部 delete 掉**，然后像录入新员工一样，把前端传来的最新 List **一鼓作气用 `insertBatch` 批量洗入数据库**。这个方案逻辑极度清晰，代码也最不容易出错。
+
+---
+---
+
+
+## 
