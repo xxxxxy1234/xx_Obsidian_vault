@@ -12051,6 +12051,25 @@ public interface EmpMapper {
 为了解决这个问题，我们需要引入 MyBatis 的 **主键返回** 机制，并配合动态 SQL 的 **`<foreach>`** 标签实现批量插入。
 
 
+### 动态SQL标签`<foreach>` 
+
+
+在面试或实际开发中，`<foreach>` 标签的这几个属性是必须要熟练掌握的：
+
+- **`collection`**：指定要遍历的集合/数组参数名。
+    
+    - 在图中的两个 Mapper 接口方法中，传进来的形参名分别被指定为了 `"ids"` 和 `"empIds"`。
+        
+- **`item`**：本次循环遍历出来的**当前元素别名**（相当于 Java 增强 for 循环 `for(Integer id : ids)` 里的 `id`）。在标签内部通过 `#{别名}` 来引用。
+    
+- **`separator`**：每次循环元素之间用来**分隔的符号**。批量删除通常用逗号 `,` 分隔。
+    
+- **`open`**：整个循环部分**开始前**拼接的字符串。这里是左括号 `(`。
+    
+- **`close`**：整个循环部分**结束后**拼接的字符串。这里是右括号 `)`。
+    
+
+
 
 ### 1. 修改 `Emp.java` 实体类
 
@@ -13791,119 +13810,6 @@ public class EmpController {
 }
 ```
 
-### 2. 业务逻辑层
-
-#### ① 接口：`EmpService.java`
-
-
-```Java
-package com.itheima.service;
-
-import java.util.List;
-
-public interface EmpService {
-    /**
-     * 批量删除员工
-     */
-    void delete(List<Integer> ids);
-}
-```
-
-#### ② 实现类：`EmpServiceImpl.java`
-
-- **企业规范点**：解散或删除一个员工时，**绝对不能只删 `emp` 表**！该员工在工作经历表（`emp_expr`）里的历史数据也必须同步斩草除根，否则经历表就会留下无主的外键孤儿数据。
-    
-- **事务保障**：涉及双表删除，必须加上 **`@Transactional(rollbackFor = Exception.class)`**。
-    
-
-
-```Java
-package com.itheima.service.impl;
-
-import com.itheima.mapper.EmpExprMapper;
-import com.itheima.mapper.EmpMapper;
-import com.itheima.service.EmpService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
-
-@Service
-public class EmpServiceImpl implements EmpService {
-
-    @Autowired
-    private EmpMapper empMapper;
-
-    @Autowired
-    private EmpExprMapper empExprMapper; // 注入经历表的 Mapper
-
-    @Override
-    @Transactional(rollbackFor = Exception.class) // 开启进阶事务，确保两表同步回滚
-    public void delete(List<Integer> ids) {
-        // 1. 批量删除员工基本信息 (操作 emp 表)
-        empMapper.deleteByIds(ids);
-
-        // 2. 批量删除员工对应的工作经历 (操作 emp_expr 表，外键是 emp_id)
-        empExprMapper.deleteByEmpIds(ids);
-    }
-}
-```
-
-### 3. 数据访问层（动态 SQL 批量删除）
-
-由于传过来的是一个 `List` 集合，我们需要在 SQL 中利用 **`<foreach>`** 标签拼装成成数据库的 `in (1, 2, 3)` 语法。这两个删除方法都建议写在对应的 XML 映射文件中。
-
-#### ① 员工表：`EmpMapper.java` 与 `EmpMapper.xml`
-
-
-```Java
-// EmpMapper 接口中定义方法
-void deleteByIds(List<Integer> ids);
-```
-
-在 `EmpMapper.xml` 中追加动态删除 SQL：
-
-
-```XML
-<delete id="deleteByIds">
-    delete from emp where id in
-    <foreach collection="ids" item="id" open="(" separator="," close=")">
-        #{id}
-    </foreach>
-</delete>
-```
-
-#### ② 经历表：`EmpExprMapper.java` 与 `EmpExprMapper.xml`
-
-
-```Java
-// EmpExprMapper 接口中定义方法
-void deleteByEmpIds(List<Integer> ids);
-```
-
-在 `EmpExprMapper.xml` 中追加动态删除 SQL（注意：这里的筛选字段是外键 **`emp_id`**）：
-
-
-```XML
-<delete id="deleteByEmpIds">
-    delete from emp_expr where emp_id in
-    <foreach collection="ids" item="empId" open="(" separator="," close=")">
-        #{empId}
-    </foreach>
-</delete>
-```
-
-### 核心细节分析
-
-1. **为什么不用注解写 `delete from emp where id in ...`？**
-    
-    因为 MyBatis 注解（如 `@Delete`）很难优雅地处理集合循环遍历。强行用脚本标签拼接会降低代码可读性，因此企业中只要遇到 `in` 动态批量操作，**一律优先推荐使用 XML 的 `<foreach>` 标签**。
-    
-2. **两张表的删除顺序有讲究吗？**
-    
-    在没有建立物理外键约束（即只在物理层保留逻辑关联）的情况下，先删哪张表都可以。但如果你的数据库建立了真正的物理外键约束（`FOREIGN KEY`），你就必须**先删除从表（`emp_expr`）里的经历，再删除主表（`emp`）里的基本信息**，否则数据库会直接抛出违反外键约束的报错。
-    
-
 
 ### 用@PathVariable还是@RequestParam
 
@@ -13974,12 +13880,8 @@ public Result delete(@RequestParam List<Integer> ids) {
 
 所以，检查一下你的 `@DeleteMapping` 路径里写了 `{ids}` 没有，写了的话，就请坚定不移地使用 **`@PathVariable`**！
 
----
----
 
-
-
-### 1. Service 层业务逻辑（EmpServiceImpl）
+### 2. Service 层业务逻辑（EmpServiceImpl）
 
 在 Service 实现类中，删除操作不仅要删除员工本身，还要清理与之关联的其他数据（如工作经历）。
 
@@ -14004,57 +13906,59 @@ public void deleteByIds(List<Integer> ids) {
     - **参数解释**：`rollbackFor = {Exception.class}` 意味着**只要发生任何类型的异常**（无论是运行时异常 `RuntimeException` 还是编译时异常 `Exception`），都会触发事务回滚。
         
 
-### 2. Mapper 层 XML 动态 SQL 实现
+### 3. 数据访问层（动态 SQL 批量删除）
 
-因为接收到的是一个 ID 集合（`List<Integer> ids`），要在 SQL 中实现批量删除，必须使用标准的 `IN` 条件语句：
+由于传过来的是一个 `List` 集合，我们需要在 SQL 中利用 **`<foreach>`** 标签拼装成成数据库的 `in (1, 2, 3)` 语法。这两个删除方法都建议写在对应的 XML 映射文件中。
 
-`DELETE FROM emp WHERE id IN (1, 2, 3)`
+#### ① 员工表：`EmpMapper.java` 与 `EmpMapper.xml`
 
-MyBatis 提供了 `<foreach>` 标签来动态拼接遍历集合。
 
-#### ① 员工基本信息删除（EmpMapper.xml）
-
-XML
-
+```Java
+// EmpMapper 接口中定义方法
+void deleteByIds(List<Integer> ids);
 ```
+
+在 `EmpMapper.xml` 中追加动态删除 SQL：
+
+
+```XML
 <delete id="deleteByIds">
     delete from emp where id in
-    <foreach collection="ids" item="id" separator="," open="(" close=")">
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
         #{id}
     </foreach>
 </delete>
 ```
 
-#### ② 员工工作经历删除（EmpExprMapper.xml）
+#### ② 经历表：`EmpExprMapper.java` 与 `EmpExprMapper.xml`
 
-XML
 
+```Java
+// EmpExprMapper 接口中定义方法
+void deleteByEmpIds(List<Integer> ids);
 ```
+
+在 `EmpExprMapper.xml` 中追加动态删除 SQL（注意：这里的筛选字段是外键 **`emp_id`**）：
+
+
+```XML
 <delete id="deleteByEmpIds">
     delete from emp_expr where emp_id in
-    <foreach collection="empIds" item="empId" separator="," open="(" close=")">
+    <foreach collection="ids" item="empId" open="(" separator="," close=")">
         #{empId}
     </foreach>
 </delete>
 ```
 
-### 💡 核心语法温习：`<foreach>` 属性详解
-
-在面试或实际开发中，`<foreach>` 标签的这几个属性是必须要熟练掌握的：
-
-- **`collection`**：指定要遍历的集合/数组参数名。
-    
-    - 在图中的两个 Mapper 接口方法中，传进来的形参名分别被指定为了 `"ids"` 和 `"empIds"`。
-        
-- **`item`**：本次循环遍历出来的**当前元素别名**（相当于 Java 增强 for 循环 `for(Integer id : ids)` 里的 `id`）。在标签内部通过 `#{别名}` 来引用。
-    
-- **`separator`**：每次循环元素之间用来**分隔的符号**。批量删除通常用逗号 `,` 分隔。
-    
-- **`open`**：整个循环部分**开始前**拼接的字符串。这里是左括号 `(`。
-    
-- **`close`**：整个循环部分**结束后**拼接的字符串。这里是右括号 `)`。
-    
 
 **最终生成的 SQL 效果：**
 
 如果传入的 `ids` 集合为 `[1, 2, 3]`，通过 `<foreach>` 拼接后，`where id in` 后面就会自动生成 `(1, 2, 3)`，拼成一条完整的高效批量删除语句。
+
+
+
+---
+---
+
+
+
