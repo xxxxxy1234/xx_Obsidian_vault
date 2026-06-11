@@ -13699,3 +13699,212 @@ public class UploadController {
 ## 员工管理——删除员工——逻辑实现
 
 
+搞定了文件上传的优化，我们紧接着进入**删除员工**的逻辑实现。
+
+这个业务同样涉及**多表关联操作**，并且前端传参的特点是：**支持批量删除**。前端会把要删除的员工 ID 拼接在 URL 中以动态路径的形式传过来（例如：`/emps/1,2,3`），后端需要用一个 `List<Integer>` 集合来接收。
+
+为了保证数据的一致性，这里必须融合你之前学到的 **Spring 事务管理（`@Transactional`）**。下面是完整的三层架构开发代码：
+
+
+### Controller 层接收参数的两种方式
+
+
+#### 方式一：使用数组（Array）接收
+
+Spring MVC 默认支持将逗号分隔的字符串或同名查询参数自动封装进同类型的数组中。
+
+```Java
+@DeleteMapping
+public Result delete(Integer[] ids) {
+    log.info("根据id批量删除员工: {}", (Object) ids);
+    // 调用 service 层执行删除逻辑
+    return Result.success();
+}
+```
+
+- **特点**：直接声明同名的数组参数 `Integer[] ids` 即可，Spring 会自动将 `1,2,3` 拆分并填入数组。
+    
+- **优点**：代码最简洁，不需要额外的注解。
+    
+
+#### 方式二：使用集合（List）接收
+
+如果你习惯使用 Java 集合框架，也可以用 `List<Integer>` 来接收。
+
+```Java
+@DeleteMapping
+public Result delete(@RequestParam List<Integer> ids) {
+    log.info("根据id批量删除员工: {}", ids);
+    // 调用 service 层执行删除逻辑
+    return Result.success();
+}
+```
+
+- **关键点**：**必须**加上 `@RequestParam` 注解。
+    
+- **原因**：如果不加 `@RequestParam`，Spring 会尝试把它当作一个自定义的 POJO 实体对象来封装，从而导致参数解析失败或报错。加上该注解后，Spring 才会明白应该将 URL 中的 `ids=1,2,3` 当作集合元素解析进去。
+
+
+### 1. 控制层：`EmpController.java`
+
+- **技术关键点**：
+    
+    1. 使用 `@DeleteMapping("/emps/{ids}")` 映射路径。
+        
+    2. 使用 **`@PathVariable`** 注解将路径中的 `{ids}` 绑定到方法的参数集合中。Spring Boot 会自动把前端用逗号隔开的字符串（如 `1,2,3`）解析并解析成 `List<Integer>` 集合。
+        
+
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+import java.util.List;
+
+@Slf4j
+@RestController
+public class EmpController {
+
+    @Autowired
+    private EmpService empService;
+
+    /**
+     * 批量/单个删除员工
+     * 请求路径示例: DELETE /emps/1,2,3
+     */
+    @DeleteMapping("/emps/{ids}")
+    public Result delete(@PathVariable List<Integer> ids) {
+        log.info("批量删除员工，要删除的ID集合为: {}", ids);
+        
+        // 调用业务层执行删除
+        empService.delete(ids);
+        
+        return Result.success();
+    }
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+
+```Java
+package com.itheima.service;
+
+import java.util.List;
+
+public interface EmpService {
+    /**
+     * 批量删除员工
+     */
+    void delete(List<Integer> ids);
+}
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **企业规范点**：解散或删除一个员工时，**绝对不能只删 `emp` 表**！该员工在工作经历表（`emp_expr`）里的历史数据也必须同步斩草除根，否则经历表就会留下无主的外键孤儿数据。
+    
+- **事务保障**：涉及双表删除，必须加上 **`@Transactional(rollbackFor = Exception.class)`**。
+    
+
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.EmpExprMapper;
+import com.itheima.mapper.EmpMapper;
+import com.itheima.service.EmpService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Autowired
+    private EmpExprMapper empExprMapper; // 注入经历表的 Mapper
+
+    @Override
+    @Transactional(rollbackFor = Exception.class) // 开启进阶事务，确保两表同步回滚
+    public void delete(List<Integer> ids) {
+        // 1. 批量删除员工基本信息 (操作 emp 表)
+        empMapper.deleteByIds(ids);
+
+        // 2. 批量删除员工对应的工作经历 (操作 emp_expr 表，外键是 emp_id)
+        empExprMapper.deleteByEmpIds(ids);
+    }
+}
+```
+
+### 3. 数据访问层（动态 SQL 批量删除）
+
+由于传过来的是一个 `List` 集合，我们需要在 SQL 中利用 **`<foreach>`** 标签拼装成成数据库的 `in (1, 2, 3)` 语法。这两个删除方法都建议写在对应的 XML 映射文件中。
+
+#### ① 员工表：`EmpMapper.java` 与 `EmpMapper.xml`
+
+
+```Java
+// EmpMapper 接口中定义方法
+void deleteByIds(List<Integer> ids);
+```
+
+在 `EmpMapper.xml` 中追加动态删除 SQL：
+
+
+```XML
+<delete id="deleteByIds">
+    delete from emp where id in
+    <foreach collection="ids" item="id" open="(" separator="," close=")">
+        #{id}
+    </foreach>
+</delete>
+```
+
+#### ② 经历表：`EmpExprMapper.java` 与 `EmpExprMapper.xml`
+
+
+```Java
+// EmpExprMapper 接口中定义方法
+void deleteByEmpIds(List<Integer> ids);
+```
+
+在 `EmpExprMapper.xml` 中追加动态删除 SQL（注意：这里的筛选字段是外键 **`emp_id`**）：
+
+
+```XML
+<delete id="deleteByEmpIds">
+    delete from emp_expr where emp_id in
+    <foreach collection="ids" item="empId" open="(" separator="," close=")">
+        #{empId}
+    </foreach>
+</delete>
+```
+
+### 核心细节分析
+
+1. **为什么不用注解写 `delete from emp where id in ...`？**
+    
+    因为 MyBatis 注解（如 `@Delete`）很难优雅地处理集合循环遍历。强行用脚本标签拼接会降低代码可读性，因此企业中只要遇到 `in` 动态批量操作，**一律优先推荐使用 XML 的 `<foreach>` 标签**。
+    
+2. **两张表的删除顺序有讲究吗？**
+    
+    在没有建立物理外键约束（即只在物理层保留逻辑关联）的情况下，先删哪张表都可以。但如果你的数据库建立了真正的物理外键约束（`FOREIGN KEY`），你就必须**先删除从表（`emp_expr`）里的经历，再删除主表（`emp`）里的基本信息**，否则数据库会直接抛出违反外键约束的报错。
+    
+
+---
+---
+
+
