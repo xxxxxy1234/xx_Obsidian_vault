@@ -13904,7 +13904,157 @@ void deleteByEmpIds(List<Integer> ids);
     在没有建立物理外键约束（即只在物理层保留逻辑关联）的情况下，先删哪张表都可以。但如果你的数据库建立了真正的物理外键约束（`FOREIGN KEY`），你就必须**先删除从表（`emp_expr`）里的经历，再删除主表（`emp`）里的基本信息**，否则数据库会直接抛出违反外键约束的报错。
     
 
+
+### 用@PathVariable还是@RequestParam
+
+这是一个在 Spring Boot 接口开发中**非常经典且高频**的细节疑问。
+
+结论先行：在这个案例中，注解的选择**完全取决于前端发送请求时，把 `ids` 放在了 URL 的什么位置**。
+
+结合你们项目的标准接口设计（`DELETE /emps/1,2,3`），**正确的注解必须使用 `@PathVariable`**。
+
+为了让你彻底搞懂，以后不再纠结，我们直接对比它们在底层结构上的本质区别：
+
+#### 1. 什么时候用 `@PathVariable`？
+
+当请求路径是 `DELETE /emps/1,2,3` 时，参数 `1,2,3` 是作为 URL 路径的一部分（Path）传过来的。
+
+在 Controller 的类名或方法名上，你一定配置了类似的映射：
+
+
+```Java
+@DeleteMapping("/emps/{ids}") // 这里的 {ids} 属于路径占位符
+public Result delete(@PathVariable List<Integer> ids) { 
+    // ...
+}
+```
+
+- **`@PathVariable` 的含义**：路径变量（Path Variable）。它的作用就是专门把 URL 路径中 `{ids}` 占位符位置的值，抠出来赋值给你的形参。
+    
+- 如果你误用了 `@RequestParam`，Spring Boot 会去 URL 的问号后面寻找 `?ids=...`，结果什么都找不到，接口就会直接报 `400 / 405` 错误或报参数缺失异常。
+    
+
+#### 2. 什么时候用 `@RequestParam`？
+
+只有当**前端发送的 URL 带有问号 `?`**，也就是通过标准的查询字符串（Query String）传参时，后端才使用 `@RequestParam`。
+
+- **前端请求格式**：`DELETE /emps?ids=1&ids=2&ids=3` 或 `DELETE /emps?ids=1,2,3`
+    
+- **后端代码写法**：
+    
+
+
+```Java
+@DeleteMapping("/emps") // 注意：路径后面没有 {ids} 占位符了！
+public Result delete(@RequestParam List<Integer> ids) {
+    // ...
+}
+```
+
+- **`@RequestParam` 的含义**：请求参数（Request Parameter）。它专门用来接收 URL 问号后面的参数，或者传统表单 `form-data` 中的键值对。
+    
+
+#### 一张图彻底分清
+
+|**注解类型**|**前端请求 URL 示例**|**后端注解映射匹配写法**|**核心看点**|
+|---|---|---|---|
+|**`@PathVariable`**|`/emps/1,2,3`|`@DeleteMapping("/emps/{ids}")`|参数内嵌在**路径内部**|
+|**`@RequestParam`**|`/emps?ids=1,2,3`|`@DeleteMapping("/emps")`|参数挂在**问号后面**|
+
+#### 为什么咱们项目（tlias）更推荐第一种（`@PathVariable`）？
+
+因为你们的项目遵循的是 **RESTful 风格**的接口设计。在 RESTful 架构中：
+
+- 每一个 URL 代表一种**资源**（比如 `/emps` 代表员工资源）。
+    
+- 通过 HTTP 动词（`GET`/`POST`/`PUT`/`DELETE`）代表操作。
+    
+- 被操作的具体资源 ID 直接内嵌在路径中（如 `/emps/1` 代表 1 号员工），因此批量删除时使用 `/emps/1,2,3` 配合 `@PathVariable` 是最地道、最符合规范的 RESTful 写法。
+    
+
+所以，检查一下你的 `@DeleteMapping` 路径里写了 `{ids}` 没有，写了的话，就请坚定不移地使用 **`@PathVariable`**！
+
 ---
 ---
 
 
+
+### 1. Service 层业务逻辑（EmpServiceImpl）
+
+在 Service 实现类中，删除操作不仅要删除员工本身，还要清理与之关联的其他数据（如工作经历）。
+
+
+```Java
+@Transactional(rollbackFor = {Exception.class})
+public void deleteByIds(List<Integer> ids) {
+    //1. 根据ID批量删除员工基本信息
+    empMapper.deleteByIds(ids);
+    
+    //2. 根据ID批量删除员工的工作经历信息
+    empExprMapper.deleteByEmpIds(ids);
+}
+```
+
+- **核心考点：`@Transactional` 事务管理**
+    
+    - **为什么必须加？** 因为该业务方法包含了**多次数据库写操作**（先删 `emp` 表，再删 `emp_expr` 表）。
+        
+    - **作用**：保证这两个删除操作的**原子性**。如果第一步成功了，但第二步在执行时由于某种原因报错抛出异常，Spring 会自动触发**事务回滚**，将第一步已经删除的数据恢复。这样可以避免数据库中出现“员工没了，但工作经历还在”的**脏数据**。
+        
+    - **参数解释**：`rollbackFor = {Exception.class}` 意味着**只要发生任何类型的异常**（无论是运行时异常 `RuntimeException` 还是编译时异常 `Exception`），都会触发事务回滚。
+        
+
+### 2. Mapper 层 XML 动态 SQL 实现
+
+因为接收到的是一个 ID 集合（`List<Integer> ids`），要在 SQL 中实现批量删除，必须使用标准的 `IN` 条件语句：
+
+`DELETE FROM emp WHERE id IN (1, 2, 3)`
+
+MyBatis 提供了 `<foreach>` 标签来动态拼接遍历集合。
+
+#### ① 员工基本信息删除（EmpMapper.xml）
+
+XML
+
+```
+<delete id="deleteByIds">
+    delete from emp where id in
+    <foreach collection="ids" item="id" separator="," open="(" close=")">
+        #{id}
+    </foreach>
+</delete>
+```
+
+#### ② 员工工作经历删除（EmpExprMapper.xml）
+
+XML
+
+```
+<delete id="deleteByEmpIds">
+    delete from emp_expr where emp_id in
+    <foreach collection="empIds" item="empId" separator="," open="(" close=")">
+        #{empId}
+    </foreach>
+</delete>
+```
+
+### 💡 核心语法温习：`<foreach>` 属性详解
+
+在面试或实际开发中，`<foreach>` 标签的这几个属性是必须要熟练掌握的：
+
+- **`collection`**：指定要遍历的集合/数组参数名。
+    
+    - 在图中的两个 Mapper 接口方法中，传进来的形参名分别被指定为了 `"ids"` 和 `"empIds"`。
+        
+- **`item`**：本次循环遍历出来的**当前元素别名**（相当于 Java 增强 for 循环 `for(Integer id : ids)` 里的 `id`）。在标签内部通过 `#{别名}` 来引用。
+    
+- **`separator`**：每次循环元素之间用来**分隔的符号**。批量删除通常用逗号 `,` 分隔。
+    
+- **`open`**：整个循环部分**开始前**拼接的字符串。这里是左括号 `(`。
+    
+- **`close`**：整个循环部分**结束后**拼接的字符串。这里是右括号 `)`。
+    
+
+**最终生成的 SQL 效果：**
+
+如果传入的 `ids` 集合为 `[1, 2, 3]`，通过 `<foreach>` 拼接后，`where id in` 后面就会自动生成 `(1, 2, 3)`，拼成一条完整的高效批量删除语句。
