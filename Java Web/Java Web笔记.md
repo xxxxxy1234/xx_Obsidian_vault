@@ -13715,7 +13715,7 @@ public class UploadController {
 ---
 
 
-## 员工管理——删除员工——逻辑实现
+## 员工管理——删除员工
 
 
 搞定了文件上传的优化，我们紧接着进入**删除员工**的逻辑实现。
@@ -13960,5 +13960,273 @@ void deleteByEmpIds(List<Integer> ids);
 ---
 ---
 
+
+
+## 员工管理——修改员工——查询回显
+
+![[Java Web笔记-120.png]]
+
+
+当用户点击“修改”按钮时，系统需要先把该员工现有的信息查出来，展示（回显）在表单上，用户才能在此基础上进行修改。
+
+### 1. 实体层（POJO）：对象导航映射
+
+由于是一对多的关系，在 `Emp.java` 实体类中，需要持有一个工作经历的集合属性。
+
+```Java
+@Data
+public class Emp {
+    // 对应 emp 表的基本字段
+    private Integer id;
+    private String username;
+    private String password;
+    private String name;
+    private Integer gender;
+    private String phone;
+    private Integer job;
+    private Integer salary;
+    private String image;
+    private LocalDate entryDate;
+    private Integer deptId;
+    private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+
+    // 核心：一对多关联，封装员工工作经历列表
+    private List<EmpExpr> exprList;
+}
+```
+
+### 2. 控制层：`EmpController.java`
+
+- **技术关键点：**
+    
+    1. 使用 `@GetMapping("/{id}")` 映射 Restful 风格的路径。
+        
+    2. 使用 `@PathVariable` 注解将 URL 路径中的 `{id}` 绑定到方法的参数上。
+        
+
+
+```Java
+@GetMapping("/{id}")
+public Result getInfo(@PathVariable Integer id) {
+    log.info("根据id查询员工详细信息，以供修改回显, id: {}", id);
+    // 调用 service 层查询完整数据
+    Emp emp = empService.getInfo(id);
+    return Result.success(emp);
+}
+```
+
+### 3. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+```Java
+/**
+ * 根据ID查询员工详细信息（包含工作经历）
+ * @param id 员工ID
+ * @return 员工完整信息
+ */
+Emp getInfo(Integer id);
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **企业规范点：** 虽然这里只是多表**查询**操作，不需要加事务注解。但在设计上，我们要利用 MyBatis 的高级结果映射功能，**通过一条 SQL 连表语句**直接将主从表的数据合并查出，减少数据库的 IO 交互次数。
+    
+
+```Java
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public Emp getInfo(Integer id) {
+        // 直接调用映射了 resultMap 的多表关联查询方法
+        return empMapper.getById(id);
+    }
+}
+```
+
+### 4. 数据访问层：连表查询与多表映射
+
+因为查询结果是一张合并的扁平“大表”（包含多条重复的员工基本信息与不同的工作经历拼接），MyBatis 默认的自动映射无法直接将其转换为 `List` 集合属性。这时必须使用 `<resultMap>` 显式指定映射规则：
+
+#### ① `EmpMapper.java` 接口
+
+
+```Java
+// EmpMapper 接口中定义查询方法
+Emp getById(Integer id);
+```
+
+#### ② `EmpMapper.xml` 映射配置
+
+
+![[Java Web笔记-121.png]]
+
+![[Java Web笔记-122.png]]
+
+
+在 XML 中追加动态左外连接（LEFT JOIN）SQL，并配置 `<resultMap>` 的一对多转换：
+
+```XML
+<resultMap id="empResultMap" type="com.itheima.pojo.Emp">
+    <id column="id" property="id" />
+    <result column="username" property="username" />
+    <result column="password" property="password" />
+    <result column="name" property="name" />
+    <result column="gender" property="gender" />
+    <result column="image" property="image" />
+    <result column="entry_date" property="entryDate" />
+    <result column="dept_id" property="deptId" />
+    <result column="create_time" property="createTime" />
+    <result column="update_time" property="updateTime" />
+
+    <collection property="exprList" ofType="com.itheima.pojo.EmpExpr">
+        <id column="ee_id" property="id" />
+        <result column="ee_company" property="company" />
+        <result column="ee_job" property="job" />
+        <result column="ee_begin" property="begin" />
+        <result column="ee_end" property="end" />
+        <result column="ee_empid" property="empId" />
+    </collection>
+</resultMap>
+
+<select id="getById" resultMap="empResultMap">
+    select 
+        e.*,
+        ee.id ee_id,
+        ee.company ee_company,
+        ee.job ee_job,
+        ee.begin ee_begin,
+        ee.end ee_end,
+        ee.emp_id ee_empid
+    from emp e 
+    left join emp_expr ee on e.id = ee.emp_id
+    where e.id = #{id}
+</select>
+```
+
+### 核心机制复盘
+
+- **为什么用 `left join`？** 保证员工基本信息一定能查出来。如果该员工在工作经历表（`emp_expr`）中没有记录，`left join` 会让工作经历相关的字段为 `null`，但基本信息依然可以正常回显，不会丢失数据。
+    
+- **为什么要为从表字段起别名（如 `ee_id`）？**
+    
+    因为两张表都含有相同名称的字段（比如 `id`）。为了防止结果集映射时产生列名冲突或覆盖，必须在 SQL 中对从表字段单独起别名。
+
+
+### resultType VS resultMap
+
+
+在 MyBatis 的开发中，`<select>` 标签有两个用于**指定返回值类型**的核心属性：`resultType` 和 `resultMap`。
+
+简单来说：**`resultType` 用于简单、直观的映射；而 `resultMap` 用于复杂、自定义的映射。**
+
+下面为你详细拆解这两者的区别、核心用法以及各自的应用场景。
+
+#### 一、 `resultType`：自动映射（基本归宿）
+
+`resultType` 属于**自动映射**。只要**数据库字段名**与**Java 实体类的属性名**一致，MyBatis 就会自动将查询结果组装进声明的 Java 对象中。
+
+##### 1. 适用场景
+
+- 数据库表的字段名与类的属性名完全一致（或满足驼峰命名转换）。
+    
+- 返回基础数据类型（如 `Integer`, `String`）。
+    
+- 返回简单的 `Map` 集合。
+    
+
+##### 2. 代码示例
+
+假设有一张商品表，字段名和实体类属性完全对应：
+
+```XML
+<select id="findAll" resultType="com.itheima.pojo.Product">
+    select id, product_name, price from product
+</select>
+```
+
+##### 3. 经典翻车现场：名称不一致
+
+如果数据库字段名叫 `user_id`，而 Java 属性名叫 `userId`，直接使用 `resultType` 会导致该属性接收不到值（变为 `null`）。
+
+- **解决办法 1**：在 SQL 中起别名 `select user_id as userId ...`。
+    
+- **解决办法 2**：在 `application.yml` 中开启 MyBatis 的驼峰命名自动转换配置：
+    
+    
+    
+    ```YAML
+    mybatis:
+      configuration:
+        map-underscore-to-camel-case: true
+    ```
+    
+
+#### 二、 `resultMap`：结果集映射（高级大招）
+
+`resultMap` 属于**自定义映射**。当数据库表结构与 Java 实体类结构比较复杂，或者两者的字段名与属性名对不上、且无法通过简单的驼峰转换解决时，就必须定义一个 `<resultMap>` 标签来**手动拉线搭桥**。
+
+##### 1. 适用场景
+
+- 数据库字段名与实体类属性名严重不一致。
+    
+- 涉及**多表关联查询**：
+    
+    - **一对一（1:1）** 关联（例如：员工 -> 所属部门），使用 `<association>` 标签。
+        
+    - **一对多（1:N）** 关联（例如：员工 -> 工作经历列表），使用 `<collection>` 标签。
+        
+
+##### 2. 代码示例（以“一对多”为例）
+
+正如这里的修改员工回显，一个 `Emp` 里面包含了一个 `List<EmpExpr>` 集合，这时就只能用 `resultMap`：
+
+
+```XML
+<resultMap id="empFullResultMap" type="com.itheima.pojo.Emp">
+    <id column="id" property="id" />
+    <result column="username" property="username" />
+    <result column="name" property="name" />
+
+    <collection property="exprList" ofType="com.itheima.pojo.EmpExpr">
+        <id column="ee_id" property="id" />
+        <result column="ee_company" property="company" />
+    </collection>
+</resultMap>
+
+<select id="getById" resultMap="empFullResultMap">
+    select e.*, ee.id ee_id, ee.company ee_company
+    from emp e 
+    left join emp_expr ee on e.id = ee.emp_id
+    where e.id = #{id}
+</select>
+```
+
+#### 三、 `resultType` vs `resultMap` 核心对比
+
+
+|**特性**|**resultType**|**resultMap**|
+|---|---|---|
+|**映射机制**|**自动映射**：依靠名称完全匹配或驼峰规则|**手动映射**：在 XML 中由开发者自定义对应关系|
+|**编写复杂度**|非常简单，直接写类全限定名或别名|较复杂，需要单独写一个 `<resultMap>` 标签块|
+|**性能差异**|略高（无需额外解析复杂的映射树）|略低（需要解析集合或关联对象，但对现代应用可忽略不计）|
+|**处理字段名不一致**|支持，但需要通过 **SQL起别名** 或 **开启驼峰转换**|**天然支持**，在 `column` 和 `property` 中直接指定即可|
+|**多表关联（一对多/一对一）**|**不支持**（无法直接封装嵌套对象或 List 集合）|**完美支持**（通过 `<association>` 和 `<collection>`）|
+
+#### 终极开发建议（避坑指南）
+
+1. **二选一原则**：在一个 `<select>` 标签中，`resultType` 和 `resultMap` **只能存在一个**，绝对不能同时编写，否则项目启动会报错。
+    
+2. **能省则省**：单表操作且字段名与属性名一致（或符合驼峰转换）时，**一律优先使用 `resultType`**，代码最干净。
+    
+3. **复杂必用 Map**：只要涉及到 `left join` 连表查询，或者需要把数据封装到类里的多层嵌套对象（对象、集合）中，**不用纠结，直接上 `resultMap`**。
+
+---
+---
 
 
