@@ -10749,7 +10749,7 @@ public class DeptController {
 # Web后端实战——员工管理
 
 
-## 员工管理——准备工作
+## 准备工作
 
 ![[Java Web笔记-99.png]]
 
@@ -10889,7 +10889,7 @@ public class EmpExpr {
 ---
 
 
-## 员工管理——分页查询——原理分析
+## 分页查询——原理分析
 
 
 在大型系统中，数据库里的数据可能成千上万条。如果一次性全部查询出来返回给前端，不仅会让网络传输极慢，还会导致前端浏览器卡死。因此，必须采用**分页查询**。
@@ -11012,7 +11012,7 @@ $$\text{起始索引} = (\text{page} - 1) \times \text{pageSize}$$
 ---
 
 
-## 员工管理——分页查询——原始方式
+## 分页查询——原始方式
 
 
 原始的分页查询方式核心就在于：**手动计算 MySQL `limit` 的起始索引 `start`**，并**手动执行两条 SQL 语句**（一条查总数，一条查列表）。
@@ -11322,7 +11322,7 @@ public Result login(
 ---
 
 
-## 员工管理——分页查询——PageHelper插件
+## 分页查询——PageHelper插件
 
 
 ![[Java Web笔记-101.png]]
@@ -11515,7 +11515,7 @@ List<Emp> empList = empMapper.list();
 ---
 
 
-## 员工管理——条件分页查询——基本实现
+## 条件分页查询——基本实现
 
 
 ![[Java Web笔记-104.png]]
@@ -11687,7 +11687,7 @@ public interface EmpMapper {
 ---
 
 
-## 员工管理——条件分页查询——程序优化
+## 条件分页查询——程序优化
 
 
 ![[Java Web笔记-106.png]]
@@ -11890,7 +11890,7 @@ public interface EmpMapper {
 
 
 
-## 员工管理——新增员工——保存员工基本信息
+## 新增员工——保存员工基本信息
 
 ![[Java Web笔记-108.png]]
 
@@ -12038,7 +12038,7 @@ public interface EmpMapper {
 ---
 
 
-## 员工管理——新增员工——批量保存工作经历
+## 新增员工——批量保存工作经历
 
 ![[Java Web笔记-109.png]]
 现在来到了新增员工的高级进阶阶段：**批量保存工作经历**。此时的业务是一个典型的**多表关联保存**：
@@ -13715,7 +13715,7 @@ public class UploadController {
 ---
 
 
-## 员工管理——删除员工
+## 删除员工
 
 
 搞定了文件上传的优化，我们紧接着进入**删除员工**的逻辑实现。
@@ -13962,7 +13962,7 @@ void deleteByEmpIds(List<Integer> ids);
 
 
 
-## 员工管理——修改员工——查询回显
+## 修改员工——查询回显
 
 ![[Java Web笔记-120.png]]
 
@@ -14230,7 +14230,7 @@ Emp getById(Integer id);
 ---
 
 
-## 员工管理——修改员工——修改数据
+## 修改员工——修改数据
 
 
 当用户在回显页面修改完信息并点击“保存”时，前端会发送一个请求，后端需要将更新后的员工基本信息以及**全新的工作经历列表**同步更新到数据库中。
@@ -14364,7 +14364,7 @@ void updateById(Emp emp);
 ---
 
 
-## 员工管理——修改员工——程序优化（动态更新）
+## 修改员工——程序优化（动态更新）
 
 
 ![[Java Web笔记-123.png]]
@@ -14455,3 +14455,131 @@ void updateById(Emp emp);
 ---
 
 
+## 全局异常处理器
+
+
+在传统开发中，如果 Controller、Service 或 Mapper 层发生报错（比如数据库手机号重复、空指针等），如果没有手动 `try-catch`，异常会直冲前端，导致前端页面直接崩掉或者弹出一堆用户看不懂的“控制台报错堆栈信息”。
+
+为了解决这个问题，Spring 提供了**全局异常处理器**。它就像一个守在最外层的“天网”，专门用来兜底、拦截整个程序跑出的各种异常，并把它们统一包装成漂亮的 `Result.error("提示信息")` 返回给前端。
+
+
+### 核心工作原理
+
+在没有配置全局异常处理器前，数据和异常流转是单向的。一旦持久层或业务层报错，异常会一路向上抛给 Web 服务器，导致用户看到不友好的 500 页面。
+
+通过引入配置了 `@RestControllerAdvice` 的类，Spring 改变了这一流程：
+
+- **工作流**：
+    
+    1. `Mapper` / `Service` / `Controller` 任何一层发生异常（不进行捕获）。
+        
+    2. 异常自动向上抛出，被标注了 `@RestControllerAdvice` 的类**中途拦截**。
+        
+    3. 异常处理器匹配到对应的 `@ExceptionHandler` 方法。
+        
+    4. 最终返回一个结构统一的 JSON（`Result` 对象）给前端。
+        
+
+
+
+### 1. 基础兜底实现
+
+![[Java Web笔记-124.png]]
+
+这是最基础的配置，用来拦截所有未知的系统异常（如 `NullPointerException`、`RuntimeException` 等）。
+
+- **核心注解说明：**
+    
+    - **`@RestControllerAdvice`**：组合注解（`@ControllerAdvice` + `@ResponseBody`）。声明此类是一个增强型的控制器通知类，它会自动把方法返回的 Java 对象转为 JSON 写入响应体。
+        
+    - **`@ExceptionHandler(Exception.class)`**：核心开关。代表这个方法要拦截哪种类型的异常。填 `Exception.class` 代表只要是 `Exception` 及其子类，通通进来。
+        
+
+
+```Java
+package com.itheima.exception;
+
+import com.itheima.pojo.Result;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+/**
+ * 全局异常处理器
+ */
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    /**
+     * 捕获所有常规异常
+     */
+    @ExceptionHandler(Exception.class)
+    public Result handleException(Exception e){
+        // 1. 在后端控制台/日志中打印真正的错误堆栈，方便程序员排查问题
+        log.error("全局异常处理器拦截到异常：", e);
+        
+        // 2. 给前端返回一个温和的、统一的错误提示，保障用户体验
+        return Result.error("对不起，服务器异常，请稍后再试");
+    }
+}
+```
+
+### 进阶程序优化：针对性异常拦截
+
+基础的兜底虽然保证了系统不崩溃，但在实际业务中，我们往往希望能给用户**更精准的提示**。
+
+比如一个非常经典的报错场景：
+
+> **报错信息**：`DuplicateKeyException: Duplicate entry '18809091212' for key 'emp.phone'`
+> 
+> **原因**：员工表（`emp`）的手机号（`phone`）字段设置了**唯一索引（Unique Index）**。当用户添加或修改员工时，输入了一个系统里已经存在的手机号，数据库就会直接抛出“唯一键冲突”异常。
+
+如果我们直接给用户弹窗“服务器异常”，用户根本不知道是自己手机号输错了。因此，我们需要对该异常进行**精细化解析**：
+
+
+```Java
+import org.springframework.dao.DuplicateKeyException;
+
+/**
+ * 专门捕获数据库主键/唯一索引冲突异常 (例如手机号、用户名重复)
+ */
+@ExceptionHandler(DuplicateKeyException.class)
+public Result handleDuplicateKeyException(DuplicateKeyException e){
+    log.error("程序出错啦（唯一键冲突）~ ", e);
+    
+    // 1. 获取异常的详细文本信息
+    String message = e.getMessage(); // 类似: ... Duplicate entry '18809091212' for key 'emp.phone'
+    
+    // 2. 动态解析文本，提取出冲突的具体数据
+    int i = message.indexOf("Duplicate entry");
+    String errMsg = message.substring(i); // 截取得到 "Duplicate entry '18809091212' for key 'emp.phone'"
+    
+    String[] arr = errMsg.split(" "); // 按空格切分字符串
+    String duplicateValue = arr[2];   // 拿到第三个元素（即用单引号包裹的重复值：'18809091212'）
+    
+    // 3. 返回给前端精准的友情提示
+    return Result.error(duplicateValue + " 已存在");
+}
+```
+
+### 核心机制复盘
+
+1. **就近/精准匹配原则**：
+    
+    如果系统抛出了 `DuplicateKeyException`，Spring 在寻找处理器时，会发现有两个方法：一个拦截 `Exception`，一个拦截 `DuplicateKeyException`。Spring 会**优先走类型最匹配、最精准的那一个方法**。
+    
+2. **日志不能丢 (`log.error`)**：
+    
+    虽然给前端返回的是诸如 `"18809091212 已存在"` 这样简短温馨的提示，但是在异常处理器的代码里，**千万不要漏掉 `log.error("...", e)`**。如果不把异常堆栈完整打印在日志里，未来遇到未知的线上 Bug 时，后台一片空白，程序员将完全无法排查。
+
+
+
+---
+---
+
+
+# Web后端实战——员工信息统计
+
+
+## 职位统计
