@@ -9549,13 +9549,36 @@ IntStream intStream = IntStream.rangeClosed(1, 100);
 - **注意**：尽量保证两个流的**类型一致**（比如都是 `Stream<String>`），否则合并后的流会自动提升为它们的公共父类（比如 `Stream<Object>`），增加后续处理难度。
     
 
-### 6. `map(Function mapper)`：转换/映射
+### 6. `map(Function<T, R> mapper)`：转换/映射
 
-- **功能**：把流里的数据从“类型 A”变成“类型 B”。
+- **功能**：把流里的数据从“类型 T”变成“类型 R”。
     
 - **示例**：把 `Stream<Student>` 映射为 `Stream<String>`（只提取姓名），或者把 `Stream<String>` 转换成 `Stream<Integer>`（计算长度）。
     
 
+`Function<T,R>` 是一个**函数式接口**，只有一个抽象方法：
+
+```java
+R apply(T t);
+```
+
+- T：传入参数类型
+- R：返回值类型
+
+最常见的，lambda 匹配 Function 的结构：
+```java
+userList.stream() .map(user -> user.getName())
+```
+`user -> user.getName()` 完整对应 `Function<User,String>` 的 `apply` 方法：
+```java
+// 等价拆开写
+new Function<User, String>() {
+    @Override
+    public String apply(User user) {
+        return user.getName();
+    }
+}
+```
 ---
 
 ### 两个重要的“注意”
