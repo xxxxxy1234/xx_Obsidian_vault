@@ -14675,6 +14675,10 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public JobOption getEmpJobData() {
         // 1. 调用持久层获取原始统计 Map 集合
+        //外层 List：多条数据库查询结果，每一行数据 = 一个 Map
+        //内层 单个 Map：代表一行记录
+        //在这里， key:"pos"  value:该行的职位名称
+		//		  key:"num"  value:该行对应的人数
         List<Map<String, Object>> list = reportMapper.countEmpJobData();
 
         // 2. 使用 Stream 流提取所有的职位名称 (对应 Map 中的键 pos)
