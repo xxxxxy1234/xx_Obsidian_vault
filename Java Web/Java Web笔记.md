@@ -14584,3 +14584,172 @@ public Result handleDuplicateKeyException(DuplicateKeyException e){
 
 ## 职位统计
 
+![[Java Web笔记-125.png]]
+
+在企业级管理系统中，图表展示（如柱状图、饼图）是非常核心的需求。前端图表（如 ECharts）通常需要特定的数据格式，比如一个**职位名称数组（`jobList`）** 与一个**人数数组（`dataList`）**，且这两个数组的元素在下标上一一对应。
+
+为了实现这个功能，后端需要通过 SQL 的 **分组聚合查询（`GROUP BY`）** 与 **流程控制语句（`CASE WHEN`）** 将数字状态码转换为具体的中文职位名称，并在 Service 层通过 **Stream 流** 将其优雅地拆分并重组。
+
+
+### 实体类（POJO）
+
+前端图表要求的响应数据格式包含两个独立的数组，因此我们需要定义一个包装类 `JobOption` 来完美匹配前端的 JSON 格式。
+
+```Java
+package com.itheima.pojo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class JobOption {
+    private List<Object> jobList;  // 职位名称列表（ECharts的X轴）
+    private List<Object> dataList; // 对应的人数列表（ECharts的Y轴数据）
+}
+```
+
+
+### 1. 控制层：`ReportController.java`
+
+- **技术关键点：** 报表查询同样遵循规范，采用 `@GetMapping` 请求。
+    
+    - 直接调用业务层获取图表专用的 `JobOption` 传输对象。
+        
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.JobOption;
+import com.itheima.pojo.Result;
+import com.itheima.service.ReportService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
+
+@Slf4j
+@RestController
+@RestMapping("/report")
+public class ReportController {
+
+    @Autowired
+    private ReportService reportService;
+
+    @GetMapping("/empJobData")
+    public Result getEmpJobData() {
+        log.info("统计各个职位的员工人数");
+        JobOption jobOption = reportService.getEmpJobData();
+        return Result.success(jobOption);
+    }
+}
+```
+
+### 2. 业务逻辑层：`ReportServiceImpl.java`
+
+- **企业规范点：** * 数据库直接查出来的是多行 `Map` 键值对（形如：`[{pos: '班主任', num: 6}, {pos: '讲师', num: 13}]`）。
+    
+    - 我们利用 Java 8 的 **Stream 流**，通过 `.map()` 映射操作把扁平的 List 提取、转换成两个完全独立的横向数组，最后组合塞入 `JobOption` 返回。
+        
+
+```Java
+package com.itheima.service.impl;
+
+import com.itheima.mapper.ReportMapper;
+import com.itheima.pojo.JobOption;
+import com.itheima.service.ReportService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Map;
+
+@Service
+public class ReportServiceImpl implements ReportService {
+
+    @Autowired
+    private ReportMapper reportMapper;
+
+    @Override
+    public JobOption getEmpJobData() {
+        // 1. 调用持久层获取原始统计 Map 集合
+        List<Map<String, Object>> list = reportMapper.countEmpJobData();
+
+        // 2. 使用 Stream 流提取所有的职位名称 (对应 Map 中的键 pos)
+        List<Object> jobList = list.stream()
+                .map(dataMap -> dataMap.get("pos"))
+                .toList();
+
+        // 3. 使用 Stream 流提取所有职位对应的人数 (对应 Map 中的键 num)
+        List<Object> dataList = list.stream()
+                .map(dataMap -> dataMap.get("num"))
+                .toList();
+
+        // 4. 组装并返回图表专用的数据结构对象
+        return new JobOption(jobList, dataList);
+    }
+}
+```
+
+### 3. 数据访问层（Mapper）
+
+由于统计返回的结构没有直接对应的实体类，我们使用 `java.util.Map` 来动态接收结果，其中的每条记录都由指定的别名（`pos` 和 `num`）作为 Key。
+
+#### ① `ReportMapper.java` 接口
+
+```Java
+package com.itheima.mapper;
+
+import java.util.List;
+import java.util.Map;
+
+public interface ReportMapper {
+    /**
+     * 分组统计各职位的人数
+     */
+    List<Map<String, Object>> countEmpJobData();
+}
+```
+
+#### ② `ReportMapper.xml` 映射配置
+
+- **核心 SQL 技巧：** `CASE WHEN ... THEN ... ELSE ... END`。
+    
+    因为员工表中的 `job` 字段通常存放的是数字数字状态码（如 `1`），通过此语法可以在数据库层直接将其智能翻译为前端易读的中文职位名。
+    
+
+```XML
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.itheima.mapper.ReportMapper">
+
+    <select id="countEmpJobData" resultType="java.util.Map">
+        select
+            (case when job = 1 then '班主任'
+                  when job = 2 then '讲师'
+                  when job = 3 then '学工主管'
+                  when job = 4 then '教研主管'
+                  when job = 5 then '咨询师'
+                  else '其他' end) as pos,
+            count(*) as num
+        from emp
+        group by job
+        order by num
+    </select>
+    
+</mapper>
+```
+
+### 核心机制复盘
+
+1. **为什么数据访问层返回值用 `resultType="java.util.Map"`？**
+    
+    因为这个查询只关心 `pos`（职位名）和 `num`（人数）两个动态计算字段，在工程中不需要也没有必要为这种临时的统计 SQL 单独建一个物理实体类。MyBatis 会自动把每一行记录封装进一个 `Map` 中，多行记录组合成一个 `List<Map>`。
+    
+2. **`ORDER BY num` 的小细节**：
+    
+    在 SQL 的最后加上了按人数由少到多排序（升序），这样前端渲染柱状图时，数据就会呈现出从低到高、非常美观的阶梯式展示效果。
