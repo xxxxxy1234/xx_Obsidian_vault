@@ -15999,6 +15999,7 @@ public class DemoFilter implements Filter {
 
     /**
      * 初始化方法（生命周期方法）：Web 服务器启动时执行，只会执行一次
+     * 不是重点，可不重写，Filter接口有默认实现
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -16026,6 +16027,7 @@ public class DemoFilter implements Filter {
 
     /**
      * 销毁方法（生命周期方法）：Web 服务器关闭时执行，只会执行一次
+     * 不是重点，可不重写，Filter接口有默认实现
      */
     @Override
     public void destroy() {
