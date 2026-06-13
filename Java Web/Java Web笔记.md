@@ -13016,8 +13016,102 @@ public class UploadController {
 ## 文件上传——本地存储
 
 
-在了解了文件上传的基础三要素后，我们来落实第一种存储方案：**本地存储**。
 
+### 补充：UUID
+
+#### 1. 什么是 UUID
+
+**UUID（通用唯一识别码）**，全称`Universally Unique Identifier`，是一套全球几乎不会重复的字符串标识，长度固定 36 位（含 4 个横杠）。
+
+Java 中对应类：`java.util.UUID`，JDK 自带，无需额外导包依赖。
+
+#### 2. 格式结构
+
+示例：`38400000-8cf0-11bd-b23e-10b96e4ef00d`
+
+用`-`分割成 5 段，由 16 进制数字、少量字母组成；
+
+同一台设备、短时间连续生成，重复概率无限接近于 0。
+
+#### 3. Java 基础用法
+
+##### ① 生成标准 UUID
+
+```java
+import java.util.UUID;
+
+public class Test {
+    public static void main(String[] args) {
+        // 随机生成一个UUID对象
+        UUID uuid = UUID.randomUUID();
+        // 转带横杠字符串
+        String str = uuid.toString();
+        System.out.println(str);
+    }
+}
+```
+
+##### ② 常用：去除横杠（文件命名、主键场景）
+
+业务里大多不需要横杠，直接替换删除：
+
+```java
+String id = UUID.randomUUID().toString().replace("-", "");
+```
+
+#### 4. 核心使用场景
+
+1. **文件上传**
+    
+    多张同名图片 / 文档上传服务器，用 UUID 当文件名，避免覆盖旧文件。
+2. **数据库主键**
+    
+    不用自增数字，用 UUID 做唯一主键，分布式多服务器数据合并不会冲突。
+3. **临时令牌、订单号、会话标识**
+    
+    生成一次性随机唯一串，做验证码、登录临时凭证。
+4. **接口请求唯一标识**
+    
+    追踪每一次请求，方便日志排查。
+
+#### 5. 优缺点
+
+##### 优点
+
+- 全局唯一性，分布式场景友好
+- 生成速度快，本地就能生成，不用查数据库
+
+##### 缺点
+
+- 字符串很长，占用存储空间比数字自增 ID 大
+- 无序，数据库索引效率略低于自增数字
+- 肉眼看不出时间、顺序信息
+
+#### 6. 补充小知识
+
+日常代码里用的`randomUUID()`属于**UUID v4**，纯随机算法；还有 v1（带设备 MAC + 时间）、v3/v5（基于字符串哈希生成固定 UUID），业务开发 99% 只用 v4 随机版。
+
+
+#### 简易封装工具类
+
+```java
+
+public class UUIDUtil {
+    // 获取无横杠UUID
+    public static String getSimpleUUID(){
+        return UUID.randomUUID().toString().replace("-","");
+    }
+    // 获取带横杠原生UUID
+    public static String getOriginUUID(){
+        return UUID.randomUUID().toString();
+    }
+}
+```
+
+---
+
+
+在了解了文件上传的基础三要素后，我们来落实第一种存储方案：**本地存储**。
 ### 痛点一：文件名重复导致覆盖
 
 如果两个用户都上传了 `1.jpg`，后上传的会残忍覆盖掉先上传的。
