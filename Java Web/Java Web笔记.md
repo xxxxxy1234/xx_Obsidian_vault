@@ -5222,8 +5222,6 @@ SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 pack
 
 核心区别就一句话：**jar可以直接运行，zip只是源码压缩包。**
 
-具体来说：
-
 **jar包**
 
 - 里面是编译好的 `.class` 字节码 + MySQL驱动
@@ -5238,6 +5236,83 @@ SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 pack
 - 优点是可以看代码、修改代码
 
 简单说就是：jar是"成品"，zip是"原材料"。交作业给老师看代码用zip，想让朋友直接玩游戏用jar。
+
+---
+---
+
+
+## 如何在另一台电脑上用IDEA运行maven项目
+
+
+### 一、先分清你包里的文件作用
+
+1. **uno-game-1.0-SNAPSHOT.jar（4151KB）**：完整打包包，包含所有依赖，可直接`java -jar`运行
+2. original、client、server 三个 80KB 小 jar：只含自己代码，不带依赖，单独跑会缺包报错
+
+### 方案 1：完整源码迁移（别人要改代码、用 IDEA 开发）
+
+1. **拷贝整个项目源码文件夹**
+    
+    把你本机整个 uno-game 项目（带 pom.xml、src）复制到 U 盘 / 发送压缩包，发送前删除`target`、`.idea`文件夹减小体积。
+2. 另一台电脑环境准备
+    
+    - 安装和本机一致版本的 JDK
+    - 安装 Maven，配置好`settings.xml`阿里云镜像
+    
+3. IDEA 打开项目
+    
+    1. IDEA 首页点`Open`，选中带`pom.xml`的项目根目录；
+    2. 弹出 Maven 导入提示，点击`Load Maven Project`；
+    3. 打开 File→Settings→Maven，配置本地 Maven 路径与仓库；
+    4. 右侧 Maven 面板点刷新图标，自动下载全部依赖；
+    
+4. 启动运行
+    
+    - 找到你的 main 主启动类，右键`Run`；
+    - 或者用右侧 Maven 插件启动（SpringBoot 项目）。
+    
+
+### 方案 2：只拿 Jar 包直接运行（不需要改代码，仅运行程序）
+
+不用 IDEA 也能跑，想在 IDEA 里启动也可以
+
+#### 方式 A：命令行直接运行（最简单）
+
+1. 另一台电脑装好对应 JDK，配置环境变量
+2. 把`uno-game-1.0-SNAPSHOT.jar`复制到空白文件夹
+3. 在此文件夹打开 CMD / 终端，执行：
+
+bash
+
+运行
+
+```
+java -jar uno-game-1.0-SNAPSHOT.jar
+```
+
+#### 方式 B：在另一台 IDEA 内运行 Jar 包
+
+1. IDEA 新建空工程 / 直接打开一个空白窗口
+2. File→Project Structure→Libraries，点击 + 号，选择`java`，选中这个大 jar 包导入依赖库
+3. 顶部菜单栏 Run→Edit Configurations
+4. 左上角加号 → 选择`JAR Application`
+5. Path to JAR 选中你的`uno-game-1.0-SNAPSHOT.jar`
+6. 应用保存，点右上角运行按钮即可启动
+
+### 补充：client、server 小包怎么用
+
+这两个分包不带依赖，**不能单独双击运行**，一般是多模块拆分场景：
+
+需要把 client、server、主项目全部源码一起拷贝导入 IDEA，整体编译启动；如果单独用小包，要手动补齐所有依赖包，非常麻烦，优先用 4M 那个完整大包。
+
+### 常见踩坑点
+
+1. 另一台电脑 JDK 版本不一致：会直接编译 / 启动报错，必须和打包时 JDK 大版本匹配
+2. Maven 下载依赖慢：必须配置阿里云镜像
+3. 源码带旧.idea 缓存：容易识别失败，复制前删掉`.idea`、target
+4. 运行 jar 提示 “找不到主类”：说明打包时没配置启动类，只能走源码导入 IDEA 启动
+
+
 
 ---
 ---
