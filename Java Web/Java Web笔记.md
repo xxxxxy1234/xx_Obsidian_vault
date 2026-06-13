@@ -9384,7 +9384,7 @@ public class EmpController {
 
 ## 准备工作——Apifox
 
-
+![[Java Web笔记-128.png]]
 既然前后端分离了，后端程序员写好 Controller 层的 RESTful 接口后，**在没有前端页面的情况下，我们必须自己验证接口能不能跑通、吐出的 JSON 对不对**。过去大家用 Postman，而现在国内企业最主流、全面推荐的就是 **Apifox**（宣称 API 设计、开发、测试一体化）。
 
 ### 一、 为什么要用 Apifox？（痛点分析与工具进化）
