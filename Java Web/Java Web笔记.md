@@ -5118,6 +5118,111 @@ async search() {
 ---
 
 
+## 如何在IDEA中把自己的maven项目导出
+
+
+分两种完全不同的导出场景，用途不一样，操作分开讲：
+
+### 一、导出完整项目源码（发给别人打开）
+
+把整个工程打包成压缩包，别人解压就能用 IDEA 导入
+
+1. 顶部菜单 **File → Export → Project to Zip File**
+    
+2. 选择保存位置、自定义压缩包名字，点击确定
+    
+3. 生成 zip 里包含 pom.xml、src、配置文件；**建议删除里面的.idea、target 文件夹再压缩**，体积更小、无缓存干扰
+    
+
+#### 简易替代方案
+
+直接复制项目根文件夹，手动右键压缩 zip，效果一样，新手更省事。
+
+### 二、打包可运行程序（部署用 Jar/War 包，最常用）
+
+#### 方式 1：IDEA 右侧 Maven 面板图形操作（推荐新手）
+
+1. 右侧打开 **Maven** 面板（没显示：View → Tool Windows → Maven）
+2. 展开项目 → **Lifecycle**
+3. 先双击 **clean**：清空旧 target 缓存
+4. 再双击 **package**：编译、测试、打包
+5. 打包成功后，在项目根目录 **target** 文件夹里拿到 jar/war 文件
+
+#### 方式 2：命令行打包
+
+底部 Terminal 终端直接输入：
+
+```bash
+mvn clean package
+```
+
+- `package`：只生成包在 target
+- `install`：打包 + 安装到你本地 Maven 仓库（多模块依赖场景用）
+
+### 细分项目类型配置
+
+1. **普通 Java 项目（Jar）**
+    
+    pom 默认`<packaging>jar</packaging>`，直接 package 即可；
+    
+    想要**带全部依赖、双击能运行**，pom 加打包插件：
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+                <archive>
+                    <manifest>
+                        <mainClass>com.demo.TestMain</mainClass> <!--替换你的启动主类全路径-->
+                    </manifest>
+                </archive>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+2. **SpringBoot 项目（可执行 Jar）**
+    
+    Boot 自带插件，pom 自带下面配置，直接 package 就是完整可运行包：
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+3. **Web 项目（部署 Tomcat 用 War）**
+    
+    pom 修改打包类型：
+
+```xml
+<packaging>war</packaging>
+```
+
+SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 package 生成 war 包丢 Tomcat/webapps 下
+
+### 三、常见小问题
+
+1. 打包报错 BUILD FAILURE：先看控制台日志，大多是代码编译错误、测试用例失败、依赖缺失
+2. Jar 运行报找不到类：没配置 mainClass 主启动类，或者没使用 boot 专属打包插件
+3. 导出源码很大：压缩前删掉 target、.idea、logs 这些缓存文件夹
+
+
+
+
+---
+---
+
 ## Maven常见问题和解决方法
 
 
