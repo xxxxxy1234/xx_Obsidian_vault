@@ -15802,10 +15802,19 @@ public class JwtParseTest {
 }
 ```
 
-### 进阶程序优化：封装 `JwtUtils` 工具类
+
+
+---
+---
+
+
+## JWT——封装 JwtUtils 工具类
+
+
+
+### 工具类实现
 
 在实际的企业项目开发中，不可能在每个 Controller 里都手写一堆 `Jwts.builder()`。我们必须将其抽离，重构成一个开箱即用的**静态工具类**。
-
 
 ```Java
 package com.itheima.utils;
@@ -15855,16 +15864,88 @@ public class JwtUtils {
 }
 ```
 
-### 课后落地思考：有了工具类，下一步怎么用？
 
-1. **登录成功时下发：** 回到你的 `LoginController`，当 `empService.login(emp)` 查询返回的对象不为 `null` 时，你可以创建一个 `HashMap`，把员工的 `id` 和 `username` 塞进去，调用 `JwtUtils.generateJwt(claims)`，然后把生成的 Token 字符串通过 `Result.success(token)` 返回给前端。
+
+### Controller层实现
+
+**核心改动点**：当用户成功登录后，我们不能仅仅只返回一个空的 `Result.success()` 了，而是需要把员工的 `id`、`username`、`name` 等非敏感信息打包，利用刚才学到的 `JwtUtils.generateJwt()` 生成一个加密的 **JWT 令牌**，然后将令牌存入 `Result` 对象的 `data` 属性中返回给前端。
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import com.itheima.utils.JwtUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@RestController
+public class LoginController {
+
+    @Autowired
+    private EmpService empService;
+
+    /**
+     * 员工登录并下发 JWT 令牌
+     */
+    @PostMapping("/login")
+    public Result login(@RequestBody Emp emp) {
+        log.info("员工登录操作, 正在校验用户名: {}", emp.getUsername());
+        
+        // 1. 调用 Service 层去数据库比对账号和密码
+        Emp loginEmp = empService.login(emp);
+        
+        // 2. 判断是否登录成功
+        if (loginEmp != null) {
+            // 3. 登录成功：准备要在 JWT 的 Payload（载荷）中存储的非敏感员工信息
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("id", loginEmp.getId());
+            claims.put("username", loginEmp.getUsername());
+            claims.put("name", loginEmp.getName());
+            
+            // 4. 调用工具类生成 JWT 令牌
+            String jwt = JwtUtils.generateJwt(claims);
+            log.info("登录成功，签发的JWT令牌为: {}", jwt);
+            
+            // 5. 将生成的令牌作为 Result 的 data 数据返回给前端
+            return Result.success(jwt);
+        }
+        
+        // 6. 登录失败：返回统一的错误响应信息
+        return Result.error("用户名或密码错误");
+    }
+}
+```
+
+### 核心业务流程流转复盘
+
+为了让你更清晰地了解这个接口是怎样和前端联动并堵死“翻窗安全漏洞”的，整个过程如下：
+
+1. **前端提交**：用户在浏览器输入 `admin / 123456`，前端通过 Axios 发送 `POST` 请求给后端的 `/login`。
     
-2. **保安拦截时校验：**
+2. **后端校验**：`LoginController` 拿到数据交给 `EmpService` 去查数据库：
     
-    在后面的“拦截器（Interceptor）”章节里，当用户发送非登录请求时，你只需要在拦截器里调用 `JwtUtils.parseJWT(token)`。如果正常执行，说明合法，直接放行；如果捕获到异常，说明令牌失效，直接拦截。
+    - 如果查无此人，直接返回错误 JSON：`{"code":0, "msg":"用户名或密码错误", "data":null}`。
+        
+    - 如果成功查出员工记录，程序继续向下走。
+        
+3. **制造通行证**：后端把该员工的 `id` 放入 `claims`，交给 `JwtUtils` 组合你的私钥 `itheima` 签发出一串长长的安全令牌 `jwt`。
+    
+4. **交付前端**：后端返回成功 JSON：`{"code":1, "msg":"success", "data":"eyJhbGciOi..."}`。
+    
+5. **前端接管（后续预告）**：前端收到这个 `data` 里的令牌字符串后，会把它存在浏览器的本地缓存（LocalStorage）里。以后前端每次去请求员工列表、报表时，都会在请求头里带上这个令牌。你的后端拦截器只要负责接头，就可以彻底封锁不登录直接访问的情况了！
+
 
 ---
 ---
-
 
 
