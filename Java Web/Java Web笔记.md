@@ -15373,7 +15373,7 @@ public interface EmpMapper {
 ---
 
 
-## 登录校验——会话技术——介绍
+## 会话技术——介绍
 
 ![[Java Web笔记-129.png]]
 ### 一、 为什么需要会话技术？HTTP的“健忘症”
@@ -15429,7 +15429,7 @@ HTTP协议是无状态的（Stateless）。
 ---
 
 
-## 登录校验——会话技术——Cookie & Session
+## 会话技术——Cookie & Session
 
 
 ### 一、 Cookie（客户端会话技术）
@@ -15551,4 +15551,224 @@ public Result index(HttpSession session) {
 ---
 ---
 
+
+
+
+## 会话技术——令牌方案
+
+为了完美解决上一节提到的 **Cookie 不安全** 以及 **Session 无法跨服务器共享** 的痛点，令牌方案提供了一种更加轻量且安全的无状态认证机制。
+
+### 一、 令牌方案的工作原理
+
+令牌（Token）本质上就是由服务器生成的一串**加密字符串**（在后续课程中会详细讲解 **JWT，即 JSON Web Token**）。它的核心思想是：**服务器不保存任何会话数据，全靠令牌自身携带的信息进行身份校验。**
+
+#### 1. 业务流程拆解
+
+1. **用户登录**：前端在登录页面输入用户名和密码，发送请求给后端。
+    
+2. **签发令牌**：后端服务器验证账号密码正确后，利用加密算法生成一个独一无二的 **Token（令牌）**，并在响应中将这个 Token 返回给前端。
+    
+3. **存储令牌**：前端接收到 Token 后，将其存储在客户端本地（通常存放在浏览器的 `localStorage` 或 `sessionStorage` 中）。
+    
+4. **携带令牌请求**：后续前端在请求受保护的接口（如：查询员工、修改数据）时，会通过 JS 代码**手动**将这个 Token 放入 HTTP 请求头（Headers）中（通常自定义一个属性名如 `Authorization` 或 `token`）发送给后端。
+    
+5. **校验放行**：后端专门的拦截器/过滤器接收到请求后，拦截并拿到请求头里的 Token，通过特定的算法和密钥进行解密和验签：
+    
+    - **验签通过**：说明令牌真实有效，直接放行并处理业务。
+        
+    - **验签失败**：说明令牌是被伪造的或已过期，直接拦截并返回错误信息（401 未授权）。
+        
+
+### 二、 核心对比：令牌方案 VS Session 方案
+
+理解这两者的本质区别，是攻克分布式、微服务认证架构的关键：
+
+![[Java Web笔记-134.png]]
+
+|**对比维度**|**Session 方案**|**令牌（Token）方案**|
+|---|---|---|
+|**服务端状态**|**有状态（Stateful）**：服务器必须开辟内存存储 Session 对象。|**无状态（Stateless）**：服务器不保存任何会话数据，只负责验证。|
+|**存储压力**|**大**：在线用户越多，服务器内存被占用的就越多。|**无**：服务器不需要存数据，对服务器内存零消耗。|
+|**集群/分布式支持**|**极差**：需要做 Session 复制或依赖 Redis 才能实现共享。|**天生完美支持**：因为服务器不存数据，任何一台服务器用同样的密钥都能解密校验。|
+|**支持的客户端**|主要支持**浏览器**（依赖 Cookie 自带的 `JSESSIONID`）。|**全平台支持**：标准的 HTTP 请求头，APP、小程序、浏览器通通完美兼容。|
+
+### 三、 令牌方案为什么能完美支持“多服务器集群”？
+
+回想一下我们之前提到的 **Session 集群痛点**：用户在服务器 A 登录，第二次请求被分发到服务器 B 时，B 找不到 Session 就会导致用户被迫下线。
+
+**而令牌方案是如何优雅解决的呢？**
+
+由于令牌采用的是**密码学算法**（如：服务器使用自定义的密钥 `itheima_secret_key` 进行加密签名）。
+
+- 用户在服务器 A 登录，A 生成了一个加密的 Token 给用户带走。
+    
+- 用户下一次带着 Token 访问了**服务器 B**。
+    
+- 服务器 B 内存里虽然什么都没有，但它拥有和 A **一模一样的密钥**。B 只需要对这个 Token 进行数学算法上的解密和验签，只要验签成功，B 就能百分百确认：“这个令牌确实是我们系统签发的，里面的用户是张三”。
+    
+
+> **结论**：**用“CPU 的数学计算（解密验签）”代替了“服务器内存的硬存储（Session）”**，这就是令牌方案的核心魅力。
+
+
+---
+---
+
+
+
+## JWT——生成与校验
+
+
+![[Java Web笔记-135.png]]
+
+
+JWT 是目前最流行的跨域身份验证标准方案。它本质上就是一个被加密、签名的复杂字符串，分为**三个部分**，由两个英文句点（`.`）隔开。
+
+### JWT 的三部分组成（重点，面试常考）
+
+一个真实的 JWT 字符串长这样：`Header.Payload.Signature`。
+
+1. **第一部分：Header（头部）**
+    
+    - **内容**：主要记录令牌的类型（`typ`: "JWT"）和使用的签名算法（`alg`: "HS256"）。
+        
+    - **处理**：通常使用 Base64URL 算法将其转换为第一段字符串。
+        
+2. **第二部分：Payload（负载/载荷）**
+    
+    - **内容**：**真正存放业务数据的地方**（在 Java 中被称为 **Claims**）。例如存放当前登录员工的 `id`、`username`，以及令牌的过期时间（`exp`）。
+        
+    - **⚠️ 避坑警告**：这部分同样是用 Base64 编码的，**任何人拿到令牌都能直接解密出里面的明文内容**。所以，这里**严禁存放密码、银行卡号**等敏感信息！
+        
+3. **第三部分：Signature（签名）**
+    
+    - **内容**：安全卫士。它是由前两部分（Header + Payload）结合**服务器私藏的“密钥”（Secret Key）**，通过指定的算法计算得来的。
+        
+    - **防篡改机制**：前端如果恶意修改了 Payload 里的用户 id，但因为没有服务器的私钥，它就无法生成相对应的 Signature。后端一验签，就会立刻暴露并拒绝访问。
+        
+
+### 核心代码落地
+
+在 Spring Boot 中使用 JWT，通常引入 `jjwt-api`、`jjwt-impl` 和 `jjwt-jackson` 的 Maven 依赖。
+
+![[Java Web笔记-136.png]]
+
+
+#### 1. 基础演练：生成 JWT
+
+```Java
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+public class JwtTest {
+    public static void main(String[] args) {
+        // 1. 准备要在 Payload 中存储的自定义业务数据 (Claims)
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", 1);
+        claims.put("username", "Tom");
+
+        // 2. 使用 Jwts.builder() 构建并生成 JWT 字符串
+        String jwt = Jwts.builder()
+                .setClaims(claims) // 塞入自定义载荷数据
+                .signWith(SignatureAlgorithm.HS256, "itheima") // 指定签名算法和自定义密钥（私钥）
+                .setExpiration(new Date(System.currentTimeMillis() + 3600 * 1000)) // 设置过期时间：1小时后过期
+                .compact(); // 压缩混淆，正式生成字符串
+                
+        System.out.println("生成的JWT令牌为: " + jwt);
+    }
+}
+```
+
+#### 2. 基础演练：解析与校验 JWT
+
+解析的目的有两个：一是验证令牌**合法性/有没有过期**，二是顺便**把里面的用户信息取出来**。
+
+```Java
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+
+public class JwtParseTest {
+    public static void main(String[] args) {
+        String jwt = "xxxx.xxxx.xxxx"; // 刚才生成的令牌
+
+        // 使用 Jwts.parser() 配合同样的密钥进行解析
+        Claims claims = Jwts.parser()
+                .setSigningKey("itheima") // 传入当初签发时的那个密钥
+                .parseClaimsJws(jwt) // 解析令牌
+                .getBody(); // 获取 Payload 负载部分
+
+        // 如果令牌被篡改过、或者是假的、或者是过期的，上面那行代码会直接【抛出异常】
+
+        // 解析成功后，直接通过 get() 获取内部数据
+        System.out.println("员工ID: " + claims.get("id"));
+        System.out.println("员工账号: " + claims.get("username"));
+    }
+}
+```
+
+### 进阶程序优化：封装 `JwtUtils` 工具类
+
+在实际的企业项目开发中，不可能在每个 Controller 里都手写一堆 `Jwts.builder()`。我们必须将其抽离，重构成一个开箱即用的**静态工具类**。
+
+
+```Java
+package com.itheima.utils;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import java.util.Date;
+import java.util.Map;
+
+/**
+ * JWT 令牌工具类
+ */
+public class JwtUtils {
+
+    // 统一配置签名密钥（在企业中一般会写在 application.yml 配置文件中）
+    private static final String signKey = "itheima";
+    
+    // 统一配置过期时间：12小时（单位：毫秒）
+    private static final Long expire = 43200000L;
+
+    /**
+     * 生成 JWT 令牌
+     * @param claims 自定义要存入的载荷数据 (通常是员工 id、姓名等)
+     * @return 生成好的令牌字符串
+     */
+    public static String generateJwt(Map<String, Object> claims){
+        return Jwts.builder()
+                .addClaims(claims) // 添加数据
+                .signWith(SignatureAlgorithm.HS256, signKey) // 签名加密
+                .setExpiration(new Date(System.currentTimeMillis() + expire)) // 设定过期时间
+                .compact();
+    }
+
+    /**
+     * 解析 JWT 令牌
+     * @param jwt 待解析的令牌字符串
+     * @return 解析出来的 Payload 载荷数据对象
+     */
+    public static Claims parseJWT(String jwt){
+        // 如果验签失败或过期，会自动抛出 SignatureException / ExpiredJwtException 等异常
+        return Jwts.parser()
+                .setSigningKey(signKey)
+                .parseClaimsJws(jwt)
+                .getBody();
+    }
+}
+```
+
+### 课后落地思考：有了工具类，下一步怎么用？
+
+1. **登录成功时下发：** 回到你的 `LoginController`，当 `empService.login(emp)` 查询返回的对象不为 `null` 时，你可以创建一个 `HashMap`，把员工的 `id` 和 `username` 塞进去，调用 `JwtUtils.generateJwt(claims)`，然后把生成的 Token 字符串通过 `Result.success(token)` 返回给前端。
+    
+2. **保安拦截时校验：**
+    
+    在后面的“拦截器（Interceptor）”章节里，当用户发送非登录请求时，你只需要在拦截器里调用 `JwtUtils.parseJWT(token)`。如果正常执行，说明合法，直接放行；如果捕获到异常，说明令牌失效，直接拦截。
+
+---
+---
 
