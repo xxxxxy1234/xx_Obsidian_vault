@@ -5243,9 +5243,9 @@ SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 pack
 
 ## 如何在另一台电脑上用IDEA运行maven项目
 
+### 一、举例：先分清你包里的文件作用
 
-### 一、先分清你包里的文件作用
-
+![[Java Web笔记-126.png]]
 1. **uno-game-1.0-SNAPSHOT.jar（4151KB）**：完整打包包，包含所有依赖，可直接`java -jar`运行
 2. original、client、server 三个 80KB 小 jar：只含自己代码，不带依赖，单独跑会缺包报错
 
@@ -5282,11 +5282,7 @@ SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 pack
 2. 把`uno-game-1.0-SNAPSHOT.jar`复制到空白文件夹
 3. 在此文件夹打开 CMD / 终端，执行：
 
-bash
-
-运行
-
-```
+```bash
 java -jar uno-game-1.0-SNAPSHOT.jar
 ```
 
