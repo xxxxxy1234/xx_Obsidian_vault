@@ -5243,7 +5243,7 @@ SpringBoot 外置 Tomcat 还要把内置 tomcat 依赖设为 provided，再 pack
 
 ## 如何在另一台电脑上用IDEA运行maven项目
 
-### 一、举例：先分清你包里的文件作用
+### 一、举例UNO联机游戏：先分清你包里的文件作用
 
 ![[Java Web笔记-126.png]]
 1. **uno-game-1.0-SNAPSHOT.jar（4151KB）**：完整打包包，包含所有依赖，可直接`java -jar`运行
@@ -5295,20 +5295,82 @@ java -jar uno-game-1.0-SNAPSHOT.jar
 5. Path to JAR 选中你的`uno-game-1.0-SNAPSHOT.jar`
 6. 应用保存，点右上角运行按钮即可启动
 
+>[!attention]
+>准确的说：
+>**另一台电脑能运行jar的条件：**
+>- 装了 JRE 11 或以上版本就能跑（不需要完整 JDK）
+>- 但例子中服务端需要连 MySQL，所以**跑服务端的那台电脑还必须装 MySQL**
+>**实际上的限制：**
+>你们这个项目分两个角色：
+>- **服务端**：需要 JRE + MySQL，只需要开一台，局域网内其他人连它
+>- **客户端**：只需要 JRE，但要记得改一下服务端的 IP 地址重新打包，这样其他人拿到 jar 直接运行就能联机
+
 ### 补充：client、server 小包怎么用
 
 这两个分包不带依赖，**不能单独双击运行**，一般是多模块拆分场景：
 
 需要把 client、server、主项目全部源码一起拷贝导入 IDEA，整体编译启动；如果单独用小包，要手动补齐所有依赖包，非常麻烦，优先用 4M 那个完整大包。
 
+这几个80KB的jar没有把MySQL驱动打进去，运行会报 `ClassNotFoundException: com.mysql.jdbc.Driver`。必须用那个 **4151KB** 的 `uno-game-1.0-SNAPSHOT.jar`，它才是包含所有依赖的完整版。
+
 ### 常见踩坑点
 
 1. 另一台电脑 JDK 版本不一致：会直接编译 / 启动报错，必须和打包时 JDK 大版本匹配
 2. Maven 下载依赖慢：必须配置阿里云镜像
 3. 源码带旧.idea 缓存：容易识别失败，复制前删掉`.idea`、target
-4. 运行 jar 提示 “找不到主类”：说明打包时没配置启动类，只能走源码导入 IDEA 启动
+4. 运行 jar 提示 “找不到主类”：说明打包时没配置启动类，要么用java -cp命令（前提是你知道要运行哪个类）要么只能走源码导入 IDEA 启动
 
 
+### 详解命令行运行jar
+
+![[Java Web笔记-133.png]]
+#### 1. `java -jar uno-game-1.0-SNAPSHOT.jar`
+
+前提：打包时在 jar 内部清单文件`MANIFEST.MF`写死了**默认主类**
+
+- 程序只会启动这个写死的单一入口类；
+- 如果你默认绑定的是服务端，这条命令只能开服务端，没法直接启动客户端；
+- `-jar`会自动把当前 jar 作为唯一类路径，简化命令，只能走预设入口。
+
+#### 2. `java -cp jar包 完整类名`
+
+`-cp` = classpath，手动指定类路径 + 手动指定要运行的主类
+
+1. 同一个大包里同时存在服务端、客户端两个 main 方法；
+2. 可以自由切换启动入口：
+    
+    ```bash
+    # 开服务端
+    java -cp uno-game-1.0-SNAPSHOT.jar com.uno.server.Server
+    # 开客户端
+    java -cp uno-game-1.0-SNAPSHOT.jar com.uno.client.Main
+    ```
+    
+3. 不受 jar 包里默认`Main-Class`限制，灵活切换两端。
+
+#### 核心区别总结
+
+|方式|入口控制权|适用场景|
+|---|---|---|
+|java -jar|由打包时写死的 Main-Class 固定|单一启动程序，只能跑预设那一个|
+|java -cp + 类名|手动随便选任意带 main 的类|一套代码分服务端 / 客户端双入口，自由切换|
+
+#### 补充你这个项目的现状
+
+你打包分出了`-server.jar`、`-client.jar`两个小包，说明本身就是双端结构：
+
+- 用`-cp`命令能共用这个 4M 完整大包，不用分开两个小 jar；
+- 如果直接`java -jar`，大概率只能启动其中一端，想开另一端必须用`-cp`指定类。
+
+#### 额外小提示
+
+如果用`java -jar`去强行改入口，也可以追加参数覆盖：
+
+
+```bash
+java -cp uno-game-1.0-SNAPSHOT.jar com.uno.client.Main
+# 等价于不能写成 java -jar xxx.jar com.uno.client.Main，-jar模式下后面跟的是程序入参，不是替换主类
+```
 
 ---
 ---
