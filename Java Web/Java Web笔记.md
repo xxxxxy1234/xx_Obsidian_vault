@@ -16201,4 +16201,136 @@ SpringBoot、SpringMVC 没有抛弃 Servlet 三大组件，只是做了高层封
 
 ## Filter——令牌校验
 
+![[Java Web笔记-138.png]]
+这是整个登录安全防火墙的核心代码实现。它的任务就是作为“保安”，拦下所有请求，精准识别哪些是合法用户，哪些是企图直接输入网址绕过登录的“翻窗者”。
+
+
+### 令牌校验的核心业务流程
+
+保安上岗后，不能把所有人一刀切通通拦住（比如要把登录页面和登录接口放过去，否则谁也别想登录了）。完整的拦截校验包含以下 5 个标准步骤：
+
+1. **获取请求 URL**：拿到当前浏览器访问的路径（例如 `/login` 或 `/emps`）。
+    
+2. **放行特例判定**：判断请求路径中是否包含 `/login`。如果包含，说明是登录操作，**直接放行**。
+    
+3. **获取令牌（Token）**：如果不包含 `/login`，说明是常规业务操作，尝试从 HTTP **请求头** 中获取前端传过来的 `token`。
+    
+4. **校验令牌合法性**：
+    
+    - 如果 `token` 为空，说明没登录 $\rightarrow$ **拦截并报错**。
+        
+    - 如果 `token` 不为空，调用 `JwtUtils.parseJWT(token)` 校验。
+        
+        - 解析成功 $\rightarrow$ **直接放行**。
+            
+        - 解析失败（报错、过期、伪造） $\rightarrow$ **拦截并报错**。
+            
+5. **拦截响应规范**：由于过滤器在 Controller 的最外层，如果判定拦截，**不能直接用 `return Result.error()`**，必须借助原生 `HttpServletResponse` 手动将错误对象转为 JSON 字符串并写回浏览器。
+    
+
+### 核心代码落地：`LoginCheckFilter.java`
+
+
+```Java
+package com.itheima.filter;
+
+import com.alibaba.fastjson.JSONObject;
+import com.itheima.pojo.Result;
+import com.itheima.utils.JwtUtils;
+import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.util.StringUtils;
+import java.io.IOException;
+
+/**
+ * 登录校验过滤器
+ */
+@Slf4j
+@WebFilter(urlPatterns = "/*") // 拦截所有请求
+public class LoginCheckFilter implements Filter {
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) 
+            throws IOException, ServletException {
+        
+        // 0. 类型强转（原生的 ServletRequest 需要转为支持 HTTP 协议的子接口）
+        HttpServletRequest req = (HttpServletRequest) request;
+        HttpServletResponse resp = (HttpServletResponse) response;
+
+        // 1. 获取请求的 URL
+        String url = req.getRequestURL().toString();//employee/login
+        log.info("请求的URL: {}", url);
+
+        // 2. 判断请求的 URL 中是否包含 /login，如果包含，说明是登录操作，放行
+        if(url.contains("/login")){
+            log.info("登录操作，直接放行...");
+            chain.doFilter(request, response);
+            return; // 结束当前方法，防止放行后再向下走拦截逻辑
+        }
+
+        // 3. 获取请求头中的令牌 (token)
+        String jwt = req.getHeader("token");
+
+        // 4. 判断令牌是否存在，如果不存在，返回错误结果（未登录）
+        if(!StringUtils.hasLength(jwt)){
+            log.info("请求头token为空, 拦截请求");
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        // 5. 解析token，如果解析失败，返回错误结果（未登录）
+        try {
+            JwtUtils.parseJWT(jwt);
+        } catch (Exception e) {
+            log.error("解析令牌失败, 拦截请求! 错误原因: {}", e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        // 6. 放行
+        log.info("令牌合法，放行通过！");
+        chain.doFilter(request, response);
+    }
+}
+```
+
+
+#### 注意：类型强转是必要的
+
+如果你不进行强转，直接用原生的 `request` 或 `response`，下面这三处代码**连编译都通不过**：
+
+##### 1. `req.getRequestURL()` （第 1 步：获取 URL）
+
+- **为什么独有**：`URL`（统一资源定位符）是浏览器访问网页、Web 资源时特有的概念。如果是 FTP 协议或者普通的 Socket 传输，根本没有 URL 的概念。
+    
+- **原生的痛点**：父接口 `ServletRequest` 里只有 `getRequestURI()` 的前身，想拿完整的 `http://localhost:8080/login` 字符串，必须用 `HttpServletRequest` 提供的 `getRequestURL()`。
+    
+
+##### 2. `req.getHeader("token")` （第 3 步：获取请求头）
+
+- **为什么独有**：HTTP 协议的结构是由 **请求行、请求头、空行、请求体** 组成的。这个 `token` 是前端塞在 HTTP 的 `Request Headers`（请求头）里的。
+    
+- **原生的痛点**：父接口 `ServletRequest` 压根不知道什么是“请求头”。`getHeader()` 方法是 `HttpServletRequest` 接口中独创的。
+    
+
+##### 3. `resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED)` （第 4、5 步：设置状态码）
+
+- **为什么独有**：你设置 `401 (Unauthorized)` 状态码。**状态码（如 200, 404, 500, 401）是 HTTP 协议的核心特征！**
+    
+- **原生的痛点**：父接口 `ServletResponse` 只能用来写出数据（`getWriter()`），它完全没有状态码的概念。`setStatus()` 方法以及 `SC_UNAUTHORIZED`（即 401 静态常量）全部定义在 `HttpServletResponse` 中。
+
+
+#### 注意： `try-catch` 必不可少
+
+在步骤 5 中，`JwtUtils.parseJWT(jwt)` 的底层设计是：一旦发现令牌被篡改、或者是伪造的、或者过期了，它**不会返回 null 或者是 false，而是会直接在当前线程抛出异常**。
+
+因此，我们必须用 `try-catch` 块将它包裹住。只要它一触发 `catch` 捕获，就说明令牌不合法，果断判定拦截。
+
+
+---
+---
+
 
