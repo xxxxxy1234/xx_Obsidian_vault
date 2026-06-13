@@ -15788,7 +15788,7 @@ public class JwtParseTest {
         String jwt = "xxxx.xxxx.xxxx"; // 刚才生成的令牌
 
         // 使用 Jwts.parser() 配合同样的密钥进行解析
-        Claims claims = Jwts.parser()
+        Claims claims = Jwts.parser()//Claims是继承Map<String,Object>的接口
                 .setSigningKey("itheima") // 传入当初签发时的那个密钥
                 .parseClaimsJws(jwt) // 解析令牌
                 .getBody(); // 获取 Payload 负载部分
@@ -15865,4 +15865,6 @@ public class JwtUtils {
 
 ---
 ---
+
+
 
