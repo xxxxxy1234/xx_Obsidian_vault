@@ -15369,6 +15369,122 @@ HTTP协议是无状态的（Stateless）。
 
 ## 登录校验——会话技术——Cookie & Session
 
+
+### 一、 Cookie（客户端会话技术）
+
+
 ![[Java Web笔记-131.png]]
 
+#### 1. 工作原理
+
+Cookie 的核心思想是：**服务器生成数据，交给浏览器保管。**
+
+- **登录时**：浏览器提交账号密码，服务器验证成功后，通过响应头（`Set-Cookie`）把数据（如登录凭证）塞给浏览器。
+    
+- **后续请求**：浏览器会自动把本地存着的 Cookie 放入请求头（`Cookie`）中带给服务器。服务器只要检查这个请求头，就知道用户是谁了。
+    
+
+#### 2. 代码落地：在 Spring Boot 中操作 Cookie
+
+
+```Java
+@PostMapping("/login")
+public Result login(@RequestBody Emp emp, HttpServletResponse response) {
+    Emp e = empService.login(emp);
+    if(e != null) {
+        // 1. 登录成功，创建 Cookie 对象 (键值对都是 String)
+        Cookie cookie = new Cookie("login_user", e.getUsername());
+        // 2. 可以设置 Cookie 的有效期（可选，不设置默认关浏览器失效）
+        cookie.setMaxAge(60 * 60 * 24); // 存活1天
+        // 3. 将 Cookie 添加到响应对象中，由 Spring 帮你写入响应头 Set-Cookie
+        response.addCookie(cookie);
+        return Result.success();
+    }
+    return Result.error("登录失败");
+}
+
+@GetMapping("/index")
+public Result index(@CookieValue(value = "login_user", required = false) String username) {
+    // 使用 @CookieValue 注解可以直接快捷获取请求头里的指定 Cookie 值
+    log.info("从Cookie中获取当前登录用户名: {}", username);
+    return Result.success(username);
+}
+```
+
+#### 3. Cookie 的致命缺点
+
+- **不安全**：Cookie 存放在浏览器本地，用户可以手动打开控制台直接查看或任意篡改。
+    
+- **大小受限**：单个 Cookie 保存的数据不能超过 4KB，存不了复杂信息。
+    
+- **移动端不友好**：在开发 APP 或微信小程序时，客户端并不是标准浏览器，对 Cookie 的支持非常差。
+    
+
+### 二、 Session（服务端会话技术）
+
 ![[Java Web笔记-132.png]]
+
+
+为了解决 Cookie 存在浏览器极不安全的问题，Session 应运而生。它的核心思想是：**数据存在服务器，浏览器只留一把钥匙。**
+
+#### 1. 工作原理
+
+- **登录时**：服务器验证成功后，在服务器内存里开辟一块空间（Session 对象），把用户信息存进去。
+    
+- **发钥匙**：服务器自动生成一个唯一的钥匙字符串（**`JSESSIONID`**），通过 Cookie 的形式默默发给浏览器。*（底层还是依赖cookie）*
+    
+- **对暗号**：后续请求时，浏览器带着 `JSESSIONID` 过来。服务器根据这个 ID 去内存里匹配对应的 Session 空间，取回用户信息。
+    
+
+#### 2. 代码落地：在 Spring Boot 中操作 Session
+
+Spring Boot 极大地简化了 Session 的操作，直接在 Controller 方法中声明 `HttpSession` 即可，Spring 会自动为你注入或创建。
+
+```Java
+@PostMapping("/login")
+public Result login(@RequestBody Emp emp, HttpSession session) {
+    Emp e = empService.login(emp);
+    if(e != null) {
+        // 登录成功，将用户信息直接存在服务端的 Session 作用域中
+        session.setAttribute("loginUser", e);
+        return Result.success();
+    }
+    return Result.error("登录失败");
+}
+
+@GetMapping("/index")
+public Result index(HttpSession session) {
+    // 从服务端的 Session 中获取之前存入的对象
+    Emp emp = (Emp) session.getAttribute("loginUser");
+    log.info("当前从Session中取出的用户对象: {}", emp);
+    return Result.success(emp);
+}
+```
+
+#### 3. Session 的缺点（现代企业级架构的痛点）
+
+虽然 Session 安全，但它在**分布式 / 集群**环境下遇到了巨大挑战：
+
+- **无法跨服务器共享**：如果后台部署了多台服务器（服务器 A、服务器 B）。用户在 A 登录了，Session 在 A 的内存里；下一次请求由于负载均衡被分发到了 B，B 内存里没有这个 Session，用户就会被判定为未登录！
+    
+- **内存开销大**：如果在线用户有几十万，服务器内存会被庞大的 Session 占满。
+    
+
+### Cookie 与 Session 终极对比总结
+
+|**特性**|**Cookie**|**Session**|
+|---|---|---|
+|**存储位置**|**客户端**（浏览器本地）|**服务端**（服务器内存）|
+|**安全性**|**低**（易被篡改、窃取）|**高**（数据不出服务器）|
+|**存储内容**|只能存 **String** 字符串|可以存 **Object** 任意类型|
+|**存储大小**|有限制（通常每个域名下 4KB）|无限制（但受服务器硬件内存限制）|
+|**集群架构支持**|良好（数据都在浏览器，去哪台服务器都带着）|**极差**（多台服务器之间无法默认共享内存数据）|
+
+
+正是因为 **Cookie 容易泄露**、**Session 无法抗住多服务器集群共享**，在如今流行的大型前后端分离、微服务架构中，这两者现在很少用来实现登录拦截了。
+
+为了解决它们俩的所有痛点，下一节课程将会带出企业级终极杀招——**Token（JWT 令牌技术）**。
+
+
+---
+---
