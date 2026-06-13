@@ -15009,3 +15009,123 @@ public interface ReportMapper {
 ---
 
 
+
+## 信息统计
+
+![[Java Web笔记-127.png]]
+与之前的职位统计类似，这也是一个典型的数据可视化（图表展示）后端接口实现。前端（如饼图）需要拿到结构化的 JSON 数据：包含一个**由对象组成的数组**，每个对象里有**名字（`name`）** 和**数值（`value`）**。
+
+
+### 数据结构设计（POJO / Map 映射）
+
+前端饼图（Pie Chart）所期待的底层数据格式非常固定。每一个扇区都需要一个形如 `{value: 16, name: '男'}` 的键值对。
+
+为了灵活对接，后端在持久层查询时，可以直接使用 `Map<String, Object>` 来动态接收数据库字段：
+
+- **`name`**：映射性别的文字描述（'男' / '女'）。
+    
+- **`value`**：映射该性别对应的总人数。
+    
+
+
+### 1. 控制层：`ReportController.java`
+
+- **技术关键点：**
+    
+    - 遵循 Restful 风格，查询统计数据统一使用 `@GetMapping` 映射。
+        
+    - 接口路径设计为 `/empGenderData`。
+        
+
+```Java
+/**
+ * 统计员工性别比例
+ */
+@GetMapping("/empGenderData")
+public Result getEmpGenderData() {
+    log.info("统计员工性别比例");
+    // 调用 service 层获取图表所需集合
+    List<Map<String, Object>> genderDataList = reportService.getEmpGenderData();
+    return Result.success(genderDataList);
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`ReportService.java`
+
+
+```Java
+/**
+ * 统计员工性别数据
+ * @return 包含 name(性别) 和 value(人数) 的 Map 集合列表
+ */
+List<Map<String, Object>> getEmpGenderData();
+```
+
+#### ② 实现类：`ReportServiceImpl.java`
+
+- **业务思考**：由于数据访问层（Mapper）查出来的结果集已经通过 SQL 的 `case when` 和别名（`as name`、`as value`）完全适配好了前端所需的格式，因此 Service 层可以直接作为中转，直接将数据返回。
+    
+
+
+```Java
+@Service
+public class ReportServiceImpl implements ReportService {
+
+    @Autowired
+    private ReportMapper reportMapper;
+
+    @Override
+    public List<Map<String, Object>> getEmpGenderData() {
+        // 直接调用 mapper 拿到统计结果并返回
+        return reportMapper.countEmpGenderData();
+    }
+}
+```
+
+### 3. 数据访问层（Mapper）
+
+通过数据库的聚合函数 `COUNT(*)` 结合 `GROUP BY gender` 来实现数据的分类计数。
+
+#### ① `ReportMapper.java` 接口
+
+
+```Java
+/**
+ * 分组统计男女员工人数
+ */
+List<Map<String, Object>> countEmpGenderData();
+```
+
+#### ② `ReportMapper.xml` 映射配置
+
+- **核心 SQL 技巧：** 1. 数据库里 `gender` 字段存储的是数字（`1` 代表男，`2` 代表女）。我们使用 `case when` 语句直接在 SQL 层面将其转换为字符串 `'男'` 和 `'女'`。
+    
+    2. **别名对齐（关键）**：通过 `as name` 和 `as value` 别名，确保最终生成的 JSON 键名与前端图表框架完美契合。
+    
+
+```XML
+<select id="countEmpGenderData" resultType="java.util.Map">
+    select
+        (case when gender = 1 then '男'
+              when gender = 2 then '女'
+              else '未知' end) as name,
+        count(*) as value
+    from emp
+    group by gender
+</select>
+```
+
+### 核心机制复盘
+
+1. **为什么不需要 Stream 流加工，直接返回 `List<Map>`？**
+    
+    在之前的“职位统计”中，前端 ECharts 的**柱状图**需要的是两个独立的横向单列数组（`jobList` 和 `dataList`），因此必须在 Service 层用流把原始多行数据拆开。
+    
+    而本节的**饼图**或基础数据格式，本身就需要一个天然嵌套的“对象数组”（`[{name:'男', value:16}, ...]`）。MyBatis 的 `resultType="java.util.Map"` 查出来的多行记录刚好就是这个结构，所以无需繁琐转化，直接直通前端，开发效率最高。
+
+---
+---
+
+
