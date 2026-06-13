@@ -14919,6 +14919,13 @@ public class ReportServiceImpl implements ReportService {
         //内层 单个 Map：代表一行记录
         //在这里， key:"pos"  value:该行的职位名称
 		//		  key:"num"  value:该行对应的人数
+		//举个具象例子，`list` 里面实际存的是这种结构 ：
+		// [ 
+		//    {"pos":"开发","num":20}, 
+		//    {"pos":"测试","num":12},
+	    //    {"pos":"产品","num":8} 
+	    // ]
+	    //所以key用String，value只能用Object（既有字符串又有整数）
         List<Map<String, Object>> list = reportMapper.countEmpJobData();
 
         // 2. 使用 Stream 流提取所有的职位名称 (对应 Map 中的键 pos)
