@@ -15129,3 +15129,246 @@ List<Map<String, Object>> countEmpGenderData();
 ---
 
 
+
+
+# Web后端实战——登陆认证
+
+
+## 登录功能——实现
+
+
+登录业务的本质是**鉴权认证**：前端提交账号和密码，后端去数据库中进行比对。如果匹配成功，说明是合法用户，后端通常会生成一个令牌（Token，如 JWT）返回给前端，作为后续访问其他受保护接口的“通行证”；如果匹配失败，则返回明确的错误提示。
+
+### 1. 控制层：`LoginController.java`
+
+- **技术关键点：**
+    
+    1. 登录通常涉及敏感数据的传输，且属于创建会话的行为，因此一律采用 Restful 规范中的 `@PostMapping` 请求。
+        
+    2. 前端通过 JSON 格式提交用户名和密码，后端使用 `@RequestBody` 接收并封装进 `Emp` 实体对象中。
+        
+    3. 拿到查询结果后进行判断：如果对象不为空，说明登录成功，发放令牌；如果为空，说明用户名或密码错误。
+        
+
+
+```Java
+package com.itheima.controller;
+
+import com.itheima.pojo.Emp;
+import com.itheima.pojo.Result;
+import com.itheima.service.EmpService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@Slf4j
+@RestController
+public class LoginController {
+
+    @Autowired
+    private EmpService empService;
+
+    /**
+     * 员工登录
+     */
+    @PostMapping("/login")
+    public Result login(@RequestBody Emp emp) {
+        log.info("员工登录操作, username: {}", emp.getUsername());
+        
+        // 调用 Service 层验证身份
+        Emp e = empService.login(emp);
+        
+        // 判断登录结果
+        if (e != null) {
+            // 登录成功：后续会在这里生成 JWT 令牌并下发（本小节暂返回成功标识）
+            return Result.success();
+        }
+        
+        // 登录失败
+        return Result.error("用户名或密码错误");
+    }
+}
+```
+
+### 2. 业务逻辑层
+
+#### ① 接口：`EmpService.java`
+
+```Java
+/**
+ * 员工登录校验
+ * @param emp 包含用户名和密码的对象
+ * @return 匹配成功的员工完整信息，若失败则返回 null
+ */
+Emp login(Emp emp);
+```
+
+#### ② 实现类：`EmpServiceImpl.java`
+
+- **业务思考：** 登录属于纯粹的单表单行数据**查询**，不涉及数据的修改，因此不需要加事务管理注解。直接调用 Mapper 层将参数传入即可。
+    
+
+```Java
+@Service
+public class EmpServiceImpl implements EmpService {
+
+    @Autowired
+    private EmpMapper empMapper;
+
+    @Override
+    public Emp login(Emp emp) {
+        // 调用 Mapper 层的单表条件查询
+        return empMapper.getByUsernameAndPassword(emp);
+    }
+}
+```
+
+### 3. 数据访问层（Mapper）
+
+由于这是标准的条件查询，我们可以直接在 `EmpMapper.java` 接口中配合 MyBatis 的注解或者 XML 编写 SQL。图中采用的是简单的单表双条件查询。
+
+#### ① `EmpMapper.java` 接口
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.Emp;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
+
+@Mapper
+public interface EmpMapper {
+
+    /**
+     * 根据用户名和密码查询员工
+     */
+    @Select("select id, username, password, name, image, job " +
+            "from emp " +
+            "where username = #{username} and password = #{password}")
+    Emp getByUsernameAndPassword(Emp emp);
+}
+```
+
+### 核心机制与企业安全复盘
+
+1. **为什么 SQL 里不推荐使用 `select *`？**
+    
+    在编写登录 SQL 时，可以看到明确列出了 `id, username, password, name...` 等所需字段。在企业开发规范中，**严禁盲目使用 `select *`**。一方面是为了减少网络传输中不必要的 IO 开销，另一方面是出于安全考虑，避免将敏感信息（如创建时间、逻辑删除标记等）无意间暴露给前端。
+    
+2. **生产环境的安全演进（密码加密）：**
+    
+    在当前的教学演示中，数据库里的密码使用的是明文（如 `123456`）。但在真实的企业项目中，**严禁明文存储密码**。
+    
+    - **后续优化方向：** 注册/添加员工时，后端需要使用加密算法（如 **MD5 + 盐** 或 **BCrypt**）将明文密码加密成密文再存入数据库。
+        
+    - **登录匹配时：** 登录时，后端接收到前端传来的明文密码后，需要先用同样的算法在后端**进行加密**，然后再拿着加密后的密文去跟数据库中的密文进行 `WHERE` 条件比对。
+
+
+### 思考：目前的登陆界面有用吗？
+
+目前的情况我通过不输入网址`https://localhost:90/login`而选择输入`https://localhost:90/index` 就能直接进入首页就能跳过登陆界面了，这个现象在 Web 开发中叫做 **“非法令牌访问”** 或 **“越权访问”**。
+
+简单来说，之所以能通过直接输入网址跳过登录界面，是因为**目前的系统还没有接入“登录拦截”机制。** 我们可以用一个通俗的比喻和两张图来解释这个过程：
+
+#### 1. 为什么现在能直接进去？（裸奔状态）
+
+现在的系统就像一栋**没有保安**的大楼：
+
+- 虽然大楼正门设计了一个“登记处”（你的登录页面）。
+    
+- 但是，如果有人知道后门、窗户或者某个房间的窗户地址（比如直接输入路径 `/index.html` 或 `/emps`），就可以大摇大摆地直接翻窗进去。
+    
+- 后端服务器目前**只负责老老实实地响应请求**，前端只要伸手要数据，后端就给，根本没有校验你到底“登没登录”。
+    
+
+#### 2. 后续的解决方案：引入“保安”（拦截器/过滤器）
+
+为了解决这个问题，你在课程的后续章节中马上就会学到 **JWT 令牌（Token）** 和 **拦截器（Interceptor）/ 过滤器（Filter）**。
+
+优化后的标准流程会变成这样：
+
+1. **登录发证**：用户在登录页输入正确的账号密码，后端不仅返回成功，还会用 JWT 技术生成一张加密的“通行证”（Token）发给前端。前端会把它存起来（比如存入浏览器缓存 `localStorage`）。
+    
+2. **出门带证**：后续前端的每一次请求（比如查询员工、查看报表），都会在请求头（Headers）里**自动带上**这个 Token。
+    
+3. **保安拦截（核心）**：后端会配置一个“全局保安”（拦截器或过滤器）。当有人直接输入网址或者发送请求时，保安会率先拦截：
+    
+    - **检查有没有 Token？** 没有 $\rightarrow$ 直接拦截，强制重定向到登录页面。
+        
+    - **Token 是真的吗？有没有过期？** 伪造的或过期的 $\rightarrow$ 拦截，不给数据。
+        
+    - **Token 合法！** $\rightarrow$ 放行，允许访问首页并展示数据。
+        
+
+#### 总结
+
+你目前能直接进去，是因为项目刚把“登录验证逻辑”写完，但**还没有把“保安（拦截器）”部署到各个路口上**。不用担心，跟着课程继续往下走，很快就会学到如何用 **Filter（过滤器）** 或 **HandlerInterceptor（拦截器）** 来把这个安全漏洞彻底堵死！
+
+
+---
+---
+
+
+## 登录校验——会话技术——介绍
+
+![[Java Web笔记-129.png]]
+### 一、 为什么需要会话技术？HTTP的“健忘症”
+
+HTTP协议是无状态的（Stateless）。
+
+- **无状态的意思是**：浏览器每一次向服务器发送请求，服务器都把这次请求当作**完全独立、陌生**的请求来处理。服务器不记得你上一次发了什么，就像患了“瞬间失忆症”。
+    
+- **带来的麻烦**：用户在登录页面输入了正确的账号密码（请求1），服务器校验成功了。但是，当用户点击跳转到员工列表页（请求2）时，因为 HTTP 无状态，服务器完全不知道这个请求是谁发的，根本不记得两秒钟前这个人已经登过录了。
+    
+- **解决办法**：为了让服务器拥有“记忆能力”，认出哪些请求是同一个浏览器发出来的，就必须引入**会话技术**。
+    
+
+### 二、 什么是会话（Session）？
+
+![[Java Web笔记-130.png]]
+
+- **现实生活中的会话**：
+    
+    从拨通电话开始，到挂断电话结束，这期间彼此说的所有话，合起来就称为一次“会话”。
+    
+- **Web开发中的会话**：
+    
+    用户打开浏览器，访问了某个网站（如天猫、京东、你的员工管理系统）。在不关闭浏览器的情况下，用户在这个网站上**点击的每一个超链接、发起的每一次请求**，都属于**同一次会话**。
+    
+    > **生命周期**：会话在浏览器打开访问时**建立**，在浏览器最终关闭时**销毁**。
+    
+
+### 三、 会话技术的核心作用
+
+会话技术的主要功能，就是在**同一次会话**的多次请求之间，实现**数据的共享**。
+
+- **应用场景 1：登录校验（本阶段核心）**
+    
+    用户登录成功后，后端把“已登录”的状态或用户信息保存在会话中。后续用户去访问首页、员工管理、报表统计时，后端只需要去会话里查一下有没有这个“登录标记”，就能知道他是不是翻窗进来的。
+    
+- **应用场景 2：购物车**
+    
+    在淘宝上，你在商品详情页点击“加入购物车”（请求1），然后又去另一个商品页点击“加入购物车”（请求2）。会话技术能保证这两个商品都被精准地放进**同一个用户**的购物车里。
+    
+
+### 后续课程交待：三大主流会话技术
+
+在后面的课程中，你会由浅入深地学到三种实现会话管理的技术，它们分别是：
+
+1. **Cookie**：把数据存在客户端（浏览器）的技术。
+    
+2. **Session**：把数据存在服务端（服务器内存）的技术（由于多服务器集群无法天然共享，企业级项目现在用得较少）。
+    
+3. **Token（JWT令牌）**：当前最流行、移动端和前后端分离项目**必用**的技术。我们这个员工管理系统，后续就会采用 JWT 令牌来实现真正稳健的登录拦截。
+
+---
+---
+
+
+## 登录校验——会话技术——Cookie & Session
+
+![[Java Web笔记-131.png]]
+
+![[Java Web笔记-132.png]]
