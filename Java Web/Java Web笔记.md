@@ -15949,3 +15949,118 @@ public class LoginController {
 ---
 
 
+## Filter（过滤器）——入门
+
+Filter 是 Java Web 三大组件之一（另外两个是 Servlet 和 Listener），它是解决我们之前遇到的“不登录就能翻窗进首页”安全漏洞的核心武器。
+
+![[Java Web笔记-137.png]]
+### 一、 Filter 的核心工作原理
+
+Filter 的核心思想就是“御敌于国门之外”。它在浏览器和我们的业务资源（Controller、HTML 等）之间架设了一道防线。
+
+#### 1. 拦截机制
+
+- 当浏览器发起请求访问服务器的资源时，Filter 会**率先将请求拦截下来**。
+    
+- 在 Filter 内部，程序员可以编写校验逻辑（比如：检查有没有 JWT 令牌）。
+    
+    - **不满足条件**：直接在过滤器里给予错误响应，请求**根本到不了 Controller**。
+        
+    - **满足条件**：执行“放行”操作，请求才能继续向后传递给 Controller。
+        
+
+#### 2. 核心特征：双向过滤
+
+过滤器不仅能拦截**请求（Request）**，在 Controller 把业务处理完、准备把结果响应给浏览器时，响应还会**再次经过过滤器（Response）**。这使得我们可以在过滤器中做统一的响应字符集设置或响应数据加密。
+
+### 二、 快速入门代码落地
+
+要让一个普通的 Java 类变成一个高职权的“安全过滤器”，只需要完成简单的两步：**实现 `Filter` 接口** + **配置 `@WebFilter` 注解**。
+
+
+```Java
+package com.itheima.filter;
+
+import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebFilter;
+import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+
+/**
+ * 快速入门 Filter
+ * @WebFilter(urlPatterns = "/*") 表示当前过滤器要拦截【所有】的请求
+ */
+@Slf4j
+@WebFilter(urlPatterns = "/*")
+public class DemoFilter implements Filter {
+
+    /**
+     * 初始化方法（生命周期方法）：Web 服务器启动时执行，只会执行一次
+     */
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        log.info("DemoFilter 初始化方法执行了...");
+    }
+
+    /**
+     * 核心拦截方法：每一次请求被拦截时，都会调用该方法
+     */
+    @Override
+    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) 
+            throws IOException, ServletException {
+        
+        // 1. 放行前的逻辑（处理前端发来的请求）
+        log.info("DemoFilter 拦截到了请求... 放行前逻辑执行");
+
+        // 2. 核心：放行操作
+        // 调用 FilterChain（过滤器链）对象的 doFilter 方法。
+        // 如果不写这一行，请求就会卡死在过滤器这里，前端页面会一直转圈直到超时崩溃。
+        filterChain.doFilter(servletRequest, servletResponse);
+
+        // 3. 放行后的逻辑（处理后端返回的响应）
+        log.info("DemoFilter 放行后逻辑执行... 准备把响应发给浏览器");
+    }
+
+    /**
+     * 销毁方法（生命周期方法）：Web 服务器关闭时执行，只会执行一次
+     */
+    @Override
+    public void destroy() {
+        log.info("DemoFilter 销毁方法执行了...");
+    }
+}
+```
+
+#### 关键避坑：必须在启动类加上 `@ServletComponentScan`
+
+因为 `@WebFilter` 是原生的 Java Web 注解，并不是 Spring 家族自带的。Spring Boot 默认是扫描不到这个注解的。
+
+为了让过滤器生效，你必须在你的 Spring Boot 启动类（`XxxxApplication.java`）上加上 **`@ServletComponentScan`** 注解，开启对原生 Servlet 组件的扫描支持：
+
+
+```Java
+package com.itheima;
+
+import org.springframework.boot.SpringBootApplication;
+import org.springframework.boot.web.servlet.ServletComponentScan;
+
+@ServletComponentScan // 核心：开启 Servlet 组件扫描（支持 @WebFilter、@WebListener 等）
+@SpringBootApplication
+public class TliasApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(TliasApplication.class, args);
+    }
+}
+```
+
+### 核心机制复盘
+
+1. **`urlPatterns = "/*"` 是什么意思？**
+    
+    这是过滤器的拦截路径配置。`/*` 代表拦截该服务器下的**所有资源请求**（包括 Controller 接口、静态网页、图片等）。在后续的登录校验中，我们会利用它来实现全盘封锁。
+    
+2. **`filterChain.doFilter(request, response)` 的串联魅力**：
+    
+    在企业开发中，可能同时存在多个过滤器（如：过滤器 A 负责处理乱码，过滤器 B 负责校验 JWT）。
+    
+    当 A 调用 `doFilter` 时，请求会流向**下一个过滤器 B**；当过滤器链条里的最后一个过滤器调用 `doFilter` 时，请求才会最终落入目标 **Controller**。
