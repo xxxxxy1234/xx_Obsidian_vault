@@ -16205,7 +16205,7 @@ SpringBoot、SpringMVC 没有抛弃 Servlet 三大组件，只是做了高层封
 这是整个登录安全防火墙的核心代码实现。它的任务就是作为“保安”，拦下所有请求，精准识别哪些是合法用户，哪些是企图直接输入网址绕过登录的“翻窗者”。
 
 
-### 令牌校验的核心业务流程
+### Filter令牌校验的核心业务流程
 
 保安上岗后，不能把所有人一刀切通通拦住（比如要把登录页面和登录接口放过去，否则谁也别想登录了）。完整的拦截校验包含以下 5 个标准步骤：
 
@@ -16559,5 +16559,137 @@ public class WebConfig implements WebMvcConfigurer {
 
 ---
 ---
+
+
+## Interceptor——令牌校验
+
+
+
+### Interceptor令牌校验的核心流程
+
+==令牌校验的核心业务流程基本同Filter的令牌校验核心流程==
+
+当我们在 `WebConfig` 中配置了拦截路径 `/` 并排除了 `/login` 之后，所有需要校验的请求在进入真正的 `Controller` 之前，都会触发拦截器的 `preHandle` 方法。
+
+由于**放行和排除路径**已经交给了统一的 Web 配置类，拦截器内部的校验逻辑变得更加纯粹，只需 4 步即可：
+
+1. **获取请求头中的令牌**：直接通过参数中的 `request.getHeader("token")` 拿到前端传过来的 JWT。
+    
+2. **校验令牌是否存在**：若为空，说明未登录，直接拦截。
+    
+3. **解析并校验令牌**：利用 `JwtUtils.parseJWT(token)` 校验其是否合法或过期。
+    
+    - 解析成功：返回 `true`，**放行**请求。
+        
+    - 解析失败（抛出异常）：进入 `catch` 块，说明令牌失效，直接拦截。
+        
+4. **拦截处理响应**：拦截时，由于你的系统采用的是设置 401 状态码（`SC_UNAUTHORIZED`）的规范，我们需要在拦截器中手动设置 `response.setStatus(401)` 并返回 `false` 拒绝访问。
+    
+
+### 核心代码落地
+
+#### 步骤 1：重构拦截器逻辑 `LoginInterceptor.java`
+
+
+```Java
+package com.itheima.interceptor;
+
+import com.itheima.utils.JwtUtils;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+/**
+ * 登录校验拦截器
+ */
+@Slf4j
+@Component
+public class LoginInterceptor implements HandlerInterceptor {
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        
+        //0.这里和Filter不同，不需要进行强转，因为它的参数本身就是HttpServletRequest和HttpServletResponse
+        
+        // 1. 获取请求头中的令牌 (token)
+        String jwt = request.getHeader("token");
+
+        // 2. 判断令牌是否存在，如果不存在，返回未登录错误（拦截）
+        if (!StringUtils.hasLength(jwt)) {
+            log.info("拦截器提示：请求头 token 为空, 拦截请求！");
+            // 设置 HTTP 状态码为 401（未授权）
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false; // 核心：返回 false 代表拦截，请求终止在此处
+        }
+
+        // 3. 解析 token，如果解析失败（如过期、伪造），捕获异常并拦截
+        try {
+            JwtUtils.parseJWT(jwt);
+        } catch (Exception e) {
+            log.error("拦截器提示：解析令牌失败, 拦截请求! 错误原因: {}", e.getMessage());
+            // 同样设置 401 状态码
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return false; // 拦截
+        }
+
+        // 4. 令牌合法，放行
+        log.info("拦截器提示：令牌合法，放行通过！");
+        return true; // 核心：返回 true 代表放行，请求继续流向 Controller
+    }
+}
+```
+
+#### 步骤 2：配置与路径排除 `WebConfig.java`
+
+拦截器内部已经不再需要手写 `url.contains("/login")` 了，我们直接在配置类里通过 `excludePathPatterns` 轻松配置放行白名单。
+
+
+```Java
+package com.itheima.config;
+
+import com.itheima.interceptor.LoginInterceptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+/**
+ * Web MVC 配置类
+ */
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Autowired
+    private LoginInterceptor loginInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // 注册我们写好的登录拦截器
+        registry.addInterceptor(loginInterceptor)
+                .addPathPatterns("/**")             // 拦截所有资源请求
+                .excludePathPatterns("/login");    // 唯独排除登录接口，允许游客/登录表单匿名请求
+    }
+}
+```
+
+### 核心机制复盘
+
+1. **`return false` 之后程序会怎样？**
+    
+    在拦截器的 `preHandle` 方法中，一旦执行了 `return false`，Spring MVC 会立刻切断执行链。原本后续应该执行的 `Controller` 目标方法**连被调用的机会都没有**，服务器直接将当前的 `response` 状态码和内容刷回给浏览器。
+    
+2. **前后端约定的解耦**：
+    
+    你使用的 `response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)` 是极其符合企业级 **RESTful API 安全规范** 的做法。前端 Axios 的全局响应拦截器（Response Interceptor）只要统一监控 `status === 401`，就能立刻感知到 Token 失效，从而清理掉本地过期的 Token，并弹窗提示用户重新登录。
+
+---
+---
+
+
+
+## Interceptor——详解
 
 
