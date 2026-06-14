@@ -16414,3 +16414,150 @@ public class LoginCheckFilter implements Filter {
 ---
 
 
+## Interceptor——入门
+
+
+既然我们已经有了 Filter（过滤器），为什么还要学 Interceptor 呢？因为 Filter 是 Java Web 原生的组件，而 Interceptor 是 **Spring 框架自带的组件**。在 Spring Boot 项目中，拦截器的应用场景比过滤器更加广泛，且对 Spring 环境的融合度更高。
+
+![[Java Web笔记-142.png]]
+
+### 一、 Interceptor 的核心概念与工作原理
+
+#### 1. 什么是拦截器？
+
+拦截器是 Spring MVC 框架提供的一种动态拦截技术，类似于原生的 Filter。它主要用于拦截**控制层（Controller）的方法执行**，在通用业务（如登录校验、权限控制、日志记录、性能监控等）中进行统一处理。
+
+#### 2. 核心工作原理与执行位置
+
+拦截器与过滤器的执行时机和作用范围有着本质的区别：
+
+- **位置隔离**：Filter 挂在最外层（Tomcat 容器级别），而 Interceptor 挂在核心分发器 **`DispatcherServlet` 与 `Controller` 之间**（Spring 容器级别）。
+    
+- **执行流转**：
+    
+    1. 浏览器发送请求，首先通过所有合法的 **Filter**。
+        
+    2. 请求进入 Spring 的核心总管 **`DispatcherServlet`**。
+        
+    3. 在执行你写的 `Controller` 方法之前，请求会被 **Interceptor** 拦截。
+        
+    4. 拦截器判定放行，最终执行 `Controller` 方法。
+        
+
+### 二、 快速入门代码落地
+
+在 Spring Boot 中实现拦截器非常标准化，只需要完成经典的“双步走”：
+
+1. **定义拦截器**：实现 `HandlerInterceptor` 接口。
+    
+2. **注册拦截器**：实现 `WebMvcConfigurer` 接口并指定拦截规则。
+    
+
+#### 步骤 1：定义拦截器类
+
+创建一个类，实现 **`HandlerInterceptor`** 接口。根据业务需要，重写 `preHandle`（核心）方法。
+
+
+```Java
+package com.itheima.interceptor;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.ModelAndView;
+
+/**
+ * 自定义拦截器
+ */
+@Slf4j
+@Component // 交给 Spring 容器管理
+public class LoginInterceptor implements HandlerInterceptor {
+
+    /**
+     * 目标资源方法（Controller方法）执行前运行
+     * @return true: 放行，允许访问 Controller；false: 拦截，不运行后续逻辑
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        log.info("LoginInterceptor -> preHandle 执行了（放行前逻辑）...");
+        
+        // 暂且全部放行，后面会在这里写令牌校验逻辑
+        return true; 
+    }
+
+    /**
+     * 目标资源方法执行后运行（通常用于处理一些统一的资源清理，可选重写）
+     */
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        log.info("LoginInterceptor -> postHandle 执行了（目标方法执行后）...");
+    }
+
+    /**
+     * 视图渲染完毕后运行，最后执行（可选重写）
+     * 在早期前后端一体时代用到，现在基本不用
+     */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        log.info("LoginInterceptor -> afterCompletion 执行了（整个请求完成后）...");
+    }
+}
+```
+
+#### 步骤 2：配置与注册拦截器
+
+写好了拦截器，Spring 并不知道它要拦截谁。我们需要新建一个配置类，实现 **`WebMvcConfigurer`** 接口，并重写 `addInterceptors` 方法。
+
+
+```Java
+package com.itheima.config;
+
+import com.itheima.interceptor.LoginInterceptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+/**
+ * Web 配置类
+ */
+@Configuration // 声明当前类是一个配置类
+public class WebConfig implements WebMvcConfigurer {
+
+    // 注入我们刚才定义的拦截器对象
+    @Autowired
+    private LoginInterceptor loginInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // 注册自定义拦截器
+        registry.addInterceptor(loginInterceptor)
+                .addPathPatterns("/**")            // 核心：配置拦截路径（/** 代表拦截所有资源）
+                .excludePathPatterns("/login");   // 核心：配置放行路径（排除 /login 登录接口）
+    }
+}
+```
+
+### 核心机制复盘（技术优势对比）
+
+#### 1. 为什么说拦截器的“路径排除”比过滤器爽太多？
+
+回看步骤 2 的配置代码：
+
+- 在之前的 `LoginCheckFilter` 中，为了防止把 `/login` 接口给误拦截了，我们需要在代码里手动写 `url.contains("/login")` 的 `if` 判断并写死 `return`。
+    
+- 而 Interceptor 把“业务逻辑”和“配置逻辑”彻底解耦了。拦截器类里只需要专注写校验代码，拦截哪些、放行哪些（`addPathPatterns` / `excludePathPatterns`）全部在配置类里**链式调用**，极其优雅灵活。
+    
+
+#### 2. 拦截器直接拥有 `HttpServletRequest` 专属参数
+
+在自定义拦截器的 `preHandle` 方法参数中，可以看到入参天然就是 **`HttpServletRequest`** 和 **`HttpServletResponse`**。
+
+这意味着，你不需要像在原生的 `Filter` 中那样委屈地去手动强转类型了，直接就能调用 `request.getHeader("token")`，开发体验非常顺畅。
+
+---
+---
+
+
