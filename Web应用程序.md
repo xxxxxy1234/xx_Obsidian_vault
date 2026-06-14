@@ -4037,6 +4037,7 @@ Response.Cookies.Add(delCookie);
 | **Path** | 限制 Cookie 在哪个虚拟路径下有效。 |
 ### 4. Cookie 与 Session 的区别
 这是 Web 开发中最容易混淆的两个概念：
+
 | 特性 | Cookie | Session |
 |---|---|---|
 | **存储位置** | **客户端**（浏览器） | **服务器端**（内存/数据库） |
