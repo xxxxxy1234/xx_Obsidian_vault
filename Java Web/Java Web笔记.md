@@ -16695,3 +16695,148 @@ public class WebConfig implements WebMvcConfigurer {
 ## Interceptor——详解
 
 
+### 一、 拦截路径配置详解
+
+![[Java Web笔记-143.png]]
+
+在注册拦截器时，我们可以通过 `addPathPatterns`（配置拦截）和 `excludePathPatterns`（配置放行）来控制保安的拦截范围。Spring 提供了强大的 **Ant 风格路径匹配** 规则。
+
+常用的匹配通配符如下：
+
+|**通配符示例**|**含义说明**|**拦截范围举例**|
+|---|---|---|
+|`/depts/*`|**单层通配符**：代表只能匹配 `/depts` 后面的**一级**任意路径。|可以拦截：`/depts/1`、`/depts/list`<br><br>  <br><br>❌ **无法**拦截：`/depts/1/emp`（多了一层）|
+|`/depts/**`|**多层通配符**：代表可以匹配 `/depts` 后面的**任意级**路径。|可以拦截：`/depts/1`、`/depts/1/emp`、`/depts/a/b/c`|
+|`/*`|拦截系统根路径下的**一级**所有资源。|可以拦截：`/login`、`/emps`<br><br>  <br><br>❌ **无法**拦截：`/employee/list`|
+|`/**`|拦截整个项目下的**所有**资源请求。|可以全盘封锁拦截，常作为拦截器的初始策略。|
+
+
+### 二、执行流程详解
+
+![[Java Web笔记-144.png|697]]
+
+当我们在项目中注册了多个拦截器（假设为拦截器 1 和拦截器 2）时，它们的内部方法执行顺序是一个经典的“镜像对称”过程：
+
+#### 1. 正常放行时的完美闭环
+
+如果所有拦截器都返回 `true`（放行），整个请求的生命周期轨迹如下：
+
+- **`preHandle`（前置拦截）**：按照**注册的先后顺序**，正序执行。
+    
+    - 拦截器 1 的 `preHandle` $\rightarrow$ 拦截器 2 的 `preHandle`。
+        
+- **目标资源执行**：顺利进入并执行 **`Controller`** 的业务方法。
+    
+- **`postHandle`（后置处理）**：按照**注册的倒序**，反向执行。
+    
+    - 拦截器 2 的 `postHandle` $\rightarrow$ 拦截器 1 的 `postHandle`。
+        
+- **视图渲染与响应**：Spring 完成页面或 JSON 数据的渲染。
+    
+- **`afterCompletion`（完成清理）**：按照**注册的倒序**，反向执行。
+    
+    - 拦截器 2 的 `afterCompletion` $\rightarrow$ 拦截器 1 的 `afterCompletion`。
+        
+
+> **💡 记忆口诀**：`preHandle` 先进先出，`postHandle` 和 `afterCompletion` 后进先出（类似于一个栈的结构）。
+
+#### 2. 意外拦截时的断流规则
+
+如果其中某一个拦截器掉了链子，返回了 `false`，程序会怎么走？这是面试里经常用来考底层的细节。
+
+##### 规则 1：一旦某个拦截器 `preHandle` 返回 `false`，后续的 Controller 绝不执行
+
+比如，拦截器 1 放行了（返回 `true`），但请求走到**拦截器 2** 的 `preHandle` 时被判定未登录（返回 `false`）。
+
+- 此时，**目标 Controller 方法直接被熔断**，根本不会执行！
+    
+- 所有拦截器的 `postHandle` 方法**通通不会执行**！
+    
+
+##### 规则 2：`afterCompletion` 的倒序补偿机制
+
+这是最容易被忽略的细节：**到底谁的 `afterCompletion` 会被触发？**
+
+- **结论**：只有**前面那些已经放行了的（返回 `true` 的）拦截器**，它们的 `afterCompletion` 才会触发。
+    
+- _原因_：`afterCompletion` 主要用来清理资源（比如释放线程本地变量 ThreadLocal、关闭流等）。既然拦截器 1 曾经放行过，可能初始化了某些资源，所以即便拦截器 2 拦截了，系统依然会反向调用**拦截器 1 的 `afterCompletion`** 来确保安全清理；而拦截器 2 自身和之后的拦截器，则什么都不会触发。
+    
+
+#### 3. 决定多个拦截器顺序的“幕后推手”
+
+既然顺序这么重要，在 Spring Boot 中到底是谁在控制谁先谁后？
+
+在你的 `WebConfig` 配置类中，顺序是由 **代码的编写 / 注册顺序** 决定的：
+
+```Java
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Autowired
+    private LogInterceptor logInterceptor; // 日志拦截器
+    @Autowired
+    private LoginInterceptor loginInterceptor; // 登录拦截器
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // 第一步注册：日志拦截器排在最前面
+        registry.addInterceptor(logInterceptor).addPathPatterns("/**");
+        
+        // 第二步注册：登录拦截器排在第二位
+        registry.addInterceptor(loginInterceptor).addPathPatterns("/**").excludePathPatterns("/login");
+    }
+}
+```
+
+> **🛠️ 工程规范建议**：
+> 
+> 在上面这个配置里，`LogInterceptor` 的 `preHandle` 会首先执行，这样它就能完美记录下所有请求的入参。如果想更稳妥地人为指定顺序，也可以在后面追加 **`.order(整数)`** 方法，**数字越小的拦截器，权重越高，越优先拦截**。
+
+
+
+---
+---
+
+## Filter 与 Interceptor 的终极对比
+
+这是 Java Web 面试中几乎必问的灵魂拷问：“过滤器和拦截器有什么区别？”我们可以从 **接口定义、底层生态、拦截范围** 三个维度进行深度对比：
+
+### 1. 核心属性对比总览
+
+|**对比维度**|**Filter（过滤器）**|**Interceptor（拦截器）**|
+|---|---|---|
+|**1. 语法与定义**|实现 Java Web 原生的 `jakarta.servlet.Filter` 接口。|实现 Spring 框架特有的 `HandlerInterceptor` 接口。|
+|**2. 组件生态**|属于 **Tomcat / Servlet 容器** 的组件。由 Web 服务器接管。|属于 **Spring 框架 / Spring MVC** 的组件。由 Spring 容器接管。|
+|**3. 拦截范围**|**范围最广（`/*`）**：能拦截所有资源，包括 Controller 接口、静态资源（HTML、CSS、JS、图片）。|**范围精准**：只拦截进出 **Spring Controller 的请求**。默认不拦截静态资源。|
+
+### 2. 底层运行流程的本质区别
+
+当一个 HTTP 请求发送到后端时，它们的执行链条是：
+
+> **浏览器请求** $\rightarrow$ **Filter（过滤器）** $\rightarrow$ **`DispatcherServlet`（Spring核心分发器）** $\rightarrow$ **Interceptor（拦截器）** $\rightarrow$ **Controller（业务方法）**
+
+1. **Filter 先于 Interceptor 执行**：因为 Filter 挂在最外层大门口（Tomcat 容器中）。只有当 Filter 放行后，请求才有可能触碰到 Spring 的地界。
+    
+2. **Interceptor 能够感知 Controller 信息**：
+    
+    - 在 Filter 中，它的核心方法形参是 `ServletRequest`。Filter 只知道有请求进来了，但它**根本不知道这个请求后续要去哪个 Controller，也不知道去调用哪个业务方法**。
+        
+    - 在 Interceptor 的 `preHandle(..., Object handler)` 方法中，最后一个参数是 `Object handler`。这个参数大有来头，它就是**目标 Controller 的方法包装对象（`HandlerMethod`）**。拦截器不仅能知道请求要去哪，还能通过反射直接获取目标方法上的注解、参数等，这使得拦截器的业务扩展性远超过滤器。
+        
+
+### 企业级落地选型建议
+
+在实际的 Spring Boot 企业项目开发中，我们应该如何选择它们？
+
+- **使用 Filter 的场景**：适合做与具体业务、与 Spring MVC 架构无关的**最外层全局底座**。
+    
+    - _例如_：统一字符集编码（防止乱码）、防 XSS 注入过滤器、全局日志打点。
+        
+- **使用 Interceptor 的场景**：适合做**深度绑定业务**的高级切面控制。
+    
+    - _例如_：由于拦截器天然处于 Spring 容器中，它可以**自由地自动注入（`@Autowired`）其他的 Service 或 RedisTemplate**。我们在做 **JWT 令牌校验、细粒度权限控制（检查用户是否有删除按钮的权限）、限流降级** 时，拦截器是绝对的首选。
+
+---
+---
+
+
