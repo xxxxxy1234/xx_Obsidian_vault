@@ -3367,7 +3367,7 @@ foreach (HttpPostedFile file in fileUploadCustom.PostedFiles)
 ### 2. 辅助与显示控件
 #### ValidationSummary (验证汇总)
 不在控件旁显示错误，而是将页面上所有的错误信息收集起来，在指定位置统一以列表或摘要形式展示。
- * **核心属性**：ShowMessageBox（是否弹出警告框）、ShowSummary（是否在页面显示）。
+ ### * **核心属性**：ShowMessageBox（是否弹出警告框）、ShowSummary（是否在页面显示）。
 ### 3. 实战代码示例
 以下是一个典型的注册表单验证场景：
 **前端代码 (.aspx)**
