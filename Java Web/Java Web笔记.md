@@ -16612,7 +16612,9 @@ public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         
-        //0.这里和Filter不同，不需要进行强转，因为它的参数本身就是HttpServletRequest和HttpServletResponse
+        //和Filter不同，不需要类型进行强转，因为它的参数本身就是HttpServletRequest和HttpServletResponse
+        
+        //此外，不用获取请求路径和判断是否为登录请求，因为WebConfig中有相关放行配置
         
         // 1. 获取请求头中的令牌 (token)
         String jwt = request.getHeader("token");
