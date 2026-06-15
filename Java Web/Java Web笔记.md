@@ -16840,3 +16840,127 @@ public class WebConfig implements WebMvcConfigurer {
 ---
 
 
+# SpringAOP
+
+## 基础——入门程序
+
+![[Java Web笔记-146.png]]
+
+
+![[Java Web笔记-145.png]]
+
+
+### 一、 为什么要用 AOP？（解决核心业务与非核心业务交织的痛点）
+
+在第一张和第二张图中，课程提出了一个极其真实的工程场景：**统计业务方法的执行耗时**。
+
+- **传统做法的崩溃点**：如果我们想知道 `DeptServiceImpl` 和 `EmpServiceImpl` 里每个方法的执行效率，最原始的办法是在每个方法的第一行记录开始时间，在最后一行记录结束时间，然后相减。
+    
+- **致命缺陷**：
+    
+    1. **代码臃肿与重复**：每个业务方法都要被迫写一堆与业务无关的计算时间代码。
+        
+    2. **极难维护**：如果以后不需要统计耗时了，或者想改成记录到数据库日志里，程序员需要崩溃地去修改成百上千个业务类。
+        
+
+> **💡 AOP 的破局之道**：
+> 
+> 面向切面编程（Aspect Oriented Programming），其本质就是**在不修改原有业务方法源码的前提下，通过动态代理技术，横向把那些跟业务无关、却被多个模块共同调用的公共行为（如：记录日志、统计耗时、事务控制、权限校验）抽取出来，进行集中管理和增强。**
+
+### 二、 AOP 快速入门代码落地（统计方法耗时）
+
+要玩转 Spring AOP，我们只需要简单的三个步骤：**引入依赖 $\rightarrow$ 编写切面类 $\rightarrow$ 配置切入点。**
+
+![[Java Web笔记-147.png]]
+
+
+#### 步骤 1：引入 Maven 依赖
+
+在你的 `pom.xml` 中引入 Spring Boot 官方提供的 AOP 起步依赖：
+
+
+```XML
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-aop</artifactId>
+</dependency>
+```
+
+#### 步骤 2：编写切面类 `TimeAspect.java`
+
+创建一个类，让它变成一个专门管闲事的“时间统计切面”。通过简单的注解，就能让它自动套在所有的 Service 方法上。
+
+```Java
+package com.itheima.aspect;
+
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.stereotype.Component;
+
+@Slf4j
+@Component // 1. 交给 Spring 容器管理
+@Aspect    // 2. 声明当前类是一个 AOP 切面类
+public class TimeAspect {
+
+    /**
+     * 环绕通知：包裹住目标业务方法执行
+     * @Around 里的表达式意思是：当前切面要拦截【com.itheima.service 包及所有子包下的所有类的所有方法】
+     */
+    @Around("execution(* com.itheima.service.*.*(..))")
+    public Object recordTime(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 1. 记录方法执行开始时间
+        long begin = System.currentTimeMillis();
+
+        // 2. 核心：调用并执行原始的业务方法
+        // result 就是被拦截的 Service 方法执行完后的真实返回值
+        Object result = joinPoint.proceed();
+
+        // 3. 记录方法执行结束时间，计算并打印耗时
+        long end = System.currentTimeMillis();
+        
+        // joinPoint.getSignature() 可以非常方便地拿到当前执行的方法名称
+        log.info("AOP 提示：{} 方法执行耗时: {} ms", joinPoint.getSignature(), (end - begin));
+
+        // 4. 将原始方法的返回值原封不动地返回，确保业务正常流转
+        return result;
+    }
+}
+```
+
+### 三、 AOP 核心概念大白话复盘
+
+看着上面这段入门代码，我们必须攻克 AOP 中最绕口的三个核心名词（后面你会反复遇到）：
+
+1. **`JoinPoint`（连接点）**：
+    
+    可以被 AOP 拦截并侵入增强的**所有位置**。在 Spring 中，所有的 Service 方法在理论上都是连接点。
+    
+2. **`Pointcut`（切入点）**：
+    
+    通过表达式精准挑选出来的**目标位置**。比如你写的 `execution(* com.itheima.service.*.*(..))`，这就相当于告诉 Spring：“只有 service 包下的方法我才去统计时间，其他 Controller 里的方法不要管”。
+    
+3. **`Advice`（通知）**：
+    
+    抽离出来的**公共重复代码（也就是增强的业务逻辑）**。比如我们写的“记录开始时间、计算差值”这一段逻辑。你用的 `@Around` 就是其中最强大的“环绕通知”。
+    
+4. **`Aspect`（切面）**：
+    
+    **切入点 + 通知 = 切面**。它是一个大概念（用 `@Aspect` 注解修饰的类），它描述了：**“在什么地方（Pointcut）做什么样增强（Advice）”** 的完整逻辑。
+    
+
+### 四、核心底层思考：它是怎么做到不改源码就能执行的？
+
+当你运行项目，调用一个查询部门的方法时，Spring 底层并没有去改写你原生的 `DeptServiceImpl.class` 字节码。
+
+Spring 采用了 **动态代理机制**：
+
+当系统启动时，Spring 发现 `DeptServiceImpl` 匹配上了你的 AOP 切入点表达式。Spring 就会在内存中偷偷为这个 Service 生产一个“代理对象（Proxy）”。
+
+后续其他组件注入调用这个 Service 时，拿到的其实是这个代理对象。代理对象内部会先跑你的 `recordTime` 前半段，再回头调用真实的业务方法，最后跑 `recordTime` 的后半段，神不知鬼不觉地完成了无感增强！
+
+
+---
+---
+
