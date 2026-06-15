@@ -436,8 +436,6 @@ document.getElementById("myBtn").onclick = function() {
 
 简单来说，选择器就是一具“瞄准镜”。你在 `<style>` 里写了一堆漂亮的皮肤（样式），但浏览器怎么知道这些皮肤该套在哪个 HTML 标签上呢？就得靠选择器去**精准定位**。
 
-图片中黑马程序员列出了 6 种选择器，作为 Java 后端开发者，我帮你梳理一下哪些是**高频必会**，哪些是**未来跟后端交互息息相关**的。
-
 
 ### 1. 元素选择器（标签选择器）
 
@@ -481,6 +479,129 @@ document.getElementById("myBtn").onclick = function() {
     
 - **效果：** 选中祖先元素里面的后代元素。图里的例子意思是：只选中 `<form>` 标签内部的 `<input>` 标签，外面单独存在的 `<input>` 不受影响。
     
+
+
+### 补充：伪类选择器
+
+伪类选择器用于**匹配元素的某种状态、位置关系、交互行为**，语法：`选择器:伪类 {样式}`
+
+#### 基础语法
+
+```css
+标签/类/id:伪类 {
+  属性: 值;
+}
+```
+
+
+#### 1. 链接交互伪类（a 标签经典）
+
+顺序必须遵守 **LVHA**：`link → visited → hover → active`
+
+1. `:link`：未访问过的链接
+2. `:visited`：已点击访问过的链接
+3. `:hover`：鼠标悬浮在元素上（所有元素都能用，不止 a）
+4. `:active`：鼠标按下未松开瞬间
+
+
+```css
+a:link { color: blue; }
+a:visited { color: purple; }
+a:hover { color: red; }
+a:active { color: orange; }
+```
+
+#### 2. 表单状态伪类
+
+1. `:focus`：输入框被光标选中聚焦
+2. `:checked`：单选 / 复选框被勾选
+3. `:disabled`：表单禁用状态
+4. `:enabled`：表单可用状态
+5. `:required`：设置了 required 必填属性
+
+```css
+input:focus { border: 2px solid #007bff; }
+input:checked { accent-color: green; }
+input:disabled { background: #eee; }
+```
+
+#### 3. 子元素位置伪类
+
+1. `:first-child`：父级里**第一个子元素**
+2. `:last-child`：父级里**最后一个子元素**
+3. `:nth-child(n)`：第 n 个子元素
+    
+    - `2n / even` 偶数行
+    - `2n+1 / odd` 奇数行
+    
+4. `:nth-last-child(n)`：倒数第 n 个子元素
+5. `:only-child`：父级唯一子元素
+
+
+```css
+li:first-child { font-weight: bold; }
+li:nth-child(2n) { background: #f5f5f5; }
+```
+
+#### 4. 同类型位置伪类（type）
+
+只匹配**相同标签**的排序
+
+1. `:first-of-type`：同种标签第一个
+2. `:last-of-type`：同种标签最后一个
+3. `:nth-of-type(n)`：同种标签第 n 个
+
+区别：`child`看所有子元素；`of-type`只看同标签
+
+```html
+<div>
+  <p>1</p>
+  <span>隔开</span>
+  <p>2</p>
+</div>
+```
+
+
+```css
+p:first-of-type { color: red; } /* 第一个p生效 */
+p:first-child { 不生效，第一个是p吗？这里第一个就是p，换例子更明显 */
+```
+
+#### 5. 否定匹配
+
+`:not(选择器)`：排除匹配括号内的元素
+
+```css
+div:not(.box) { margin: 10px; } /* 所有div，除了class=box */
+li:not(:last-child) { border-bottom: 1px solid #ccc; }
+```
+
+#### 6. 其他实用伪类
+
+- `:root`：根元素 `<html>`，优先级高于 html 选择器，常放全局变量
+    
+    ```css
+    :root { --main-color: #1890ff; }
+    ```
+    
+- `:empty`：内容为空的标签（里面无文字无子节点）
+- `:target`：锚点跳转后的目标元素（#id 跳转）
+
+#### 伪类 vs 伪元素
+
+1. 伪类：`:` 修饰**状态 / 位置**，不生成新 DOM
+2. 伪元素：`::`（标准）生成虚拟元素（before/after/first-line 等）
+
+#### 组合写法示例
+
+```css
+/* 鼠标悬浮且是第一个li */
+li:first-child:hover { background: #e8f4ff; }
+/* 可用的输入框聚焦 */
+input:enabled:focus { box-shadow: 0 0 4px skyblue; }
+```
+
+
 
 ### 实战演练：完整结合代码
 
