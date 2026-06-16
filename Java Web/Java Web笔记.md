@@ -17348,3 +17348,137 @@ public class LogAspect {
 ---
 
 
+## 进阶——切入点表达式
+
+
+在前面的学习中，我们编写 AOP 时只会照猫画虎地写一串 `execution(* com.itheima.service.*.*(..))`。而这部分内容就是教你如何像使用“正则表达式”一样，精细、灵活地控制哪些方法该被拦截，哪些不该被拦截。
+
+
+### 一、 方式一：`execution` 表达式（最基础、最常用）
+
+`execution` 主要根据方法的签名（返回值、包名、类名、方法名、参数）来进行细粒度的通配符匹配。
+
+#### 1. 标准语法结构
+
+```Plaintext
+execution(访问修饰符? 返回值类型 包名.类名.?方法名(参数说明) throws 异常?)
+```
+
+- **⚠️ 注意**：带 `?` 的部分（访问修饰符、类名、异常）代表**可选**，可以省略。
+    
+- **核心必填项**：`返回值类型`、`包名.方法名(参数)`。
+    
+
+#### 2. 核心通配符规则
+
+- **`*`（单个独立任意）**：代表**任意一个**元素（返回值、一层包名、一个类名、一个方法名）。
+    
+- **`..`（多个连续任意）**：
+    
+    - 在**包名**中使用：代表当前包以及它的**所有子包**。
+        
+    - 在**参数**中使用：代表**任意个、任意类型**的参数。
+        
+
+#### 3. 典型实战范例
+
+|**表达式写法**|**含义拆解**|**拦截范围举例**|
+|---|---|---|
+|`execution(* com.itheima.service.DeptService.*(..))`|匹配 `DeptService` 接口/类下的**任意方法**，参数不限，返回值不限。|拦截：`DeptService` 的 `list()`、`delete(Integer id)`|
+|`execution(* com.itheima.service.*.*(..))`|匹配 `com.itheima.service` 包下**任意类**的**任意方法**。|**最常见**。拦截该包下所有 Service 的所有方法。|
+|`execution(* com.itheima.service..*.*(..))`|**多了一点**：匹配 `service` 包**及其所有子包**下的任意类的任意方法。|拦截：`service.impl.DeptServiceImpl` 下的方法。|
+|`execution(void com.itheima.service.DeptService.delete(Integer))`|**极度精准**：修饰符、返回值必须是 `void`，方法名必须是 `delete`，参数必须是**单个 Integer**。|极为局限，只拦截指定的物理方法。|
+
+#### 🚨 `execution` 的企业级书写规范建议
+
+- **规范 1：切入点表达式应基于接口，而不是实现类**。如尽量写 `DeptService` 而不是 `DeptServiceImpl`，这样有利于面向接口代理的解耦。
+    
+- **规范 2：尽量精准，避免全盘封锁**。绝对不要为了图省事写成 `execution(* *.*(..))`，这会导致 Spring 试图去代理项目里包括第三方 jar 包在内的所有方法，引发严重的内存暴涨和性能雪崩。
+    
+
+### 二、 方式二：`@annotation` 表达式（更优雅、深度解耦）
+
+虽然 `execution` 功能很强大，但是在企业复杂业务中，它有一个致命痛点：**如果我要拦截的方法散落在不同的类、不同的包下，而且命名还没有规律，`execution` 表达式就会写得极其臃肿复杂（需要用 `||` 或 `&&` 不断拼接）**。
+
+为了解决这个问题，引出了王牌方案——**基于注解的切入点表达式**。
+
+**`@Annotation` 既不属于 SpringBoot，也不属于 MyBatis，它是 JDK 原生注解**，来自 Java 基础包。全类名：java.lang.annotation.Annotation
+
+#### 1. 核心思想
+
+不按照“死板的包名方法名”去匹配，而是采取“贴标签”的策略：**谁的方法上贴了我的自定义注解，我的 AOP 就去拦截谁。**
+
+#### 2. 完整落地三步走
+
+##### 第一步：自定义一个标记注解 `MyLog.java`
+
+
+```Java
+package com.itheima.anno;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Target(ElementType.METHOD)          // 声明这个注解只能贴在【方法】上
+@Retention(RetentionPolicy.RUNTIME)  // 声明该注解在运行时有效（AOP才能感知到）
+public @interface MyLog {
+    // 可以在这里定义一些属性，比如 String value() default "";
+}
+```
+
+##### 第二步：在需要被增强的业务方法上“贴标签”
+
+
+```Java
+@Service
+public class DeptServiceImpl implements DeptService {
+
+    @MyLog // 核心：贴上这个注解，代表这个方法需要记录日志
+    @Override
+    public List<Dept> list() {
+        // 执行业务...
+    }
+
+    @Override
+    public void delete(Integer id) {
+        // 这个方法没贴注解，AOP 将【不会】拦截它
+    }
+}
+```
+
+##### 第三步：在切面类中，使用 `@annotation` 表达式锁定这个标签
+
+
+```Java
+@Component
+@Aspect
+@Slf4j
+public class MyAspect6 {
+
+    // 关键语法：@annotation(自定义注解的全限定类名)
+    @Pointcut("@annotation(com.itheima.anno.MyLog)")
+    private void pt(){}
+
+    @Before("pt()")
+    public void before(){
+        log.info("AOP 提示：检测到 @MyLog 注解，前置通知开始执行...");
+    }
+}
+```
+
+### 终极选型指南：我该用哪一个？
+
+|**特征维度**|**execution 表达式**|**@annotation 表达式**|
+|---|---|---|
+|**匹配依据**|靠包名、类名、方法签名（有物理规律）。|靠方法上是否有指定的特殊注解（有业务逻辑含义）。|
+|**优势**|适合做**批量、大面积的整包通配**（如：对所有 Service 统一加耗时统计或全局事务控制）。|适合做**细粒度、跨模块的精准控制**（如：特定接口的防刷限流、特定操作的审计日志）。|
+|**耦合度**|低。业务代码无需做任何修改，切面单方面进行捕获。|中。业务方法需要手动显式地加上 `@MyLog` 注解。|
+
+在企业实际开发中，**两者往往相辅相成**。全局底座（如监控、事务）用 `execution` 一网打尽；个性化业务功能（如权限按钮、操作日志、Redis缓存刷新）用 `@annotation` 精准打击。
+
+
+---
+---
+
