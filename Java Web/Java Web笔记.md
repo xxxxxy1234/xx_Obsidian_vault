@@ -17758,3 +17758,433 @@ public class MyAspect8 {
 ---
 
 
+## 案例——记录操作日志
+
+![[Java Web笔记-150.png]]
+
+这个案例将你之前学到的**自定义注解（`@annotation` 表达式）**、**连接点（`JoinPoint` 获取方法信息）** 以及**JWT 令牌解析**完美串联在了一起。它的核心目标是：当用户执行“增、删、改”等敏感业务时，系统自动异步将“谁在什么时间、对什么接口、传了什么参数、耗时多久”的信息持久化到数据库中。
+
+
+### 一、 核心业务流转设计
+
+要在不修改任何原有业务代码的前提下，精准抓取操作日志，整个切面需要做以下几件事：
+
+1. **谁操作的**：通过解剖 HTTP 请求头里的 `token`，利用 `JwtUtils.parseJWT()` 解密出当前登录员工的 `id`。
+    
+2. **调了哪个接口**：利用 `joinPoint.getTarget().getClass().getName()` 抓取类名，`joinPoint.getSignature().getName()` 抓取方法名。
+    
+3. **传了什么参数**：利用 `joinPoint.getArgs()` 拿到参数数组，再用 FastJSON 统一转为 JSON 字符串。
+    
+4. **返回值和耗时**：环绕通知包裹目标方法，前后时间相减算耗时，并顺手截获 `proceed()` 的返回值。
+    
+5. **持久化**：将这些信息打包成 `OperateLog` 实体对象，直接调用 Mapper 写入 MySQL 数据库。
+    
+
+### 二、 终极案例代码四步落地
+
+#### 步骤 1：引入数据库表与实体类 `OperateLog.java`
+
+首先，确保你的数据库中有一张 `operate_log` 表，并在项目中建立对应的 Pojo 实体类：
+
+```sql
+create table operate_log(
+    id int unsigned primary key auto_increment comment 'ID',
+    operate_emp_id int unsigned comment '操作人ID',
+    operate_time datetime comment '操作时间',
+    class_name varchar(100) comment '操作的类名',
+    method_name varchar(100) comment '操作的方法名',
+    method_params varchar(2000) comment '方法参数',
+    return_value varchar(2000) comment '返回值',
+    cost_time bigint unsigned comment '方法执行耗时, 单位:ms'
+) comment '操作日志表';
+```
+
+```Java
+package com.itheima.pojo;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.No6ArgsConstructor;
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class OperateLog {
+    private Integer id;           // 主键ID
+    private Integer operateUser;  // 操作人ID
+    private LocalDateTime operateTime; // 操作时间
+    private String className;     // 操作类名
+    private String methodName;    // 操作方法名
+    private String methodParams;  // 操作方法参数
+    private String returnValue;   // 操作方法返回值
+    private Long costTime;        // 操作耗时（毫秒）
+}
+```
+
+#### 步骤 2：编写数据持久化层 `OperateLogMapper.java`
+
+创建一个持久化 Mapper，负责把日志对象插入数据库：
+
+```Java
+package com.itheima.mapper;
+
+import com.itheima.pojo.OperateLog;
+import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface OperateLogMapper {
+
+    @Insert("insert into operate_log(operate_user, operate_time, class_name, method_name, method_params, return_value, cost_time) " +
+            "values(#{operateUser}, #{operateTime}, #{className}, #{methodName}, #{methodParams}, #{returnValue}, #{costTime})")
+    public void insert(OperateLog log);
+}
+```
+
+#### 步骤 3：自定义标记注解 `Log.java`
+
+我们采用最优雅的 **`@annotation` 表达式** 方案。只在需要记录审计日志的增删改方法上贴标签。
+
+```Java
+package com.itheima.anno;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+/**
+ * 自定义操作日志注解
+ */
+@Target(ElementType.METHOD) // 作用在方法上
+@Retention(RetentionPolicy.RUNTIME) // 运行时有效
+public @interface Log {
+}
+```
+
+#### 步骤 4：核心切面类实现 `LogAspect.java`
+
+这里需要注入 `HttpServletRequest`。别担心，Spring 非常智能，在任何被其管理的组件里，你都可以直接通过 `@Autowired` 注入当前线程的请求对象，从而无缝拿取请求头中的 JWT 令牌。
+
+```Java
+package com.itheima.aspect;
+
+import com.alibaba.fastjson.JSONObject;
+import com.itheima.mapper.OperateLogMapper;
+import com.itheima.pojo.OperateLog;
+import com.itheima.utils.JwtUtils;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.Arrays;
+
+@Slf4j
+@Component
+@Aspect
+public class LogAspect {
+
+    @Autowired
+    private HttpServletRequest request; // 核心：注入当前请求的 request 对象
+
+    @Autowired
+    private OperateLogMapper operateLogMapper; // 注入持久化 Mapper
+
+    // 拦截所有贴了 @Log 注解的方法
+    @Around("@annotation(com.itheima.anno.Log)")
+    public Object recordLog(ProceedingJoinPoint joinPoint) throws Throwable {
+        
+        // 1. 获取操作人 ID（通过请求头中的 JWT 令牌解析）
+        String jwt = request.getHeader("token");
+        Claims claims = JwtUtils.parseJWT(jwt);
+        Integer operateUser = (Integer) claims.get("id"); // 之前登录时存入的员工 id
+
+        // 2. 获取操作时间
+        LocalDateTime operateTime = LocalDateTime.now();
+
+        // 3. 获取操作类名与方法名
+        String className = joinPoint.getTarget().getClass().getName();
+        String methodName = joinPoint.getSignature().getName();
+
+        // 4. 获取方法入参（转换为 JSON 字符串存入）
+        Object[] args = joinPoint.getArgs();
+        String methodParams = JSONObject.toJSONString(args);
+
+        // 5. 记录开始时间并执行原始方法
+        long begin = System.currentTimeMillis();
+        Object result = joinPoint.proceed(); // 驱动原始业务方法执行
+        long end = System.currentTimeMillis();
+
+        // 6. 获取操作方法的返回值（转换为 JSON 字符串存入）
+        String returnValue = JSONObject.toJSONString(result);
+
+        // 7. 计算操作耗时
+        Long costTime = end - begin;
+
+        // 8. 组装并打包日志 Pojo 对象
+        OperateLog operateLog = new OperateLog(null, operateUser, operateTime, className, methodName, methodParams, returnValue, costTime);
+
+        // 9. 调用 Mapper 异步/同步写入数据库
+        operateLogMapper.insert(operateLog);
+        log.info("AOP 全局审计提示：成功持久化一条操作日志到数据库，操作人ID: {}, 拦截方法: {}", operateUser, methodName);
+
+        // 10. 务必原封不动返回原始业务结果
+        return result;
+    }
+}
+```
+
+### 课后复盘
+
+当你把这个切面写好之后，如果想让它生效，你只需要去之前的 `DeptController` 或者是 `EmpController` 的 `delete`、`update`、`save` 方法上面，轻轻贴上一个 **`@Log`** 注解。
+
+系统运行后，你会神奇地发现，业务照常跑，而数据库的 `operate_log` 表里源源不断地生成了格式规整的完美日志。这就展现出了 AOP 横向抽离的极致优雅。
+
+
+---
+---
+
+
+## 案例——获取当前登录员工（ThreadLocal）
+
+
+
+在上一节的代码中，为了在切面里拿到员工 ID，我们通过 `@Autowired` 注入了 `HttpServletRequest`，然后每次都得解析一遍 JWT 令牌。
+
+虽然能跑通，但它存在严重的**局限性**：
+
+1. **重复解析**：拦截器/过滤器明明已经解析过一次 Token 了，后面的 AOP 或 Service 还要再去解析一遍，浪费性能。
+    
+2. **跨层困难**：如果普通的 `Service` 层或 `Mapper` 层也想知道当前操作人是谁，难道还要把 `request` 对象一层层当作参数传下去吗？这会导致代码极其恶心。
+    
+
+为了解决这个痛点，可以引入了并发编程里的神器——**ThreadLocal**。
+
+### 一、 什么是 ThreadLocal？它的工作原理是什么？
+
+`ThreadLocal` 叫做**线程局部变量**。
+![[Java Web笔记-151.png]]
+#### 1. 核心特征
+
+- 它为每个声明它的线程都提供了一个**独属于自己的、独立的变量副本**。
+    
+- **隔离性**：线程 A 存进 `ThreadLocal` 的数据，线程 B 绝对看不见，反之亦然。多个线程之间互不干扰。
+    
+- **贯穿全栈**：在同一个线程的生命周期内，无论这个线程游走到哪个类（Filter $\rightarrow$ Interceptor $\rightarrow$ Controller $\rightarrow$ Service $\rightarrow$ AOP $\rightarrow$ Mapper），都可以**随时随地、直接无参地**把这个数据取出来。
+    
+
+#### 2. 为什么它能完美契合 Web 开发？
+
+因为无论是 Tomcat 还是 Spring Boot，其底层处理请求时采用的都是“一个请求，一个线程（Thread-per-request）”的模式。
+
+当浏览器发送一个请求过来时，Tomcat 会从线程池里分配一个固定的独立线程来全程伺候这个请求。
+
+因此，我们只需要在请求刚进门时（拦截器里），把解析出来的员工 ID 丢进 `ThreadLocal`，那么在这个请求结束之前的所有后台代码里，都能一键获取这个 ID！
+
+### 二、 ThreadLocal 三步走代码落地
+
+![[Java Web笔记-152.png]]
+#### 步骤 1：编写线程上下文工具类 `BaseContext.java`
+
+我们通常会用一个工具类将 `ThreadLocal` 封装起来，对外提供统一的静态 `set`、`get`、`remove` 方法。
+
+
+```Java
+package com.itheima.context;
+
+/**
+ * 基于 ThreadLocal 封装的工具类，用于保存和获取当前登录用户的 ID
+ */
+public class BaseContext {
+
+    // 1. 初始化一个专用于存储 Integer（员工ID）的 ThreadLocal 容器
+    private static ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
+
+    /**
+     * 存入当前登录员工的 ID
+     */
+    public static void setCurrentId(Integer id) {
+        threadLocal.set(id);
+    }
+
+    /**
+     * 获取当前登录员工的 ID
+     */
+    public static Integer getCurrentId() {
+        return threadLocal.get();
+    }
+
+    /**
+     * 移除当前线程对应的变量（防止内存泄漏，非常关键）
+     */
+    public static void removeCurrentId() {
+        threadLocal.remove();
+    }
+}
+```
+
+#### 步骤 2：在过滤器/拦截器中解析并存入数据 
+
+##### 核心过滤器 `LoginCheckFilter.java`
+
+在过滤器中，我们要利用 `try-finally` 块。**“放行前”解析 Token 并塞入 ThreadLocal；“放行后”不论成功与否，必须在 `finally` 块中将其清理掉**。
+
+
+```Java
+package com.itheima.filter;
+
+import com.itheima.context.BaseContext;
+import com.itheima.utils.JwtUtils;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebFilter;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import java.io.IOException;
+
+@Slf4j
+@WebFilter(urlPatterns = "/*") // 拦截所有请求
+public class LoginCheckFilter implements Filter {
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) 
+            throws IOException, ServletException {
+        
+        HttpServletRequest req = (HttpServletRequest) request;
+        HttpServletResponse resp = (HttpServletResponse) response;
+
+        // 1. 获取请求 URL
+        String url = req.getRequestURL().toString();
+
+        // 2. 放行白名单判定（如果是登录操作，直接放行）
+        if(url.contains("/login")){
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // 3. 获取请求头中的令牌
+        String jwt = req.getHeader("token");
+
+        // 4. 校验并解析令牌
+        try {
+            Claims claims = JwtUtils.parseJWT(jwt);
+            Integer empId = (Integer) claims.get("id");
+            
+            // 核心：将解析出的员工 ID 绑定到当前线程
+            BaseContext.setCurrentId(empId);
+            log.info("Filter 提示：员工 ID [{}] 成功绑定到线程", empId);
+            
+            // 5. 放行（用 try-finally 包裹放行操作）
+            try {
+                chain.doFilter(request, response);
+            } finally {
+                // 完美闭环：当核心业务、AOP、Controller 全部执行完毕，响应准备返回给浏览器时
+                // 线程即将回收到线程池，必须在 finally 中无条件清理 ThreadLocal！
+                BaseContext.removeCurrentId();
+                log.info("Filter 提示：业务执行完毕，线程变量已安全释放。");
+            }
+
+        } catch (Exception e) {
+            log.error("Filter 提示：令牌校验失败！");
+            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 返回 401
+        }
+    }
+}
+```
+
+##### 核心拦截器`LoginInterceptor.java`
+
+我们在之前写好的 `LoginInterceptor` 拦截器的 `preHandle` 方法中，当令牌解析成功后，顺手把员工 ID 塞进 `BaseContext` 里。
+
+同时，务必重写 `afterCompletion` 方法，在请求彻底完成后将数据**清空**。
+
+
+```Java
+package com.itheima.interceptor;
+
+import com.itheima.context.BaseContext;
+import com.itheima.utils.JwtUtils;
+import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+@Slf4j
+@Component
+public class LoginInterceptor implements HandlerInterceptor {
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 1. 从请求头拿到 jwt 令牌并解析（前面已实现的逻辑）
+        String jwt = request.getHeader("token");
+        
+        try {
+            Claims claims = JwtUtils.parseJWT(jwt);
+            // 2. 核心核心：从 Claims 载荷中抓出员工 ID
+            Integer empId = (Integer) claims.get("id");
+            
+            // 3. 核心升级：丢进 ThreadLocal，供后续全链路（Controller, Service, AOP）随时调阅
+            BaseContext.setCurrentId(empId);
+            log.info("ThreadLocal 提示：成功将当前登录员工 ID [{}] 绑定到当前线程: {}", empId, Thread.currentThread().getName());
+            
+            return true; // 放行
+        } catch (Exception e) {
+            response.setStatus(401);
+            return false; // 拦截
+        }
+    }
+
+    /**
+     * 整个请求完成后（即响应发给浏览器前）触发
+     */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        // 4. 完美闭环：用完即焚！必须清理掉当前线程的数据，避免在线程池复用时引发内存泄漏或身份串调
+        BaseContext.removeCurrentId();
+        log.info("ThreadLocal 提示：请求结束，已安全释放线程变量空间。");
+    }
+}
+```
+
+#### 步骤 3：在操作日志切面中优雅获取 `LogAspect.java`
+
+现在，你的 `LogAspect` 彻底爽了。它再也不需要注入 `request`、再也不用去调复杂的 `JwtUtils.parseJWT()` 了。它只需要优雅地用一行静态代码，就能直接隔空取物拿到员工 ID！
+
+
+```Java
+// 在 LogAspect 的环绕通知里，原本第 1 步的代码可以重构为：
+
+// 1. 获取操作人 ID（直接从 ThreadLocal 极速获取）
+Integer operateUser = BaseContext.getCurrentId(); 
+log.info("AOP 全局审计提示：直接从 ThreadLocal 擒获当前操作人 ID: {}", operateUser);
+```
+
+### 为什么一定要调用 `threadLocal.remove()`？
+
+在上面的 `afterCompletion` 中，我们执行了 `BaseContext.removeCurrentId();`。请记住，这在企业开发里**绝对不能忘**。
+
+- **原因**：Tomcat 服务器的底层采用了**线程池技术**。一个线程伺候完你的请求后，**它不会死掉，而是会被回收放回线程池中**，等待下一个倒霉的浏览器请求过来，再分配给它用。
+    
+- **如果不解绑的灾难**：如果你的请求执行完了不执行 `remove()`，这个员工 ID 就会一直粘在这个线程的内存里。当明天另外一个没有登录的匿名用户发请求过来、正好复用了这个线程时，后台一调用 `BaseContext.getCurrentId()`，就会震惊地拿到昨天那个员工的 ID！这不仅会导致操作日志的数据完全对不上，甚至可能引发严重的跨权、越权安全事故。用完即焚，才是最稳健的极客规范！
+
+### 为什么 Filter 的清理要写在 `finally` 块里？
+
+在拦截器里，我们是在 `afterCompletion` 方法中执行 `removeCurrentId()` 的。而在过滤器中，我们写成了 `try { chain.doFilter(...); } finally { BaseContext.removeCurrentId(); }`。
+
+这是由过滤器的**双向通道特征**决定的：
+
+- 过滤器执行 `chain.doFilter()` 之前叫 **“放行前”**。
+    
+- 当后面的 Controller、AOP 全部执行完了，准备把响应吐给浏览器时，代码会**原路返回**，继续执行 `chain.doFilter()` 之后的代码。
+    
+- 将 `removeCurrentId()` 丢进 `finally` 块中，能确保**哪怕后面的业务代码报错、崩溃崩溃抛出了异常，过滤器在回执响应时也绝对会履行 `finally` 里的清理义务**，绝不给线程池留下任何脏数据！
