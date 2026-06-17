@@ -7991,6 +7991,158 @@ public class EmpController {
 ---
 
 
+## Spring Boot的依赖注入方式
+
+
+底层都是 Spring IoC 容器，SpringBoot 只是简化配置，注入方式完全沿用 Spring。
+
+### 一、字段注入（@Autowired 直接写在属性上）
+
+
+```java
+@Service
+public class UserService {
+    // 字段注入
+    @Autowired
+    private UserMapper userMapper;
+}
+```
+
+优点：写法最简单，代码简洁。
+
+缺点：
+
+1. 无法注入 `final` 变量
+2. 不能通过构造器做参数校验
+3. 单元测试难以手动实例化该类（绕不开容器）
+4. 官方不推荐，阿里开发规范禁止使用
+
+### 二、构造器注入（官方推荐，Spring4.3 + 最优）
+
+#### 写法 1：显式 @Autowired
+
+```java
+@Service
+public class UserService {
+    private final UserMapper userMapper;
+
+    @Autowired
+    public UserService(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+}
+```
+
+#### 写法 2：类只有一个构造器，可省略 @Autowired（SpringBoot 常用）
+
+
+```java
+@Service
+public class UserService {
+    private final UserMapper userMapper;
+
+    // 无需注解，容器自动注入
+    public UserService(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+}
+```
+
+优点：
+
+1. 支持 `final` 修饰，保证依赖不可变、线程安全
+2. 对象创建时依赖必须传入，不会出现空指针
+3. 方便单元测试，new 对象时手动传依赖
+4. 符合 Spring 官方推荐、企业规范首选
+
+### 三、Setter 方法注入（@Autowired 写 set 方法）
+
+
+```java
+@Service
+public class UserService {
+    private UserMapper userMapper;
+
+    @Autowired
+    public void setUserMapper(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+}
+```
+
+适用场景：依赖**可选、运行中需要动态更换**的场景，极少日常业务使用。
+
+缺点：依赖可以中途被修改，无法使用 `final`。
+
+### 四、JavaConfig 构造注入（@Bean 手动注入第三方类）
+
+当依赖是第三方工具类、没有加 `@Service/@Component` 时，用配置类手动创建 Bean：
+
+
+```java
+@Configuration
+public class BeanConfig {
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        return template;
+    }
+}
+```
+
+容器会自动把 `RedisConnectionFactory` 注入方法参数。
+
+### 五、JSR-250 标准注入：@Resource
+
+区别于 @Autowired（Spring 专属），@Resource 是 Java 原生注解
+
+
+```java
+@Resource
+private UserMapper userMapper;
+```
+
+- 默认按**名称**匹配 bean，找不到再按类型
+- 只能字段 /setter，不支持构造器注入
+- 多实现类场景可指定名称：`@Resource(name="userMapperImpl")`
+
+### 六、JSR-330：@Inject（极少用）
+
+需要额外导入依赖，功能和 @Autowired 几乎一致，项目很少使用。
+
+### 七、使用总结（开发规范）
+
+1. **业务代码统一使用构造器注入**，成员变量加 `final`；
+2. 禁止项目大量使用字段 `@Autowired` 注入；
+3. 第三方组件、工具类用 `@Configuration + @Bean` 注入；
+4. 存在多个同类型 Bean 时：
+    
+    - 构造器配合 `@Qualifier("beanName")` 指定名称；
+    - 或使用 `@Resource(name="xxx")`。
+    
+
+### 多实现类示例（构造器 + Qualifier）
+
+
+```java
+@Service
+public class UserService {
+    private final UserHandler userHandler;
+
+    public UserService(@Qualifier("vipHandler") UserHandler userHandler) {
+        this.userHandler = userHandler;
+    }
+}
+```
+
+
+
+
+
+---
+---
+
 ## 关于三层架构的接口和实现类问题
 
 
