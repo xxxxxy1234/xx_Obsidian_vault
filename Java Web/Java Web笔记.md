@@ -18200,6 +18200,76 @@ public class LogAspect {
 }
 ```
 
+
+
+### 思考：转换为 JSON 字符串存入为什么不直接 Arrays.toString ()？
+
+结论先说：**绝对不能用 Arrays.toString ()，会出大量 bug**，两者输出结构完全不一样，存入数据库后解析、查看都会出问题。
+
+#### 一、对比两种输出结果
+
+假设方法入参：`login(String username, Integer id)`，传入 `("张三", 1001)`
+
+##### 1. Arrays.toString (args) 输出
+
+```plaintext
+[张三, 1001]
+```
+
+- 只是简单逗号拼接，**丢失参数类型**，分不清字符串、数字、对象、null
+- 无引号包裹字符串，空值、特殊字符会乱码
+
+##### 2. JSONObject.toJSONString (args) 输出
+
+```plaintext
+["张三",1001]
+```
+
+标准 JSON 数组格式：
+
+- 字符串自动加双引号，数字无引号，null、布尔、对象都规范序列化
+- 前后端、数据库通用标准格式，能反向解析还原参数
+
+#### 二、核心 4 个致命问题（Arrays.toString 踩坑点）
+
+##### 1. 复杂对象参数直接输出内存地址（最严重）
+
+如果参数是实体对象 `User(id:1,name:"李四")`
+
+- Arrays.toString：`[com.itheima.entity.User@567e23]`
+    
+    只打印对象哈希地址，**看不到任何字段数据**，日志完全失效。
+- JSON 序列化：`[{"id":1,"name":"李四"}]`，能看到完整参数内容。
+
+##### 2. 特殊字符、换行、引号破坏格式
+
+参数包含 `a,b"`、换行、斜杠时：
+
+- Arrays.toString 不会转义，存数据库后阅读混乱；
+- JSON 会自动转义双引号、换行符、反斜杠，格式干净。
+
+##### 3. 无法反向解析参数
+
+后续如果需要根据日志复现接口报错，JSON 字符串可以直接 `JSON.parseArray()` 还原参数数组；
+
+而 `[a,b,c]` 这种纯文本分割极易出错，遇到参数本身带逗号直接分裂。
+
+##### 4. 文件 / 流参数会序列化异常（补充场景）
+
+Controller 中如果有 `HttpServletRequest、MultipartFile` 这类参数：
+
+FastJSON 会自动过滤 / 忽略无法序列化的对象；
+
+Arrays.toString 只会打印类地址，同样无意义。
+
+#### 三、简化总结
+
+1. `Arrays.toString()`：仅做**控制台简单打印**，只能看基础类型，不适合持久化存储；
+2. `JSONObject.toJSONString()`：标准结构化序列化，支持对象、数组、各种基础类型，**专门用来存入数据库日志**；
+3. 你的操作日志需求要完整记录参数用于排查问题，必须使用 JSON 序列化。
+
+
+
 ### 课后复盘
 
 当你把这个切面写好之后，如果想让它生效，你只需要去之前的 `DeptController` 或者是 `EmpController` 的 `delete`、`update`、`save` 方法上面，轻轻贴上一个 **`@Log`** 注解。
