@@ -18525,3 +18525,84 @@ log.info("AOP 全局审计提示：直接从 ThreadLocal 擒获当前操作人 I
 ---
 
 
+# Spring Boot原理篇
+
+
+## 配置优先级
+
+除了常见的配置文件`.properties  .yml  .yaml`，Spring Boot 还具有**外部化配置的优先级**（Configuration Priority），特别是 **Java 系统属性**与**命令行参数**的配置方式与优先级对比。
+
+
+### 核心概念解析
+
+![[Java Web笔记-153.png]]
+Spring Boot 除了支持常见的配置文件（如 `application.properties` 或 `application.yml`）外，还允许通过动态参数来覆盖默认配置。图中重点对比了两种方式：
+
+>[!tip]
+>新版IDEA的这两种属性配置默认被隐藏了，要在运行按钮（绿色小三角）旁边点击下拉列表，找到Edit Configurations，点击Modify Options，勾选Add VMOptions开启Java系统属性配置，勾选Program Arguments开启命令行参数配置
+
+
+#### 1. Java 系统属性 (Java System Properties)
+
+- **语法格式：** `-D<属性名>=<属性值>`
+    
+- **示例：** `-Dserver.port=9000`
+    
+- **本质：** 这是 JVM 层面的参数，必须紧跟在 `java` 命令之后、`-jar` 之前。
+    
+- **在 IDEA 中配置：** 填写在 Run/Debug Configurations 的 **VM options** 栏目中。
+    
+
+#### 2. 命令行参数 (Command Line Arguments)
+
+- **语法格式：** `--<属性名>=<属性值>`
+    
+- **示例：** `--server.port=10010`
+    
+- **本质：** 这是传递给 Java `main(String[] args)` 方法的参数，必须放在 `.jar` 文件路径之后。
+    
+- **在 IDEA 中配置：** 填写在 Run/Debug Configurations 的 **Program arguments** 栏目中。
+    
+
+### 两种运行场景下的配置方式
+
+#### 场景 A：在开发环境 (IntelliJ IDEA) 中运行
+
+在 IDEA 的启动配置中：
+
+- **VM options** 映射到 Java 系统属性 (`-D...`)
+    
+- **Program arguments** 映射到命令行参数 (`--...`)
+    
+
+#### 场景 B：在生产/测试环境通过 Jar 包运行
+
+需要遵循严格的命令行语法顺序：
+
+```Bash
+java -Dserver.port=9000 -jar tlias-web-management-0.0.1-SNAPSHOT.jar --server.port=10010
+```
+
+> ⚠️ **打包注意事项**：如果要让打包后的 jar 包能直接独立运行，必须在 `pom.xml` 中引入 `spring-boot-maven-plugin` 插件（如果是通过 Spring Initializr 骨架创建的项目，会自动带上此插件）。
+
+### 最终结论：配置优先级
+
+如果**同时**指定了 `-Dserver.port=9000` 和 `--server.port=10010`，Spring Boot 最终会听谁的？
+
+#### 优先级顺序（由高到低）：
+
+1. **命令行参数 (`--server.port=10010`)** ── 🥇 **最高**
+    
+2. **Java 系统属性 (`-Dserver.port=9000`)** ── 🥈 次之
+    
+3. **配置文件 (`application.yml` / `properties`)** ── 🥉 再次之
+    
+
+> **结果：** 此时项目启动后，实际生效的端口号是 **`10010`**。
+> 
+> **记忆口诀：** 离 `java` 命令越远、离 `jar` 包越近（包裹在最外层的命令行参数）的配置，优先级越高。
+
+---
+---
+
+
