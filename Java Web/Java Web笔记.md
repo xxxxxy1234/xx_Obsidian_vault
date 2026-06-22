@@ -18935,3 +18935,214 @@ public class SpringbootWebConfigApplication { ... }
 ---
 
 
+
+## 自动配置——源码跟踪
+
+
+回过头来想一下，`Gson`对象是怎么被偷偷放到 IOC 容器里的呢？
+
+既然我们没有扩大 `@ComponentScan` 的范围，也没有在启动类上加任何 `@Import` 或 `@EnableXxxx` 注解，`Gson` 对象之所以能被“偷偷”放进 IOC 容器，靠的是 Spring Boot 的核心大招：**基于 SPI 机制的「真正」自动配置**。
+
+### 一、 核心中转站：`AutoConfigurationImportSelector`
+
+![[Java Web笔记-158.png]]
+
+
+![[Java Web笔记-159.png]]
+
+
+从图中可以清晰看到一条源码调用链：
+
+1. 项目启动，解析主配置类上的组合注解 `@SpringBootApplication`。
+    
+2. 内部的核心注解 **`@EnableAutoConfiguration`** 生效。
+    
+3. 它通过 `@Import(AutoConfigurationImportSelector.class)` 引入了自动配置选择器。
+    
+4. 该选择器执行核心方法 **`selectImports(...)`**，它会去扫描所有 jar 包下 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 配置文件（在低版本如 2.7.0 以前是 `spring.factories`）。
+    
+
+#### 这里产生了一个巨大的疑问：
+
+这个 `imports` 文件中密密麻麻写了几百个自动配置类（如 Redis、Mongo、Elasticsearch、Gson 等），**难道只要项目一启动，这几百个配置类对应的 Bean 就会全部被注册到 IOC 容器中吗？**
+
+**答案是：绝对不会 (NO)！** 否则 Spring Boot 的内存消耗将不堪重负。让它变得智能且按需加载的核心魔法，正是**条件装配注解 `@Conditional`**。
+
+### 二、 动态加载的判官：`@Conditional` 条件装配
+
+![[Java Web笔记-160.png]]
+
+`@Conditional` 本身是一个父注解，Spring Boot 在其基础上派生出了大量功能强大的子注解。这些注解贴在自动配置类或其 `@Bean` 方法上，就像是安检员一样：
+
+#### 1. `@ConditionalOnClass`（看有没有这个技术）
+
+- **规则：** 检查当前运行环境中（ClassPath 字节码路径下）**是否存在指定的类**。
+    
+- **Gson 例子：**
+    
+    在 `GsonAutoConfiguration` 的类头上，通常会有：
+    
+    
+    
+    ```Java
+    @ConditionalOnClass(Gson.class)
+    ```
+    
+    如果你没有在 `pom.xml` 里引入谷歌的 `Gson` 依赖，ClassPath 下就没有 `Gson.class`，那么这一整套 `GsonAutoConfiguration` 配置直接被跳过、无视。只有当你引入了依赖，它才会继续往下走。
+    
+
+#### 2. `@ConditionalOnMissingBean`（看用户有没有自己配置）
+
+- **规则：** 检查当前 IOC 容器中**是否还不存在**某种类型的 Bean。
+    
+- **Gson 例子：**
+    
+    
+    
+    ```Java
+    @Bean
+    @ConditionalOnMissingBean
+    public Gson gson(GsonBuilder gsonBuilder) {
+        return gsonBuilder.create();
+    }
+    ```
+    
+    **这个注解极其温柔且关键：** 如果开发者自己在项目中写了一个 `@Bean` 创建了自定义的 `Gson` 对象，Spring Boot 就会发现容器里已经有这个 Bean 了，于是便“放弃”自己默认的创建计划，以用户的配置为准。这完美实现了“**提示默认配置，但支持用户自定义覆盖**”的特性。
+    
+
+#### 3. `@ConditionalOnProperty`（看配置文件有没有开启）
+
+- **规则：** 检查 `application.properties` 或 `application.yml` 配置文件中是否配置了指定的属性和特定的值，满足条件才加载。
+    
+
+### 终极全景总结：`Gson` 是怎么进容器的？
+
+我们将这一条线全部串联起来：
+
+```
+[ pom.xml 引入 Gson 依赖（通过传递依赖方式引入） ]
+       ↓
+[ 启动类 @SpringBootApplication ]
+       ↓ 激活
+[ @EnableAutoConfiguration ]
+       ↓ 导入
+[ AutoConfigurationImportSelector 选择器 ]
+       ↓ 读取各大 jar 包下的
+[ AutoConfiguration.imports 配置文件 ]
+       ↓ 找到
+[ org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration ]
+       ↓ 触发条件装配检查
+       ├─① @ConditionalOnClass(Gson.class) -> 满足！(因为 pom.xml 加了依赖)
+       └─② @ConditionalOnMissingBean     -> 满足！(因为用户没有自己手动写一个 Gson)
+       ↓
+[ 最终：执行 @Bean 方法，Gson 对象成功“偷偷”存入 IOC 容器！ ]
+```
+
+Spring Boot 正是通过这套 **“SPI 机制（读取 imports 配置文件） + 条件装配（@Conditional 按需加载）”** 的组合拳，实现了让开发者完全无感知的“真·自动配置”。
+
+
+---
+---
+
+
+## 补充：SPI 机制
+
+
+在上一节中，我们提到了 Spring Boot 自动配置的终极幕后推手——**SPI 机制**。
+
+**SPI** 全称是 **Service Provider Interface（服务提供者接口）**，它本质上是一种“基于接口编程 + 策略模式 + 配置文件”**的动态发现机制。简单来说，就是系统提前定义好一个规则或接口，而具体的实现类不写死在代码里，而是写在**配置文件中，由系统在运行时动态去读取加载。
+
+在 Spring Boot 中，SPI 机制被用来优雅地解决“解耦”与“无感插件化”的问题。
+
+### 一、 从 Java 原生 SPI 谈起
+
+为了更好理解 Spring Boot 的设计，我们先看看 Java 本身自带的 SPI。
+
+Java 官方的 SPI 规定：
+
+1. 服务的提供者（第三方 jar 包）需要在其 `META-INF/services/` 目录下，创建一个以**接口全限定名**命名的文件。
+    
+2. 文件内容为该接口的**具体实现类的全限定名**。
+    
+3. 核心代码通过 `ServiceLoader.load(接口.class)` 动态加载这些实现类。
+    
+
+> **典型应用：** JDBC 驱动。Java 官方只定义了 `java.sql.Driver` 接口，MySQL 驱动包和 Oracle 驱动包分别在自己的 jar 包里写一个配置文件，指向各自的实现类。Java 程序启动时，会自动把这些驱动加载进来。
+
+### 二、 Spring Boot 的 SPI 机制演进
+
+Spring Boot 没有直接用 Java 原生的 `ServiceLoader`，而是自己实现了一套功能更强大、更适合 IOC 容器的 SPI 机制。它的演进主要经历了两代：
+
+#### 1. 第一代 SPI：`spring.factories`（低版本，2.7.0 以前）
+
+在 Spring Boot 早期，所有的自动配置和拦截器组件都集中配置在一个地方。
+
+- **位置：** 各大 jar 包下的 `META-INF/spring.factories`。
+    
+- **格式：** 采用类似 Properties 的 `Key = Value` 键值对形式。Key 是固定的自动配置核心类，Value 是具体的配置类。
+    
+
+```Properties
+# 示例：spring.factories 内部片段
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration,\
+  org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+```
+
+#### 2. 第二代 SPI：`.imports` 文件（高版本，2.7.0 及 3.x 🌟）
+
+随着自动化配置类越来越多，`spring.factories` 文件变得无比臃肿，各种不相关的配置混在一起，解析性能变差。因此，新版 Spring Boot 对 SPI 进行了精细化重构：
+
+- **位置：** 各大 jar 包下的 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`。
+    
+- **格式：** **一本书一类，每行一个全类名**。不再使用 Key，该文件里的所有类直接默认对应 `EnableAutoConfiguration`。
+    
+
+```Plaintext
+# 示例：AutoConfiguration.imports 内部片段
+org.springframework.boot.autoconfigure.gson.GsonAutoConfiguration
+org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+```
+
+### 三、 Spring Boot SPI 的核心工作原理
+
+Spring Boot 是如何利用这套 SPI 机制把第三方组件盘活的？它的加载流程非常标准：
+
+#### 1. 广播通知：确定“相亲范围”
+
+当 Spring Boot 启动时，核心加载器 `SpringFactoriesLoader`（旧版）或新版的资源加载器会扫描类路径（ClassPath）下**所有 jar 包**中特定目录下的配置文件（`.imports` 或 `spring.factories`）。
+
+#### 2. 收集名单：拿到全部全类名
+
+将这几百行第三方配置类的“全类名”作为字符串全部读取出来，打包成一个列表。
+
+#### 3. 过滤与实例化（结合条件装配）
+
+还记得我们上一节提过的安检员吗？Spring 拿到这串名单后，并不会盲目实例化，而是利用 **`@Conditional` 条件注解** 进行过滤：
+
+- 有没有对应的 Jar 包？（`@ConditionalOnClass`）
+    
+- 用户自己配置了吗？（`@ConditionalOnMissingBean`）
+    
+
+只有通过安检的类，Spring 才会利用 **Java 反射机制** 将其真正实例化，存入 IOC 容器。
+
+### 四、 为什么说 Spring Boot 的 SPI 极其优秀？
+
+对比方案一（扩大包扫描）和方案二（手动贴 `@Import`），Spring Boot 的 SPI 带来了两大革命性好处：
+
+- **真正的解耦（开箱即用）：**
+    
+    作为第三方框架的开发者（比如 MyBatis、Redis），我只需要把我的配置类写在我自己的 jar 包的 `imports` 文件里。
+    
+    作为框架的使用者（你），**你甚至不需要知道这个配置类的名字**，只要把我的坐标（Dependency）往 `pom.xml` 一粘，项目启动时 Spring Boot 自然能顺着 SPI 顺藤摸瓜找到它。
+    
+- **极高的扩展性（插件化架构）：**
+    
+    无论是官方的组件，还是企业内部封装的各种 Starter 二次开发组件，都遵循这套 SPI 标准。这让 Spring Boot 变成了一个强大的“主板”，任何第三方技术只要做成符合接口的“显卡/内存条”，插上就能直接用。
+
+
+---
+---
+
+
