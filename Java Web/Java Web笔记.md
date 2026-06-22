@@ -18680,3 +18680,62 @@ public class DeptController{
 - **Bean 的命名：** 默认情况下，通过 `@Bean` 注入的 Bean，其在容器中的名称就是**方法名**（例如方法名叫 `aliyunOSSOperator`，Bean 的名字就是 `aliyunOSSOperator`）。如果需要自定义名字，可以使用 `@Bean(name="自定义名称")` 或 `@Bean("自定义名称")`。
 
 
+---
+---
+
+
+## 起步依赖
+
+
+Spring Boot 核心特性之一：**起步依赖（Starter）的原理**，其背后的核心技术机制就是 **Maven 的依赖传递（Transitive Dependencies）**。
+![[Java Web笔记-156.png]]
+
+### 核心问题：什么是起步依赖？
+
+在传统的 Spring Framework中，如果我们要开发一个 Web 项目，需要在 `pom.xml` 中手动引入一大堆复杂的依赖（如 `spring-web`、`spring-webmvc`、`jackson-databind`、`tomcat-embed-core` 等），并且还要小心翼翼地管理它们之间的版本冲突。
+
+Spring Boot 提出了“起步依赖”的概念，将具有某种特定功能的所有依赖“打包”在一起。你只需要引入一个简单的 Starter，所有相关的间接依赖就会被自动拉取下来。
+
+### 图解核心：依赖传递原理
+
+图中的右侧是一个庞大的依赖树，以 `spring-boot-starter-web` 为例，它的本质就是**套娃（依赖传递）**：
+
+#### 1. 第一层：直接依赖（你引入的）
+
+你在项目中只需要声明这一个核心依赖：
+
+- **`spring-boot-starter-web`** ── Web 开发的核心起步依赖。
+    
+
+#### 2. 第二层：核心组合依赖（Starter 内部包装的）
+
+`spring-boot-starter-web` 内部其实没有一行核心业务代码，它的 `pom.xml` 中只是声明了对其他关键 Starter 和组件的依赖：
+
+- **`spring-boot-starter`**：Spring Boot 核心核心起步依赖（包含自动配置、日志等）。
+    
+- **`spring-boot-starter-json`**：处理 JSON 序列化/反序列化的依赖。
+    
+- **`spring-boot-starter-tomcat`**：内嵌的 Tomcat 容器服务器。
+    
+- **`spring-web`** & **`spring-webmvc`**：Spring MVC 框架的核心组件。
+    
+
+#### 3. 第三层及深层：底层底层框架（最终干活的）
+
+继续向下传递，底层的 Starter 会引入具体的技术框架：
+
+- `spring-boot-starter-tomcat` 会拉取 `tomcat-embed-core`、`tomcat-embed-el` 等，从而让项目能**内嵌运行 Tomcat**。
+    
+- `spring-boot-starter` 会拉取 `spring-core`、`spring-context`、以及 `spring-boot-starter-logging`（进而拉取 `logback-classic`、`slf4j`），从而提供**完整的容器管理和日志功能**。
+    
+
+### 起步依赖带来的核心优势
+
+- **开箱即用，极简配置：** 将原本需要配置几十行的依赖，简化为仅需一行的“全家桶”组合。
+    
+- **版本锁定，拒绝冲突：** 所有的官方 Starter 依赖版本都由 Spring Boot 父工程（`spring-boot-starter-parent`）进行统一管理。各组件之间的版本经过了官方的严格测试，完美兼容，开发者无需手动指定版本号（Version），从而极大避免了 Jar 包冲突的噩梦。
+
+---
+---
+
+
