@@ -19146,3 +19146,206 @@ Spring Boot 是如何利用这套 SPI 机制把第三方组件盘活的？它的
 ---
 
 
+## 自动配置——自定义starter
+
+![[Java Web笔记-161.png]]
+
+要开发一个合格的 Spring Boot 自定义 Starter，官方推荐的标准架构是「双模块独立封装」：
+
+1. **`xxx-spring-boot-starter` 模块**：起步依赖，**不写任何代码**，只负责引入依赖（主要是管理依赖功能）。
+    
+2. **`xxx-spring-boot-autoconfigure` 模块**：**实现自动配置功能**，编写具体的业务代码、配置类，并配置 `imports` 文件。
+    
+
+
+接下来，我们来完整实现实战需求：自定义 `aliyun-oss-spring-boot-starter`，引入该 starter 后，用户可以直接 `@Autowired` 注入 `AliyunOSSOperator` 工具类并使用。
+
+### 模块一：`aliyun-oss-spring-boot-autoconfigure`（核心核心）
+
+#### 1. `pom.xml` 依赖配置
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-autoconfigure</artifactId>
+        <version>3.2.6</version>
+    </dependency>
+    <dependency>
+        <groupId>com.aliyun.oss</groupId>
+        <artifactId>aliyun-sdk-oss</artifactId>
+        <version>3.15.1</version>
+    </dependency>
+</dependencies>
+```
+
+#### 2. 属性绑定类：`AliyunOSSProperties`
+
+负责将用户的 `application.yml` 配置自动读取映射到 Java 对象中。
+
+
+```Java
+package com.aliyun.oss;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@ConfigurationProperties(prefix = "aliyun.oss")
+public class AliyunOSSProperties {
+    private String endpoint;
+    private String accessKeyId;
+    private String accessKeySecret;
+    private String bucketName;
+
+    // Getters and Setters ...
+    public String getEndpoint() { return endpoint; }
+    public void setEndpoint(String endpoint) { this.endpoint = endpoint; }
+    public String getAccessKeyId() { return accessKeyId; }
+    public void setAccessKeyId(String accessKeyId) { this.accessKeyId = accessKeyId; }
+    public String getAccessKeySecret() { return accessKeySecret; }
+    public void setAccessKeySecret(String accessKeySecret) { this.accessKeySecret = accessKeySecret; }
+    public String getBucketName() { return bucketName; }
+    public void setBucketName(String bucketName) { this.bucketName = bucketName; }
+}
+```
+
+#### 3. 核心工具类：`AliyunOSSOperator`
+
+最终暴露给用户直接使用的业务对象。
+
+```Java
+package com.aliyun.oss;
+
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
+import java.io.InputStream;
+
+public class AliyunOSSOperator {
+    
+    private AliyunOSSProperties aliyunOSSProperties;
+
+    public AliyunOSSOperator(AliyunOSSProperties aliyunOSSProperties) {
+        this.aliyunOSSProperties = aliyunOSSProperties;
+    }
+
+    public String upload(InputStream inputStream, String fileName) {
+        // 创建 OSS 客户端实例
+        OSS ossClient = new OSSClientBuilder().build(
+                aliyunOSSProperties.getEndpoint(),
+                aliyunOSSProperties.getAccessKeyId(),
+                aliyunOSSProperties.getAccessKeySecret()
+        );
+        
+        // 模拟执行上传
+        ossClient.putObject(aliyunOSSProperties.getBucketName(), fileName, inputStream);
+        ossClient.shutdown();
+        
+        // 返回访问路径
+        return aliyunOSSProperties.getEndpoint() + "/" + aliyunOSSProperties.getBucketName() + "/" + fileName;
+    }
+}
+```
+
+#### 4. 自动配置类：`AliyunOSSAutoConfiguration`
+
+通过 SPI 丢给 Spring 管理的关键配置类。
+
+
+```Java
+package com.aliyun.oss;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+@EnableConfigurationProperties(AliyunOSSProperties.class) // 激活属性绑定
+@ConditionalOnClass(OSS.class) // 条件装配：只有当项目中存在 OSS 这个 SDK 类时才生效
+public class AliyunOSSAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean // 条件装配：用户没自己创建该工具类时，自动创建一个
+    public AliyunOSSOperator aliyunOSSOperator(AliyunOSSProperties properties) {
+        return new AliyunOSSOperator(properties);
+    }
+}
+```
+
+#### 5. 关键纽带：配置 SPI 文件
+
+在 `src/main/resources` 目录下创建多级文件夹：`META-INF/spring/`，在此目录下创建名为 **`org.springframework.boot.autoconfigure.AutoConfiguration.imports`** 的文件，内容写入自动配置类的全路径：
+
+```Plaintext
+com.aliyun.oss.AliyunOSSAutoConfiguration
+```
+
+### 模块二：`aliyun-oss-spring-boot-starter`（只对外做包装）
+
+#### `pom.xml` 配置
+
+该模块没有任何 Java 代码，纯粹作为一个“套娃”聚合器，只需引入我们刚才做好的配置功能模块。
+
+
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>com.aliyun.oss</groupId>
+        <artifactId>aliyun-oss-spring-boot-autoconfigure</artifactId>
+        <version>1.0.0</version>
+    </dependency>
+</dependencies>
+```
+
+> 🛠️ **大功告成：** 针对这两个自定义模块，分别在 Maven 面板中执行 `mvn clean install` 把它安装到你的本地 Maven 仓库。
+
+### 最终用户怎么使用它？
+
+当你在另一个业务项目（比如黑马的 `tlias-web-management`）中，想要使用阿里云 OSS 时：
+
+#### 步骤 1：引入自定义 Starter 依赖
+
+
+```XML
+<dependency>
+    <groupId>com.aliyun.oss</groupId>
+    <artifactId>aliyun-oss-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+#### 步骤 2：在 `application.yml` 中配上参数
+
+
+```YAML
+aliyun:
+  oss:
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    accessKeyId: LTAI5txxxxxxxxx
+    accessKeySecret: kM3xxxxxxxxxxxx
+    bucketName: tlias-bucket-demo
+```
+
+#### 步骤 3：无感注入，直接起飞
+
+
+```Java
+@RestController
+public class UploadController {
+
+    @Autowired
+    private AliyunOSSOperator aliyunOSSOperator; // 👈 纯自动配置出来的，直接注入！
+
+    @PostMapping("/upload")
+    public String upload(MultipartFile file) throws Exception {
+        return aliyunOSSOperator.upload(file.getInputStream(), file.getOriginalFilename());
+    }
+}
+```
+
+
+---
+---
+
+
