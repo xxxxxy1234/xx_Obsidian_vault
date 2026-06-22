@@ -18606,3 +18606,77 @@ java -Dserver.port=9000 -jar tlias-web-management-0.0.1-SNAPSHOT.jar --server.po
 ---
 
 
+
+## Bean对象
+
+
+### 一、 Bean 的五大作用域 (Scope)
+
+Spring 框架支持 5 种作用域，通过`Scope`注解使用，其中最常用的是 **`singleton`** 和 **`prototype`**，后 3 种仅在 Web 环境下生效：
+
+|**作用域**|**说明**|**触发与特性**|
+|---|---|---|
+|**`singleton` (单例)**|**默认值**。容器内**相同名称**的 Bean 只有一个实例。|容器启动时就会创建实例。可以使用 `@Lazy` 注解实现延迟初始化（第一次使用时才创建）。|
+|**`prototype` (多例)**|每次使用该 Bean 时，都会**创建一个新的实例**。|容器启动时不创建，每次获取或注入时动态创建。|
+|**`request`**|每个 HTTP 请求范围内会创建新的实例。|仅在 Web 环境生效。|
+|**`session`**|每个 HTTP 会话范围内会创建新的实例。|仅在 Web 环境生效。|
+|**`application`**|每个 Web 应用范围内会创建新的实例。|仅在 Web 环境生效。|
+
+
+```java
+
+@Scope("prototype")
+@RequestMapping("/depts")
+@RestController
+public class DeptController{
+...
+...
+}
+```
+
+### 二、 单例（Singleton）与多例（Prototype）的应用场景
+
+![[Java Web笔记-154.png]]
+
+#### 1. 单例 Bean (`singleton`) —— 绝大部分的选择
+
+- **特点：** **无状态的 Bean**。即该类内部没有可以被并发修改的成员变量（数据），只有业务逻辑。
+    
+- **代表：** 常见的 Controller（如 `DeptController`）、Service、Mapper。
+    
+- **优势：** 多个线程复用同一个实例，**节约系统资源，提升性能**。
+    
+- **⚠️ 最佳实践：** 实际开发中，绝大部分的 Bean 都是单例的，因此**不需要**特意去配置 `@Scope` 属性。
+    
+
+#### 2. 多例 Bean (`prototype`) —— 特殊场景
+
+- **特点：** **有状态的 Bean**。类内部包含需要暂存数据的成员变量（如 `private List<EmpModel> dataList` 或 `private Integer errCount`）。
+    
+- **隐患：** 如果此时还用单例，多个并发请求同时操作这个 Bean 就会导致**并发数据安全问题**（例如 A 请求的数据混入 B 请求中）。
+    
+- **解决：** 使用 `@Scope("prototype")` 确保每个请求/线程使用的都是全新独立的对象实例。
+    
+
+### 三、 管理第三方 Bean（使用 `@Bean`）
+
+当我们引入第三方依赖（如阿里云 OSS、数据源、Redis 客户端等）时，由于无法直接在第三方的源码类上加上 `@Component` 注解 *（会提示Read-only）* ，就必须使用 **`@Bean`** 注解将其引入 Spring 容器。
+
+![[Java Web笔记-155.png]]
+
+#### 1. 声明第三方 Bean 的两种方式
+
+- **启动类中声明（不推荐）：** 直接在带有 `@SpringBootApplication` 的启动类中编写 `@Bean` 方法。这会导致启动类代码臃肿，不便于维护。
+    
+- **配置类中声明（推荐 🌟）：** 创建一个独立的普通 Java 类，加上 **`@Configuration`** 注解（表明这是一个配置类），并在其中分类集中配置第三方 Bean（例如单独的 `OSSConfig` 专门用于管理阿里云 OSS 相关的类）。
+    
+
+#### 2. 核心注意事项与细节
+
+- **依赖注入：** 如果第三方 Bean 的初始化需要依赖其他的 Bean 对象，**直接在 `@Bean` 方法的形参中声明该对象即可**。Spring 容器会自动根据类型（Autowired By Type）完成装配。
+    
+    > _示例：图片中的 `aliyunOSSOperator` 方法参数中直接写了 `AliyunOSSProperties ossProperties`，Spring 会自动把容器中已有的属性配置 Bean 注入进来。_
+    
+- **Bean 的命名：** 默认情况下，通过 `@Bean` 注入的 Bean，其在容器中的名称就是**方法名**（例如方法名叫 `aliyunOSSOperator`，Bean 的名字就是 `aliyunOSSOperator`）。如果需要自定义名字，可以使用 `@Bean(name="自定义名称")` 或 `@Bean("自定义名称")`。
+
+
