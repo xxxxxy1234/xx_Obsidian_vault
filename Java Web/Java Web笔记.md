@@ -19463,3 +19463,235 @@ public class UploadController {
 ---
 
 
+## 继承——继承关系
+
+
+分模块拆分虽然爽，但随着子模块（如 `tlias-pojo`、`tlias-utils` 等）越来越多，很快就会遇到全新的头疼问题：
+
+- 每个子模块都要重复配置相同的第三方依赖（比如 Lombok、JWT 工具包等），`pom.xml` 里充斥着大量复制粘贴的代码。
+    
+- 极其容易出现**版本冲突**。比如 A 模块用了 `junit 5.8`，B 模块用了 `junit 5.9`，一运行就各种莫名其妙的兼容性报错。
+    
+
+为了彻底干掉这种冗余，Maven 引入了高级核心特性——**继承机制**。*和java一样，maven不支持多继承，但支持多重继承*
+
+### 一、 什么是 Maven 继承关系？
+
+Maven 中的继承，描述的是**两个工程/模块之间的父子关系**，它的设计哲学与 Java 类背后的继承一模一样：**子工程可以无条件继承父工程中的配置信息**。
+
+- **核心作用**：简化子工程的依赖配置、**统一管理多模块的依赖版本**。
+    
+- **实现载体**：在子工程的 `pom.xml` 中使用 **`<parent>`** 标签来指定老爹是谁。
+    
+
+### 二、 继承关系的硬核落地步骤
+
+![[Java Web笔记-162.png]]
+
+结合真实案例（把 `tlias-pojo`、`tlias-utils`、`tlias-web-management` 归纳到一个父工程下`tlias-parent`），标准的规范化操作分为 3 步：
+
+#### 1. 创建父工程并设置打包方式为 `pom`
+
+首先创建一个专门当爹的 Maven 模块（比如 `tlias-parent`），**注意：父工程里不需要写任何 Java 业务代码**。
+
+打开父工程的 `pom.xml`，必须手动加上一行核心配置：
+
+
+```XML
+<packaging>pom</packaging>
+```
+
+>[!tip] 常见的打包方式
+>jar: 普通模块打包，springboot 项目基本都是 jar 包 (内嵌 tomcat 运行)
+>war: 普通 web 程序打包，需要部署在外部的 tomcat 服务器中运行
+>pom: 父工程或聚合工程，**该模块不写代码，仅进行依赖管理**
+
+#### 2. 在子工程中配置 `<parent>` 认祖归宗
+
+来到各个子工程的 `pom.xml` 中，剔除掉它们原本重复的 `groupId`（因为可以继承老爹的），然后加上父工程的坐标印记：
+
+
+```XML
+<parent>
+    <groupId>com.itheima</groupId>
+    <artifactId>tlias-parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    
+    <!--表示父工程的相对路径，有时还会遇到直接自闭合的“<relativePath/>”的写法，这表示自动从本地仓库寻找，没有就到中央仓库找 -->
+    <relativePath>../tlias-parent/pom.xml</relativePath> 
+</parent>
+```
+
+
+#### 3. 在父工程中配置共享依赖
+
+现在，只要你在父工程 `tlias-parent` 的 `<dependencies>` 标签里引入任何依赖（比如 `lombok`），**所有子工程连一行代码都不用写，就会自动把这个依赖继承过去**！
+
+>[!tip]
+>spring boot项目创建时，pom.xml文件中默认继承`spring-boot-starter-parent`
+>
+>注意别忘了父工程`tlias-parent`还要继承`spring-boot-starter-parent`
+>
+>`spring-boot-starter-parent`（父工程，不是 starter 依赖）
+>
+>它是**Maven 父 pom**，不属于业务 starter，不会在之前提到的起步依赖「spring-boot-starter-web 依赖树」图里出现：
+>
+>- 作用：统一管理 SpringBoot 所有组件版本，不用手动写每个 jar 的 version；
+>- 位置：写在项目根 pom 的`<parent>`标签，不是`<dependency>`；
+>```xml
+><parent>
+>  <groupId>org.springframework.boot</groupId>
+>  <artifactId>spring-boot-starter-parent</artifactId>
+>  <version>3.2.0</version>
+>  <relativePath/>
+></parent>
+>```
+>
+>它是**全局版本管理器**，不参与业务依赖传递，所以 web starter 的依赖树不会展示它
+
+
+#### 补充：spring-boot-starter-parent 核心 4 大作用
+
+##### 1. 统一管理所有依赖版本（最核心）
+
+它内部预定义了上千个依赖的版本号（Spring、MyBatis、Jackson、Tomcat、日志等）。
+
+只要项目继承它，你引入任何 starter 时**不需要写 `<version>`**，自动匹配对应 SpringBoot 版本的兼容包，彻底解决版本冲突。
+
+```xml
+<!-- 不用写version，parent自动匹配版本 -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+```
+
+##### 2. 内置 Maven 默认构建配置
+
+提前封装好打包、编译、插件默认规则：
+
+- 统一 JDK 编译版本、编码为 UTF-8；
+- 内置 `spring-boot-maven-plugin` 插件，打包可执行 jar；
+- 统一资源文件过滤、测试、打包输出规则；
+    
+    不用自己重复配置编译插件、编码、打包插件。
+
+##### 3. 统一属性、常量定义
+
+提供大量内置属性，方便统一修改全局配置：
+
+```xml
+<!-- 直接覆盖parent里定义的版本，不用改所有依赖 -->
+<properties>
+    <mysql.version>8.0.33</mysql.version>
+</properties>
+```
+
+##### 4. 规范多模块聚合项目
+
+多模块项目时，子模块不用重复指定版本，全部继承父 pom 的版本体系，统一管控全项目依赖。
+
+##### 总结
+
+`spring-boot-starter-parent` 就是 SpringBoot 给你写好的**全局版本 + 构建配置模板**，继承它之后，开发不用操心各种 jar 包版本兼容、不用重复配置 Maven 打包编译。
+
+
+
+### 避坑与高级思考：所有依赖都直接塞给父工程吗？
+
+“既然子工程会自动继承父工程的所有依赖，那我把项目中要用的所有 Jar 包（比如数据库驱动、MyBatis、阿里云 OSS）全部一股脑塞进父工程的 `<dependencies>` 里不就行了？”
+
+**绝对不行！** 这样做会导致“强买强卖”。比如 `tlias-pojo` 模块只是个单纯的实体类包，它根本不需要去连数据库，如果你把数据库驱动塞进父工程，`tlias-pojo` 也会无辜地背上一个厚重的数据库依赖，导致体积虚胖、耦合度变高。
+
+为了解决这个“既要统一版本号，又想按需引入”**的矛盾，Maven 在继承机制里又衍生出了一个终极杀招：**`<dependencyManagement>`（依赖版本锁定）。
+
+
+---
+---
+
+
+
+## 继承——版本锁定
+
+
+正如上一节我们担忧的那样，如果把所有依赖都一股脑放进父工程的 `<dependencies>` 中，会导致子模块“强买强卖”，被迫引入不需要的 Jar 包。而 Maven 多模块开发中最优雅的配置艺术：**版本锁定机制 (`<dependencyManagement>`)** 完美解决了“既要统一版本，又要按需引入”的矛盾。
+
+### 一、 核心概念：什么是版本锁定？
+
+![[Java Web笔记-163.png]]
+
+在 Maven 中，`<dependencyManagement>` 是专门用来**统一管理依赖版本号**的管家。
+
+- **⚠️ 核心特性（不触发引入）**：在父工程的 `<dependencyManagement>` 标签中声明的依赖，**并不会导致子工程自动引入该依赖**。它仅仅是充当一个“中央账本”，记录好某个技术用什么版本。
+    
+- **按需引入（子工程自主做主）**：子工程如果需要使用这个依赖，必须**手动显式地**在自己的 `<dependencies>` 中声明。
+    
+- **不写版本号（继承账本）**：关键点在于，子工程在引入时**绝对不能写 `<version>` 版本号**。这样 Maven 就会自动去父工程的“中央账本”里查找并继承锁定的版本。
+    
+
+#### 对比总结
+
+|**标签**|**写在父工程的效果**|**子工程表现**|
+|---|---|---|
+|**`<dependencies>`**|**强制继承** ── 强买强卖。|不需要写任何代码，自动背负该依赖。|
+|**`<dependencyManagement>`**|**版本锁定** ── 只管版本，不管引入。|**按需引入**。想要就自己导（不写版本号）；不要就完全没有。|
+
+
+### 二、 进阶配置：使用 `<properties>` 集中定义自定义常量
+
+
+![[Java Web笔记-164.png]]
+
+真实的企业级开发中，版本锁定通常会配合 **`<properties>`（自定义属性）** 标签一起使用，做到极致的维护体验。
+
+#### 1. 在父工程中统一定义“版本号变量”
+
+在父工程的 `pom.xml` 里，把所有技术的版本号像定义 Java 变量一样抽取出来：
+
+
+```XML
+<properties>
+    <lombok.version>1.18.24</lombok.version>
+    <jjwt.version>0.9.1</jjwt.version>
+</properties>
+```
+
+#### 2. 在父工程的锁定量中引用变量
+
+使用 `${变量名}` 的语法动态动态注入版本号：
+
+```XML
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt</artifactId>
+            <version>${jjwt.version}</version> </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+
+#### 3. 子工程无痛引入
+
+比如 `tlias-utils` 模块需要用到 JWT，它直接引入，**拒绝写 version**：
+
+
+```XML
+<dependencies>
+    <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt</artifactId> </dependency>
+</dependencies>
+```
+
+### 终极好处
+
+这样做之后，如果未来公司要求把 JWT 框架从 `0.9.1` 升级到最新版，你**完全不需要**去挨个修改几十个子模块的 `pom.xml`。
+
+你只需要坐在椅子上，优哉游哉地打开父工程的 `pom.xml`，把 `<jjwt.version>0.9.1</jjwt.version>` 这一行改成新版本，整个系统所有子模块的版本就会**瞬间一键同步更新**！这就是 Maven 高级架构设计的魅力所在。
+
+
+---
+---
+
+
