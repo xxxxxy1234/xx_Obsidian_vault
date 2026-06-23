@@ -19446,10 +19446,21 @@ public class UploadController {
     
 2. **打包与安装顺序**：
     
-    - ⚠️ **核心痛点**：如果你直接在 `A 模块` 执行 `mvn clean package`，Maven 会报错找不到 `B 模块` 的 Jar 包。*因为Maven 编译 A 时，只会去本地仓库找 `B-1.0.jar`，不会自动去同级项目目录里找 B 模块源码。而现在 B 模块只是本地源码，没有打进本地仓库，本地仓库里不存在 B 的 jar。此时单独执行 `A/mvn clean package`，Maven 找不到 B 的 jar，直接报依赖缺失错误。*
+    - ⚠️ **核心痛点**：如果你直接在 `A 模块` 执行 `mvn clean package`，Maven 会报错找不到 `B 模块` 的 Jar 包。
         
     - **正确姿势**：在分模块开发中，被依赖的公共模块（如 `pojo` 或 `common`）修改后，**必须先执行 `mvn install` 命令**。这会把该模块打包并发布到你电脑的本地 Maven 仓库中，只有这样，其他业务模块在编译时才能正常引用到它。
         
+
+>[!attention]
+>因为Maven 编译 A 时，只会去本地仓库找 `B-1.0.jar`，不会自动去同级项目目录里找 B 模块源码。而现在 B 模块只是本地源码，没有打进本地仓库，本地仓库里不存在 B 的 jar。此时单独执行 `A/mvn clean package`，Maven 找不到 B 的 jar，直接报依赖缺失错误。
+>
+>但注意，我们在IDEA写代码时，可以直接通过坐标引入B模块就行而不用将其下载到中央仓库，这是因为IDEA 对多模块 Maven 项目做了一层**源码级联动优化**，编译、运行、调试 A 的时候，不去本地仓库找 B.jar，直接读取 B 模块的源码、实时编译 B 的 class 给 A 使用；全程不读取、不产生仓库里的 B 安装包，所以哪怕你从来没执行过 `mvn install`，代码也不会飘红、启动不报错。
+>
+>我们甚至可以在IDEA 设置可以关闭「模块源码替换仓库 jar」的功能：
+>File → Settings → Build, Execution, Deployment → Build Tools → Maven
+>取消勾选 **Work offline / Import Maven projects automatically** 相关联动，或把 Maven 导入模式改成离线；
+>此时 A 模块代码直接全飘红，找不到 B 里的类，和 mvn 命令行行为一致。
+
 
 ### 总结与思考
 
@@ -19690,6 +19701,75 @@ Maven 中的继承，描述的是**两个工程/模块之间的父子关系**，
 
 你只需要坐在椅子上，优哉游哉地打开父工程的 `pom.xml`，把 `<jjwt.version>0.9.1</jjwt.version>` 这一行改成新版本，整个系统所有子模块的版本就会**瞬间一键同步更新**！这就是 Maven 高级架构设计的魅力所在。
 
+
+---
+---
+
+
+
+## 聚合
+
+![[Java Web笔记-165.png]]
+
+如果你理解了前面分模块设计和继承的痛点，那么“聚合”（Aggregation）概念的出现，就完全是顺理成章的了。
+
+分模块后，项目被拆成了 `tlias-pojo`、`tlias-utils` 和 `tlias-web-management` 等多个工程。当我们要对整个项目进行打包发布时，会遇到一个非常低效的操作：你必须先去 `pojo` 模块点一下 `mvn clean install`，再去 `utils` 模块点一下，最后去 `web` 模块点一下。一旦漏掉一个或者顺序搞错，直接就是满屏的报错。
+
+**聚合机制，就是为了解决多模块“一键构建”的问题。**
+
+### 一、 什么是 Maven 聚合？
+
+> **定义：** 聚合是指将多个模块组织成一个整体，同时进行项目的构建。
+
+- **核心作用：** **一键操作**。你只需要对“聚合工程”执行一次构建命令（如 `clean compile` 或 `clean package`），Maven 就会自动把里面包含的所有子模块全部按顺序构建一遍。
+    
+- **实现载体：** **聚合工程（通常就是父工程）**。在它的 `pom.xml` 中使用 **`<modules>`** 和 **`<module>`** 标签来指定要管理哪些子模块。
+    
+
+### 二、 核心语法与配置
+
+聚合工程的 `pom.xml` 配置非常精简：
+
+```XML
+<groupId>com.itheima</groupId>
+<artifactId>tlias-parent</artifactId>
+<version>1.0-SNAPSHOT</version>
+<packaging>pom</packaging>
+
+<modules>
+    <module>../tlias-pojo</module>
+    <module>../tlias-utils</module>
+    <module>../tlias-web-management</module>
+</modules>
+```
+
+> 💡 **路径小细节：** `<module>` 标签里面填的是**子模块项目文件夹相对于当前父工程 `pom.xml` 的相对路径**。
+
+### 三、 💡 智能的构建顺序（Reactor 反应堆）
+
+“既然我只在父工程点了一次打包，那 Maven 怎么知道应该先打包谁、后打包谁呢？万一它先打包了依赖别人的 `web` 模块，不就报错了吗？”
+
+这就是 Maven 聚合最聪明的地方：**它会自动推导依赖关系**。
+
+当你对聚合工程执行 `mvn clean package` 时，Maven 的反应堆（Reactor）机制会扫描所有参与聚合的模块，自动分析它们之间的依赖关系，并生成一个最优的 **构建顺序列表（Build Order）**。
+
+例如：
+
+1. 它发现 `web` 依赖 `utils`，`utils` 依赖 `pojo`。
+    
+2. 于是它排出的构建顺序绝对是：`tlias-pojo` ──> `tlias-utils` ──> `tlias-web-management`。
+    
+3. 它会严格按照这个顺序帮你一键搞定，绝不漏掉一个。
+    
+
+### 终极辨析：继承 vs 聚合
+
+在企业实际开发中，**父工程通常既是“继承的父工程”，又是“聚合的聚合工程”**。这两者经常写在同一个 `pom.xml` 里，但它们的出发点完全不同：
+
+|**概念**|**核心关注点**|**它的视角**|
+|---|---|---|
+|**继承 (Inheritance)**|**代码的复用与版本的统一**。|**子看父**。子模块说：“我爹是谁，我要继承他的依赖和版本号。”|
+|**聚合 (Aggregation)**|**构建的效率与一键化管理**。|**父看子**。聚合类工程说：“我手下有哪些小弟，待会儿打包时我带他们一起整。”|
 
 ---
 ---
