@@ -19775,3 +19775,151 @@ Maven 中的继承，描述的是**两个工程/模块之间的父子关系**，
 ---
 
 
+## 私服
+
+![[Java Web笔记-166.png|697]]
+
+前面我们提到过，分模块开发完后，执行 `mvn install` 可以把模块安装到**本地仓库**供自己复用。但如果是**团队协作**，别人想要用你写的 `aliyun-oss-starter` 或者 `tlias-utils`，你总不能把 jar 包拿微信发给他吧？
+
+**Maven 私服，就是为了解决企业内部团队之间「共享组件」与「统一缓存第三方依赖」而生的。**
+
+### 一、 什么是 Maven 私服？
+
+> **本质：** 搭建在**局域网（企业内部）** 中的一台特殊的 Maven 仓库服务器。
+
+#### 它的双向核心作用
+
+1. **下载代理（缓存中心）**：当本地仓库没有某个开源 jar 包（如 MyBatis）时，不再直接去互联网上的 Maven 中央仓库下载，而是找私服要。如果私服也没有，**私服会去中央仓库下载并缓存一份**，然后再发送给你的本地仓库。这样局域网内的第二个人下载时，速度就是飞快的内网速度。
+    
+2. **内部共享**：团队成员可以将自己开发的公共模块、Starter 部署（deploy）到私服上，供其他同事依赖引用。
+    
+
+### 二、 私服的仓库分类
+
+最著名的私服软件是 **Sonatype Nexus**。在它的控制台中，仓库主要分为三大类：
+
+|**仓库类型 (Type)**|**常见仓库名称**|**职责说明**|
+|---|---|---|
+|**`hosted` (宿主仓库)**|`RELEASE` (发行版)<br><br>  <br><br>`SNAPSHOT` (快照版)|**存放企业内部自己开发的 jar 包**。<br><br>  <br><br>• RELEASE：稳定的发布版，不允许覆盖。<br><br>  <br><br>• SNAPSHOT：开发中的不稳定版本，允许覆盖。|
+|**`proxy` (代理仓库)**|`maven-central`|**代理互联网上的中央仓库**（如阿里云镜像、Maven 官方中央库），负责去外网拉取开源组件。|
+|**`group` (组仓库)**|`maven-public`|**聚合概念**。它本身不存任何东西，只是把上面几个仓库组合在一起，暴露出一个**统一的 URL 地址**供开发人员配置。|
+
+### 三、 本地项目与私服的互通
+
+![[Java Web笔记-167.png]]
+
+
+本地项目与私服的互通，实际上包含了**两个完全相反的方向**：
+
+1. **「发布」方向**：把本地写好的 Jar 包上传推送到私服（你写的）。
+    
+2. **「下载」方向**：本地项目从私服拉取、下载依赖组件（别人写的）。
+    
+
+
+
+#### 权限基石：本地 Maven 认证配置
+
+不管是往私服发包，还是从私服下载一些受限包，首先必须在电脑本地的 `maven/conf/settings.xml` 中配置私服的访问账号。
+
+打开本地 **`settings.xml`**，在 `<servers>` 标签内配置：
+
+
+```XML
+<servers>
+    <server>
+        <id>maven-releases</id> <username>admin</username>
+        <password>admin123</password>
+    </server>
+    <server>
+        <id>maven-snapshots</id> <username>admin</username>
+        <password>admin123</password>
+    </server>
+</servers>
+```
+
+
+#### 互通方向一：将本地项目发布到私服（Deploy）
+
+这个方向用于**共享你写的代码**。
+
+##### 1. 项目端配置：配置分发管理
+
+在**父工程的 `pom.xml`** 中加上 `<distributionManagement>` 节点，告诉 Maven 上传的准确网关：
+
+
+```XML
+<distributionManagement>
+    <repository>
+        <id>maven-releases</id> <url>http://192.168.150.101:8081/repository/maven-releases/</url>
+    </repository>
+    <snapshotRepository>
+        <id>maven-snapshots</id> <url>http://192.168.150.101:8081/repository/maven-snapshots/</url>
+    </snapshotRepository>
+</distributionManagement>
+```
+
+##### 2. 执行发布
+
+在 IDEA 的 Maven 工具栏中，双击父工程的 **`deploy`** 生命周期命令。
+
+> 💡 **分发逻辑**：Maven 会自动检查子模块的 `<version>`。如果版本号是 `1.0-SNAPSHOT`，则自动推送到 `maven-snapshots` 仓库；如果是 `1.0-RELEASE`，则推送到 `maven-releases` 仓库。
+
+
+#### 互通方向二：从私服拉取/下载依赖（本地无感使用）
+
+这个方向用于**使用别人发布的组件，或者通过私服缓存加快下载速度**。
+
+为了让本地项目在找寻依赖时直接走私服，需要再次回到本地的 **`settings.xml`** 中，配置一组**镜像（Mirrors）**和**多环境激活（Profiles）**。
+
+##### 1. 配置镜像代理指向私服组仓库
+
+在 `<mirrors>` 标签中配置，拦截所有下载请求，让他们全部走私服的公共组仓库（`maven-public`）：
+
+
+```XML
+<mirrors>
+    <mirror>
+        <id>maven-public</id>
+        <mirrorOf>*</mirrorOf> <url>http://192.168.150.101:8081/repository/maven-public/</url>
+    </mirror>
+</mirrors>
+```
+
+##### 2. 配置并激活私服仓库策略
+
+光配置镜像还不够，为了让 Maven 能够放心地在私服中同时下载正式版和快照版组件，需要配置一个 `profile`：
+
+
+```XML
+<profiles>
+    <profile>
+        <id>allow-jdbc</id>
+        <repositories>
+            <repository>
+                <id>maven-public</id>
+                <url>http://192.168.150.101:8081/repository/maven-public/</url>
+                <releases><enabled>true</enabled></releases>
+                <snapshots><enabled>true</enabled></snapshots>
+            </repository>
+        </repositories>
+    </profile>
+</profiles>
+
+<activeProfiles>
+    <activeProfile>allow-jdbc</activeProfile>
+</activeProfiles>
+```
+
+#### 终极完整互通闭环
+
+经过这套完整的配置：
+
+- 当你作为**提供者**，在项目中写完公共代码，双击 **`deploy`** ── 你的代码就会通过 `distributionManagement` 路径 + `server` 账号密码验证，安全地飞到私服的 `hosted` 仓库里。
+    
+- 当你作为**使用者**，在项目中引入别人写的依赖，重新刷新 Maven ── 本地 Maven 就会通过 `mirror` 拦截，通过 `activeProfile` 策略，从私服的 `maven-public` 组仓库中，将对应的正式版或快照版 Jar 包下载到你的电脑中。
+
+---
+---
+
+
