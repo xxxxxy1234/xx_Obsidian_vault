@@ -3449,7 +3449,7 @@ public class Outer {
 
 ---
 
-### 4. 匿名内部类 (Anonymous Inner Class) —— **最重要！**
+ ### 4. 匿名内部类 (Anonymous Inner Class) —— **最重要！**
 
 
 #### 1.定义
